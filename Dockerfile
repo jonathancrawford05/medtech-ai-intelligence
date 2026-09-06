@@ -41,16 +41,19 @@ COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --all-groups
 
-# Stage the Delta JARs onto Spark's classpath now, at build time, so container
-# startup needs no Maven access and no Ivy resolution.
-COPY scripts/warm_delta_jars.py ./scripts/
-RUN python scripts/warm_delta_jars.py
-
 # ---------------------------------------------------------------------------
 FROM deps AS dev
 
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --all-groups
+
+# Stage the Delta JARs onto Spark's classpath at build time, so container
+# startup needs no Maven access and no Ivy resolution. This must run AFTER the
+# final `uv sync` -- a later sync can reinstall pyspark and discard them.
+RUN python scripts/warm_delta_jars.py \
+    && python -c "import pathlib,pyspark; \
+assert list((pathlib.Path(pyspark.__file__).parent/'jars').glob('delta-spark*.jar')), \
+'Delta JARs missing from the Spark classpath'"
 
 # Spark writes scratch data; give it a home a non-root user owns.
 RUN useradd --create-home --uid 1000 spark \
@@ -69,6 +72,13 @@ COPY src ./src
 COPY config ./config
 COPY scripts ./scripts
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+
+# As above: stage the JARs after the final sync, and fail the build if they
+# are not actually on the classpath.
+RUN python scripts/warm_delta_jars.py \
+    && python -c "import pathlib,pyspark; \
+assert list((pathlib.Path(pyspark.__file__).parent/'jars').glob('delta-spark*.jar')), \
+'Delta JARs missing from the Spark classpath'"
 
 RUN useradd --create-home --uid 1000 spark \
     && mkdir -p /app/lakehouse \
