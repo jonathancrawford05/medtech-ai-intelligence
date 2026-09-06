@@ -1,0 +1,41 @@
+# Curated mapping: FDA advisory-panel label -> our specialty category.
+#
+# The FDA's "Panel (lead)" field describes the reviewing advisory committee, not
+# the clinical problem the device addresses. A cardiovascular-risk tool cleared
+# through the Radiology panel is common, so panel alone cannot drive the
+# mortality-relevant mart -- it is a starting signal that the evidence-enrichment
+# stage refines.
+#
+# `default_category` catches panels we have not curated yet; anything landing
+# there should be reviewed and promoted into `panels` explicitly.
+
+version: 1
+default_category: other
+
+panels:
+  Cardiovascular: cardiovascular
+  Clinical Chemistry: metabolic
+  Clinical Toxicology: metabolic
+  Radiology: radiology
+  Neurology: neurology
+  Anesthesiology: critical_care
+  Gastroenterology-Urology: gastroenterology
+  General & Plastic Surgery: surgery
+  General Hospital: general_hospital
+  Hematology: hematology
+  Immunology: immunology
+  Microbiology: microbiology
+  Molecular Genetics: genetics
+  Obstetrics/Gynecology: obstetrics_gynecology
+  Ophthalmic: ophthalmology
+  Orthopedic: orthopedics
+  Pathology: pathology
+  Physical Medicine: physical_medicine
+  Ear Nose & Throat: ent
+  Dental: dental
+
+# Categories the mortality-relevant gold mart treats as in-scope by default.
+# See src/registry/mart/mortality_relevant.py (Phase 3).
+mortality_relevant_categories:
+  - cardiovascular
+  - metabolic

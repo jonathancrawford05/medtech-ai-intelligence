@@ -1,0 +1,83 @@
+[project]
+name = "medtech-ai-intelligence"
+version = "0.1.0"
+description = "FDA AI/ML-enabled medical device registry: a Spark + Delta Lake pipeline designed to migrate to Databricks unchanged."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { text = "Proprietary" }
+
+# Version pinning rationale lives in docs/adr/0002-spark-delta-version-pinning.md.
+# Short version: pyspark 4.0.x + delta-spark 4.0.x mirrors Databricks Runtime 17.x LTS,
+# so the local substrate runs the same engine as the migration target.
+dependencies = [
+    "pyspark==4.0.1",
+    "delta-spark==4.0.1",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "httpx>=0.27,<1",
+    "beautifulsoup4>=4.12,<5",
+    "lxml>=5.3,<7",
+    "pyyaml>=6.0,<7",
+    "typer>=0.15,<1",
+]
+
+[project.scripts]
+registry = "registry.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-cov>=6.0,<8",
+    "ruff>=0.8,<1",
+    "respx>=0.22,<1",
+    "pre-commit>=4.0,<5",
+]
+# Kept out of `dev` so CI does not install a notebook stack it never uses.
+notebook = [
+    "jupyterlab>=4.3,<5",
+    "pandas>=2.2,<3",
+    "matplotlib>=3.9,<4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/registry"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"config" = "registry/_data/config"
+
+[tool.uv]
+# Keep the resolution reproducible across contributors and the Docker image.
+package = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+markers = [
+    "spark: test requires a live local SparkSession (slow, needs a JVM)",
+    "live_network: test hits the real FDA/openFDA endpoints; never run in CI",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pyspark.*",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",  # line length is handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B018"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["registry"]
