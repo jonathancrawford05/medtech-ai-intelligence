@@ -1,0 +1,51 @@
+# Local development substrate: Spark + Delta in one container, no cluster.
+#
+#   docker compose run --rm registry smoke        # Phase 0 acceptance check
+#   docker compose run --rm registry config       # show resolved settings
+#   docker compose run --rm test                  # full test suite
+#   docker compose up notebook                    # Jupyter Lab on :8888
+
+x-common: &common
+  build:
+    context: .
+    target: dev
+  environment:
+    # Everything the pipeline reads is REGISTRY_*-prefixed; see registry/config/settings.py.
+    REGISTRY_LAKEHOUSE_ROOT: /app/lakehouse
+    REGISTRY_STORAGE_MODE: path
+    REGISTRY_SPARK_MASTER: local[*]
+    REGISTRY_SPARK_DRIVER_MEMORY: 4g
+  volumes:
+    # Delta tables persist on the host so a rebuilt container keeps its history.
+    - ./lakehouse:/app/lakehouse
+    # Curated lookups are edited by hand; mount them so edits need no rebuild.
+    - ./config:/app/config
+
+services:
+  registry:
+    <<: *common
+    build:
+      context: .
+      target: dev
+
+  test:
+    <<: *common
+    command: ["pytest", "-q"]
+
+  notebook:
+    <<: *common
+    command:
+      - jupyter
+      - lab
+      - --ip=0.0.0.0
+      - --port=8888
+      - --no-browser
+      - --ServerApp.token=
+      - --ServerApp.root_dir=/app
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./lakehouse:/app/lakehouse
+      - ./config:/app/config
+      - ./notebooks:/app/notebooks
+      - ./src:/app/src
