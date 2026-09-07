@@ -1,6 +1,8 @@
 # 0002 — Environment validation: what has actually been executed, and where
 
-**Date:** 2026-09-07 · **Status:** Open (two claims unverified) · **Component:** Phase 0 substrate
+**Date:** 2026-09-07 · **Status:** Open (one claim unverified) · **Component:** Phase 0 substrate
+
+**Partly closed 2026-09-07:** the arm64 claim is now verified in CI — see below.
 
 Records which environment claims in `README.md` and `CLAUDE.md` rest on an actual
 execution and which rest on reasoning. Both are legitimate; conflating them is not.
@@ -15,20 +17,37 @@ execution and which rest on reasoning. Both are legitimate; conflating them is n
 | The Docker image builds and Delta works inside it | CI `docker` job builds `--target dev` and runs `registry smoke` in-container; passed in ~5 min, run 34123539363 |
 | Suite state | 66 passed, 1 `live_network` deselected, 85.81% coverage against the 70% floor |
 | Markdown gates | markdownlint 0 errors; all 27 relative links resolve |
+| **The image builds and Delta works on arm64** | CI `docker (ubuntu-24.04-arm)`, native runner, run 34129148007 |
 
 ## Assumed, not verified
 
-**1. arm64 / Apple Silicon.** `CLAUDE.md` states the image works "natively on arm64
-and amd64" because `JAVA_HOME` is arch-derived. The derivation is real — the
-Dockerfile symlinks `$(dirname $(dirname $(readlink -f $(command -v java))))` to
-`/opt/java`, which is genuinely architecture-independent — but **no arm64 build has
-ever run.** Every `runs-on:` in `.github/workflows/ci.yml` is `ubuntu-latest`,
-which is amd64; there is no `matrix`, no `platforms:` and no `--platform` anywhere.
+**1. arm64 / Apple Silicon — CLOSED 2026-09-07.** The `docker` job now runs as a
+matrix over `ubuntu-latest` and the native `ubuntu-24.04-arm` runner, so every
+push builds and smoke-tests the image on both architectures. Native runners
+rather than QEMU: emulating a JVM suite is 10-40x slower and prone to emulation
+bugs, so a red job would say nothing about arm64 correctness.
 
-The reasoning is sound and the claim is probably true. It is still untested, and
-`CLAUDE.md` states it without qualification. Either someone runs
-`make docker-build && docker compose run --rm test` on an Apple Silicon machine and
-records it here, or the claim should be softened to "should work on arm64".
+Evidence from CI run 34129148007, job `docker (ubuntu-24.04-arm)`:
+
+```text
+"platform": "linux/arm64"
+container arch: aarch64
+JAVA_HOME=/opt/java -> /usr/lib/jvm/java-17-openjdk-arm64
+openjdk version "17.0.20.1" 2026-08-18
+Spark 4.0.1 up.
+Delta round-trip OK (1 row).
+```
+
+The symlink resolves to `java-17-openjdk-**arm64**`, which is the point: the
+original hard-coded `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64` would have
+failed on this runner. The arch-derivation is not a tidiness fix, it is load-bearing.
+
+Docker Desktop on Apple Silicon runs `linux/arm64` containers, so this exercises the
+same container architecture a Mac developer gets, and it stays closed on every push
+rather than for one afternoon. It does **not** cover Docker Desktop's own bind-mount
+semantics for the `./lakehouse` and `./config` volumes in `docker-compose.yml`, nor
+a developer running with Rosetta amd64 emulation enabled. If `docker compose run`
+ever misbehaves on a Mac specifically, look there and not at the JDK.
 
 **2. Databricks `catalog` mode.** `Settings.table_ref()` and `registry.tables` are
 unit-tested in `catalog` mode, but have never addressed a real Unity Catalog. The
@@ -79,6 +98,6 @@ reachable. This is an environment policy, not a code problem — see
 
 ```bash
 make lint && make test          # substrate, needs JDK 17+
-make docker-build               # on an arm64 host, to close claim 1 above
+make docker-build               # both architectures are covered by CI on every push
 docker compose run --rm test
 ```
