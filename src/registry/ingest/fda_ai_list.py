@@ -27,6 +27,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Literal
+from urllib.parse import urljoin
 
 import httpx
 
@@ -238,24 +239,73 @@ class RawSnapshot:
         return parser(self.payload, snapshot_id=self.snapshot_id, ingested_at=self.fetched_at)
 
 
-def _candidate_urls(settings: Settings) -> list[tuple[str, ContentKind]]:
-    """CSV export first, then the rendered page as a fallback."""
-    base = settings.fda_ai_list_url
-    return [
-        (f"{base}?export=csv", "csv"),
-        (f"{base}/export?format=csv", "csv"),
-        (base, "html"),
-    ]
+def _fetch_with_retries(
+    client: httpx.Client, url: str, settings: Settings
+) -> httpx.Response | None:
+    """GET ``url``, retrying transient (5xx / network) failures with backoff.
+
+    Returns the 200 response, or ``None`` if the URL is unavailable: a 4xx means
+    "this shape is gone, try the next source" and is not retried; 5xx and network
+    errors are retried up to ``http_max_retries`` times before giving up on it.
+    """
+    for attempt in range(settings.http_max_retries):
+        try:
+            response = client.get(url)
+        except httpx.HTTPError as exc:
+            logger.warning("Network error fetching %s: %s", url, exc)
+        else:
+            if response.status_code == 200 and response.content:
+                return response
+            if response.status_code < 500:
+                logger.info("%s returned %s; moving on", url, response.status_code)
+                return None
+            logger.warning("%s returned %s", url, response.status_code)
+
+        if attempt < settings.http_max_retries - 1:
+            backoff = settings.http_backoff_seconds * (2**attempt)
+            logger.warning("Retrying %s in %.1fs", url, backoff)
+            if backoff:
+                time.sleep(backoff)
+    return None
+
+
+def _discover_csv_url(page_html: bytes, page_url: str) -> str | None:
+    """Find the "Download a CSV File" link on the rendered page.
+
+    The FDA serves the list as a downloadable file behind a ``/media/NNNNN/download``
+    link whose id can change when the page is republished. Rather than hard-coding
+    that id forever, we scrape the link off the page as a fallback, so a re-upload
+    degrades to discovery instead of breaking ingestion.
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(page_html, "lxml")
+    for anchor in soup.find_all("a", href=True):
+        text = anchor.get_text(" ", strip=True).lower()
+        href = anchor["href"]
+        looks_like_csv = "csv" in text or "csv" in href.lower()
+        looks_like_download = "download" in text or "/media/" in href.lower()
+        if looks_like_csv and looks_like_download:
+            resolved = urljoin(page_url, href)
+            logger.info("Discovered CSV export link on the page: %s", resolved)
+            return resolved
+    return None
 
 
 def fetch_raw(
     settings: Settings | None = None, *, client: httpx.Client | None = None
 ) -> RawSnapshot:
-    """Fetch the list, preferring the CSV export and falling back to HTML.
+    """Fetch the list as CSV if at all possible, falling back to the HTML table.
 
-    Retries transient (5xx / network) failures with exponential backoff. A 404 on
-    an export URL is *not* transient -- it means that export shape is gone, so we
-    move straight to the next candidate.
+    Acquisition order (stop at the first that works):
+
+    1. the known CSV export URL (``settings.fda_ai_list_csv_url``) -- the fast path;
+    2. the CSV link *discovered* on the rendered page, if the known URL is gone;
+    3. the rendered page itself, parsed as an HTML table (last-resort fallback).
+
+    The response ``Content-Type`` -- not the URL we asked for -- decides how the
+    payload is parsed. Transient (5xx / network) failures are retried with
+    exponential backoff; a 4xx moves straight on to the next source.
     """
     settings = settings or get_settings()
     owns_client = client is None
@@ -265,40 +315,40 @@ def fetch_raw(
         follow_redirects=True,
     )
 
-    last_error: Exception | None = None
     try:
-        for url, kind in _candidate_urls(settings):
-            for attempt in range(settings.http_max_retries):
-                try:
-                    response = client.get(url)
-                except httpx.HTTPError as exc:
-                    last_error = exc
-                else:
-                    if response.status_code == 200 and response.content:
-                        resolved = _resolve_kind(response, kind)
-                        logger.info("Fetched FDA list from %s as %s", url, resolved)
-                        return RawSnapshot(payload=response.content, content_kind=resolved, url=url)
-                    if response.status_code < 500:
-                        # 404/403: this candidate is simply not available.
-                        last_error = SourceUnavailableError(
-                            f"{url} returned {response.status_code}"
-                        )
-                        break
-                    last_error = SourceUnavailableError(f"{url} returned {response.status_code}")
+        # 1. Known CSV export URL -- the fast path.
+        if settings.fda_ai_list_csv_url:
+            response = _fetch_with_retries(client, settings.fda_ai_list_csv_url, settings)
+            if response is not None:
+                return _snapshot_from(response, "csv", settings.fda_ai_list_csv_url)
 
-                if attempt < settings.http_max_retries - 1:
-                    backoff = settings.http_backoff_seconds * (2**attempt)
-                    logger.warning("Retrying %s in %.1fs (%s)", url, backoff, last_error)
-                    if backoff:
-                        time.sleep(backoff)
+        # 2 & 3. Fetch the page; discover a CSV link on it, else parse it as HTML.
+        page = _fetch_with_retries(client, settings.fda_ai_list_url, settings)
+        if page is None:
+            raise SourceUnavailableError(
+                "Could not fetch the FDA AI-enabled device list: neither the CSV "
+                f"export ({settings.fda_ai_list_csv_url}) nor the page "
+                f"({settings.fda_ai_list_url}) responded."
+            )
+
+        discovered = _discover_csv_url(page.content, str(page.url))
+        if discovered and discovered != settings.fda_ai_list_csv_url:
+            response = _fetch_with_retries(client, discovered, settings)
+            if response is not None:
+                return _snapshot_from(response, "csv", discovered)
+
+        # Last resort: the rendered table we already have in hand.
+        return _snapshot_from(page, "html", str(page.url))
     finally:
         if owns_client:
             client.close()
 
-    raise SourceUnavailableError(
-        f"Could not fetch the FDA AI-enabled device list from any known URL. "
-        f"Last error: {last_error}"
-    )
+
+def _snapshot_from(response: httpx.Response, requested: ContentKind, url: str) -> RawSnapshot:
+    """Build a snapshot, trusting the response content-type over the requested kind."""
+    resolved = _resolve_kind(response, requested)
+    logger.info("Fetched FDA list from %s as %s", url, resolved)
+    return RawSnapshot(payload=response.content, content_kind=resolved, url=url)
 
 
 def _resolve_kind(response: httpx.Response, requested: ContentKind) -> ContentKind:

@@ -1,7 +1,8 @@
 """FDA AI-enabled device list ingestion -- fixture-driven, no live network.
 
-The live endpoint is exercised only by ``@pytest.mark.live_network`` tests, which
-CI never runs (see pyproject markers).
+Fixtures are a real slice of the FDA export, captured 2026-09-06 (see ADR 0009
+and CONTINUATION.md). The live endpoint is exercised only by the
+``@pytest.mark.live_network`` test, which CI never runs (see pyproject markers).
 """
 
 from __future__ import annotations
@@ -34,14 +35,14 @@ def sample_html(fixtures_dir):
 class TestCsvParsing:
     def test_parses_all_rows(self, sample_csv):
         rows = mod.parse_csv(sample_csv, snapshot_id="snap1", ingested_at=dt.datetime(2026, 1, 1))
-        assert len(rows) == 5
+        assert len(rows) == 14
 
     def test_maps_columns_onto_the_bronze_schema(self, sample_csv):
         rows = mod.parse_csv(sample_csv, snapshot_id="snap1", ingested_at=dt.datetime(2026, 1, 1))
         first = rows[0]
-        assert first.submission_number == "K243456"
-        assert first.device_name == "CaRi-Heart"
-        assert first.applicant_raw == "Caristo Diagnostics Ltd"
+        assert first.submission_number == "K253628"
+        assert first.device_name == "Auto-Seg (SO-0012), Spine Auto-Seg (SO-0012)"
+        assert first.applicant_raw == "Agada Medical, Ltd."
         assert first.panel_raw == "Radiology"
         assert first.product_code == "QIH"
 
@@ -53,14 +54,20 @@ class TestCsvParsing:
     def test_keeps_the_raw_decision_date_unparsed(self, sample_csv):
         """Bronze preserves the source's own formatting; silver does the parsing."""
         rows = mod.parse_csv(sample_csv, snapshot_id="s", ingested_at=dt.datetime(2026, 1, 1))
-        assert rows[0].decision_date_raw == "11/01/2024"
+        assert rows[0].decision_date_raw == "06/29/2026"
 
     def test_builds_a_source_url_from_the_submission_number(self, sample_csv):
         rows = mod.parse_csv(sample_csv, snapshot_id="s", ingested_at=dt.datetime(2026, 1, 1))
         by_num = {r.submission_number: r for r in rows}
-        assert "K243456" in by_num["K243456"].source_url
-        assert "cfpmn" in by_num["K243456"].source_url  # 510(k) database
-        assert "cfpma" in by_num["P230015"].source_url  # PMA database
+        assert "cfpmn" in by_num["K253628"].source_url  # 510(k) database
+        assert "denovo" in by_num["DEN250057"].source_url  # De Novo database
+        assert "cfpma" in by_num["P950009"].source_url  # PMA database
+
+    def test_preserves_the_pma_supplement_suffix(self, sample_csv):
+        """Bronze keeps the raw submission number verbatim, suffix and all."""
+        rows = mod.parse_csv(sample_csv, snapshot_id="s", ingested_at=dt.datetime(2026, 1, 1))
+        nums = {r.submission_number for r in rows}
+        assert "P130020/S005" in nums
 
     def test_tolerates_renamed_headers(self, messy_csv):
         """The FDA has renamed these columns before; aliases keep ingestion alive."""
@@ -96,8 +103,8 @@ class TestHtmlParsing:
     def test_parses_the_html_table_fallback(self, sample_html):
         rows = mod.parse_html(sample_html, snapshot_id="s", ingested_at=dt.datetime(2026, 1, 1))
         assert len(rows) == 2
-        assert rows[0].submission_number == "K243456"
-        assert rows[1].device_name == "AVIEW CAC"
+        assert rows[0].submission_number == "K253628"
+        assert rows[1].device_name == "ADAS 3D"
 
     def test_html_without_a_table_raises(self):
         with pytest.raises(mod.SourceFormatError):
@@ -106,6 +113,23 @@ class TestHtmlParsing:
                 snapshot_id="s",
                 ingested_at=dt.datetime(2026, 1, 1),
             )
+
+
+class TestCsvLinkDiscovery:
+    def test_finds_the_download_a_csv_link(self, sample_html):
+        url = mod._discover_csv_url(sample_html, "https://www.fda.gov/medical-devices/x")
+        assert url == "https://www.fda.gov/media/178541/download?attachment"
+
+    def test_resolves_relative_links_against_the_page(self):
+        html = b'<a href="/media/999/download">Download a CSV File</a>'
+        assert (
+            mod._discover_csv_url(html, "https://www.fda.gov/x")
+            == "https://www.fda.gov/media/999/download"
+        )
+
+    def test_returns_none_when_there_is_no_csv_link(self):
+        html = b'<html><body><a href="/home">Home</a></body></html>'
+        assert mod._discover_csv_url(html, "https://www.fda.gov/x") is None
 
 
 class TestSnapshotId:
@@ -118,9 +142,9 @@ class TestSnapshotId:
 
 class TestFetch:
     @respx.mock
-    def test_prefers_the_csv_export(self, sample_csv):
+    def test_uses_the_known_csv_export_first(self, sample_csv):
         settings = Settings()
-        route = respx.get(url__startswith=settings.fda_ai_list_url).mock(
+        route = respx.get(settings.fda_ai_list_csv_url).mock(
             return_value=httpx.Response(
                 200, content=sample_csv, headers={"content-type": "text/csv"}
             )
@@ -128,38 +152,84 @@ class TestFetch:
         snap = mod.fetch_raw(settings)
         assert route.called
         assert snap.content_kind == "csv"
-        assert len(snap.parse()) == 5
+        assert snap.url == settings.fda_ai_list_csv_url
+        assert len(snap.parse()) == 14
 
     @respx.mock
-    def test_falls_back_to_html_when_the_csv_export_is_gone(self, sample_html):
-        settings = Settings()
+    def test_discovers_the_csv_link_when_the_known_url_is_gone(self, sample_html, sample_csv):
+        # Model a media-id change: the configured URL 404s, but the page still
+        # advertises the real one, which the ingester scrapes and follows.
+        settings = Settings(fda_ai_list_csv_url="https://www.fda.gov/media/000000/download")
+        discovered = "https://www.fda.gov/media/178541/download?attachment"
+        respx.get(settings.fda_ai_list_csv_url).mock(return_value=httpx.Response(404))
+        respx.get(settings.fda_ai_list_url).mock(
+            return_value=httpx.Response(
+                200, content=sample_html, headers={"content-type": "text/html"}
+            )
+        )
+        csv_route = respx.get(discovered).mock(
+            return_value=httpx.Response(
+                200, content=sample_csv, headers={"content-type": "text/csv"}
+            )
+        )
+        snap = mod.fetch_raw(settings)
+        assert csv_route.called
+        assert snap.content_kind == "csv"
+        assert snap.url == discovered
+        assert len(snap.parse()) == 14
 
-        def responder(request):
-            if "export" in str(request.url) or "csv" in str(request.url).lower():
-                return httpx.Response(404)
-            return httpx.Response(200, content=sample_html, headers={"content-type": "text/html"})
-
-        respx.get(url__startswith=settings.fda_ai_list_url).mock(side_effect=responder)
+    @respx.mock
+    def test_falls_back_to_html_when_no_csv_is_reachable(self, sample_html):
+        # Known URL and the discovered link both 404; the page itself is parsed.
+        settings = Settings(fda_ai_list_csv_url="https://www.fda.gov/media/000000/download")
+        respx.get(settings.fda_ai_list_csv_url).mock(return_value=httpx.Response(404))
+        respx.get(settings.fda_ai_list_url).mock(
+            return_value=httpx.Response(
+                200, content=sample_html, headers={"content-type": "text/html"}
+            )
+        )
+        respx.get("https://www.fda.gov/media/178541/download?attachment").mock(
+            return_value=httpx.Response(404)
+        )
         snap = mod.fetch_raw(settings)
         assert snap.content_kind == "html"
-        assert len(snap.parse()) == 2
+        rows = snap.parse()
+        assert len(rows) == 2
+        assert rows[0].submission_number == "K253628"
 
     @respx.mock
     def test_retries_on_transient_server_errors(self, sample_csv):
         settings = Settings(http_backoff_seconds=0.0, http_max_retries=3)
-        responses = [
-            httpx.Response(503),
-            httpx.Response(200, content=sample_csv, headers={"content-type": "text/csv"}),
-        ]
-        respx.get(url__startswith=settings.fda_ai_list_url).mock(side_effect=responses)
+        respx.get(settings.fda_ai_list_csv_url).mock(
+            side_effect=[
+                httpx.Response(503),
+                httpx.Response(200, content=sample_csv, headers={"content-type": "text/csv"}),
+            ]
+        )
         assert mod.fetch_raw(settings).content_kind == "csv"
 
     @respx.mock
-    def test_gives_up_after_max_retries(self):
+    def test_gives_up_when_every_source_fails(self):
         settings = Settings(http_backoff_seconds=0.0, http_max_retries=2)
-        respx.get(url__startswith=settings.fda_ai_list_url).mock(return_value=httpx.Response(503))
+        respx.get(settings.fda_ai_list_csv_url).mock(return_value=httpx.Response(404))
+        respx.get(settings.fda_ai_list_url).mock(return_value=httpx.Response(503))
         with pytest.raises(mod.SourceUnavailableError):
             mod.fetch_raw(settings)
+
+
+@pytest.mark.live_network
+class TestLiveEndpoint:
+    """Hits the real FDA site. Never runs in CI; run manually with
+
+    ``uv run pytest -m live_network`` on a network that can reach fda.gov.
+    """
+
+    def test_fetches_the_real_list_as_csv(self):
+        snap = mod.fetch_raw(Settings())
+        rows = snap.parse()
+        assert snap.content_kind == "csv"
+        assert len(rows) > 1000  # public reporting puts the list at ~1,600
+        assert all(r.submission_number for r in rows)
 
 
 @pytest.mark.spark
@@ -170,9 +240,9 @@ class TestBronzeIngestion:
 
         from registry import tables
 
-        assert written == 5
+        assert written == 14
         df = tables.read_table(spark, lakehouse, "bronze_fda_ai_list")
-        assert df.count() == 5
+        assert df.count() == 14
         assert "ingested_at" in df.columns
         assert "source_snapshot_id" in df.columns
 
@@ -185,7 +255,7 @@ class TestBronzeIngestion:
         from registry import tables
 
         df = tables.read_table(spark, lakehouse, "bronze_fda_ai_list")
-        assert df.count() == 10
+        assert df.count() == 28
         assert df.select("source_snapshot_id").distinct().count() == 1
 
     def test_schema_matches_the_bronze_model(self, spark, lakehouse, sample_csv):

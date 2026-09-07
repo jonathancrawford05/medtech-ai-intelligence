@@ -1,7 +1,11 @@
 # 0005 — Prefer the FDA CSV export; scrape HTML only as fallback
 
-**Status:** Accepted, **unverified against the live site** · **Date:** 2026-09-06
+**Status:** Superseded by [0009](0009-fda-ai-list-acquisition-verified.md) · **Date:** 2026-09-06
 **Relates to:** open question 1 in the development plan (§7)
+
+> **Superseded.** This ADR's strategy was sound but its inferred CSV URLs were
+> wrong (both 404 on the live site) and it was never verified. See
+> [0009](0009-fda-ai-list-acquisition-verified.md) for the live-verified decision.
 
 ## Context
 

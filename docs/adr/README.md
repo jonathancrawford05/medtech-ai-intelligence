@@ -10,10 +10,11 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0002](0002-spark-delta-version-pinning.md) | Pin Spark 4.0 / Delta 4.0 / JDK 17 to match DBR 17.x LTS | Accepted |
 | [0003](0003-docker-uv-over-conda.md) | Docker + uv for the local environment, not conda | Accepted |
 | [0004](0004-config-driven-table-resolution.md) | Logical table names resolved through config | Accepted |
-| [0005](0005-fda-ai-list-acquisition.md) | Prefer the FDA CSV export; scrape HTML only as fallback | Accepted (unverified against the live site) |
+| [0005](0005-fda-ai-list-acquisition.md) | Prefer the FDA CSV export; scrape HTML only as fallback | Superseded by [0009](0009-fda-ai-list-acquisition-verified.md) |
 | [0006](0006-config-package-layout.md) | Settings live at `registry.config`, not a top-level `config` package | Accepted |
 | [0007](0007-two-stage-mortality-flag.md) | Mortality/MACE relevance is two auditable columns, not one | Accepted |
 | [0008](0008-generated-spark-schemas.md) | Generate Spark schemas from the Pydantic models | Accepted |
+| [0009](0009-fda-ai-list-acquisition-verified.md) | FDA list acquisition, live-verified: known CSV URL + link discovery | Accepted |
 
 ## Writing a new one
 

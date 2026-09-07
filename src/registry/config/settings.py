@@ -68,6 +68,10 @@ class Settings(BaseSettings):
         "https://www.fda.gov/medical-devices/software-medical-device-samd/"
         "artificial-intelligence-enabled-medical-devices"
     )
+    # The page's "Download a CSV File" link. Verified live 2026-09-06 (ADR 0009);
+    # the ingester scrapes the page for this link if the known URL stops working,
+    # so a media-id change degrades to discovery rather than breaking.
+    fda_ai_list_csv_url: str = "https://www.fda.gov/media/178541/download?attachment"
     openfda_base_url: str = "https://api.fda.gov"
     openfda_api_key: str | None = None
 
