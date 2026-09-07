@@ -1,0 +1,12 @@
+# Lenient Markdown style: keep structural rules, drop the ones that fight prose,
+# tables, ADRs and status banners in this repo.
+config:
+  MD013: false   # line length (prose/tables wrap naturally)
+  MD024: false   # duplicate headings (ADRs repeat Context/Decision/Consequences)
+  MD033: false   # inline HTML (blockquote banners, <br>)
+  MD041: false   # first line need not be a top-level heading
+  MD029: false   # ordered-list numbering style
+  MD036: false   # bold used as pseudo-heading in handoff notes
+globs:
+  - "*.md"
+  - "docs/**/*.md"

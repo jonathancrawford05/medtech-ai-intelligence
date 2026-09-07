@@ -14,7 +14,6 @@ FROM python:3.11-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
@@ -26,6 +25,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         procps \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Derive JAVA_HOME from the JDK apt actually installed, so the image builds and
+# runs on both amd64 (CI / Databricks parity) and arm64 (Apple Silicon dev)
+# without a hard-coded, arch-specific path. See CONTINUATION.md §5.
+RUN ln -sf "$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")" /opt/java
+ENV JAVA_HOME=/opt/java
 
 RUN pip install --no-cache-dir uv==0.8.17
 
