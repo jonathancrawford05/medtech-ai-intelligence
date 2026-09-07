@@ -5,7 +5,7 @@ time. It operationalises the six-step review framework so a future session — h
 or agent — can check a change against reality instead of trusting that it works.
 
 > Companion docs: `CONTINUATION.md` (current state), `docs/adr/` (why decisions were
-> made), `findings/` in the project (validation write-ups). This file is the *how*.
+> made), [`findings/`](../findings/) (validation write-ups). This file is the *how*.
 
 ---
 
@@ -18,7 +18,7 @@ or agent — can check a change against reality instead of trusting that it work
 | **3. REVIEW** | Read the diff against the repo conventions in §3 below, not just for correctness. | PR review |
 | **4. REFINE** | Any decision a future session might re-litigate becomes an ADR. Never edit an accepted ADR — add one and mark the old `Superseded by NNNN`. | `docs/adr/NNNN-*.md` |
 | **5. VALIDATE** | Run the checks in §4, in the right environment (§2). Confirm fixtures reflect the *real* source when one exists. | `make lint && make test`, Docker/CI, live-network |
-| **6. DOCUMENT** | Update `CONTINUATION.md` (§1/§2/§4), add a `findings/` note, and reference the ADR. Leaving the handoff stale is worse than leaving it empty. | `CONTINUATION.md`, project `findings/` |
+| **6. DOCUMENT** | Update `CONTINUATION.md` (§1/§2/§4), add a `findings/` note, and reference the ADR. Leaving the handoff stale is worse than leaving it empty. | `CONTINUATION.md`, `findings/` |
 
 ---
 

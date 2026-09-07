@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # Only the default branch. Feature branches are covered by `pull_request`;
+    # listing both here made every PR commit trigger two identical runs, which
+    # doubled cost and had the two Docker builds contend for the same GHA cache.
+    branches: [main]
   pull_request:
   workflow_dispatch:
   schedule:
@@ -96,10 +99,11 @@ jobs:
           globs: |
             *.md
             docs/**/*.md
+            findings/**/*.md
       - name: Check internal links resolve
         uses: lycheeverse/lychee-action@v2
         with:
-          args: "--offline --no-progress *.md docs/**/*.md"
+          args: "--offline --no-progress *.md docs/**/*.md findings/**/*.md"
           fail: true
 
   live-network:
