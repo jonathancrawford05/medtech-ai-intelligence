@@ -24,7 +24,7 @@ and two pieces of infrastructure resolve it:
 - `registry.tables.read_table` / `write_table` / `table_exists` pick the right
   Spark call for the mode.
 
-```
+```text
 path     mode: "./lakehouse"  + "silver_devices" -> ./lakehouse/silver_devices
 catalog  mode: "main.registry" + "silver_devices" -> main.registry.silver_devices
 ```

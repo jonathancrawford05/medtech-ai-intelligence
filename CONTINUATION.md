@@ -57,7 +57,7 @@ uv run pytest -m live_network                          # end-to-end against the 
 
 ## 3. What exists, and where
 
-```
+```text
 src/registry/
   config/settings.py     env-driven settings + table_ref() resolution
   spark_session.py       get_spark(); the ONLY local-vs-Databricks difference

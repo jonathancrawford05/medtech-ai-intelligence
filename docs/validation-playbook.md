@@ -91,6 +91,7 @@ Consequences to remember:
 What "validated" specifically means for each planned component. ✅ = done.
 
 ### Ingestion — FDA AI list  ✅ (2026-09-06, ADR 0009)
+
 - [x] CSV export URL confirmed live; known-URL → page-discovery → HTML fallback.
 - [x] Headers map through `_HEADER_ALIASES`; full list (~1,600 rows), not truncated.
 - [x] Real-slice fixture; parser builds correct per-pathway `source_url`.
@@ -98,12 +99,14 @@ What "validated" specifically means for each planned component. ✅ = done.
       `fda.gov` access to reconfirm end to end.
 
 ### openFDA client (`ingest/openfda_client.py`) — next
+
 - [ ] Thin `api.fda.gov` wrapper for 510(k)/PMA/De Novo/classification endpoints.
 - [ ] Response caching keyed by submission number (no re-fetch of unchanged records).
 - [ ] Rate-limit backoff; record real responses as fixtures on first run.
 - [ ] Fixture-based unit tests + one `live_network` test recording a real payload.
 
 ### Transform: bronze → silver (`transform/bronze_to_silver.py`)
+
 - [ ] Select the latest `ingested_at` per submission number before joining (bronze may
       hold several pulls).
 - [ ] `pathway` derived from the submission prefix (`K…`→510k, `DEN…`→de_novo, `P…`→pma);
@@ -113,14 +116,17 @@ What "validated" specifically means for each planned component. ✅ = done.
 - [ ] Schema parity via generated `StructType`; append/overwrite semantics correct.
 
 ### Company resolution (`transform/company_resolution.py`)
+
 - [ ] Hand-maintained lookup in `config/` (~20 top applicants by volume); no M&A scraping.
 - [ ] Coverage check: what fraction of rows resolve; unresolved fall through cleanly.
 
 ### Taxonomy loader
+
 - [ ] Reads `config/specialty_taxonomy.yaml` via `settings.specialty_taxonomy_path` to
       populate `specialty_category`; unmapped panels handled explicitly.
 
 ### Monitoring (Phase 4) & Databricks dry run (Phase 5)
+
 - [ ] Databricks: `storage_mode=catalog` + `table_ref` resolution exercised against a
       real workspace (currently only mechanism-tested).
 

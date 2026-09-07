@@ -23,7 +23,7 @@ The full reasoning, including why not pandas, DuckDB or SQLite, is in
 
 ## Architecture
 
-```
+```text
                   FDA AI-enabled device list        openFDA API
                   (CSV export, HTML fallback)       (510k/PMA/De Novo)   [Phase 2]
                               │                             │
@@ -67,7 +67,7 @@ make smoke      # Spark + Delta round-trip
 `scripts/warm_delta_jars.py`, which puts the Delta JARs on Spark's classpath so
 sessions start without reaching out to Maven.
 
-```
+```bash
 make help       # all targets
 make test-fast  # skip the JVM tests
 make lint       # ruff check + format check

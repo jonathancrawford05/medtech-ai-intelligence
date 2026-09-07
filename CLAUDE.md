@@ -6,6 +6,7 @@ against them. See `docs/validation-playbook.md` for *how* to validate, and
 `docs/pr-review-routine.md` for the review prompt itself.
 
 ## What this project is
+
 A Python-native, Spark + Delta Lake registry of FDA-authorized AI/ML medical devices,
 designed to migrate to Databricks unchanged. Its purpose is to surface how medical
 technology is evolving — especially **mortality-relevant cardiovascular/metabolic
@@ -14,6 +15,7 @@ Build off **primary sources** (the FDA curated list + openFDA), never a single
 third-party tracker's counts.
 
 ## Architecture invariants (do not break)
+
 1. **No filesystem paths in pipeline code.** Resolve tables by logical name via
    `settings.table_ref()` / `registry.tables` — this keeps the Databricks migration a
    config change, not a code change (ADR 0004). `storage_mode=path` locally,
@@ -30,6 +32,7 @@ third-party tracker's counts.
    link off the page → HTML table fallback. Content-Type decides parsing, not the URL.
 
 ## How we work
+
 - **TDD.** Write the failing test first; every module here was built that way.
 - **Markers.** `spark` = needs a JVM (slow); `live_network` = hits real FDA/openFDA
   endpoints and **never runs in CI**. Tag new tests correctly.
@@ -43,6 +46,7 @@ third-party tracker's counts.
 - **Keep scope narrow:** one source working end to end beats four half-wired.
 
 ## Commands
+
 ```bash
 make lint                         # ruff check + format --check
 make test                         # full suite  (needs JDK 17 → use Docker if local JDK < 17)
@@ -53,6 +57,7 @@ uv run pytest -m live_network     # ONLY where fda.gov is reachable
 ```
 
 ## Environment traps (see the validation playbook for the full matrix)
+
 - **Spark 4.0 needs JDK 17+.** Run Spark tests / `registry smoke` in the image or CI,
   not on a JDK-11 box.
 - **`fda.gov` is blocked from agent environments.** Live-source checks run on a machine
@@ -62,6 +67,7 @@ uv run pytest -m live_network     # ONLY where fda.gov is reachable
   amd64. `--platform linux/amd64` is optional (CI/DBR parity), not required.
 
 ## Git
+
 - Work on the branch named at the top of `CONTINUATION.md` unless told otherwise.
 - `make lint && make test` must be clean before committing.
 - Commit-message trailer for agent commits:

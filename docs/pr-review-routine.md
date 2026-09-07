@@ -37,6 +37,7 @@ for mortality-relevant fields, and security.
 > logical tables (`settings.table_ref`) / Pydantic schemas / pipeline stages it touches.
 >
 > **2–3. REVIEW against the invariants** — For each, note pass/violation with file:line:
+>
 > - No filesystem paths in pipeline code; table access goes through `settings.table_ref()`
 >   / `registry.tables` (ADR 0004).
 > - Bronze writes stay append-only and stamped (`ingested_at`, `source_snapshot_id`);
@@ -51,6 +52,7 @@ for mortality-relevant fields, and security.
 >   and trusts Content-Type over the URL (ADR 0009).
 >
 > **Domain lenses** (apply the ones the diff touches):
+>
 > - Ingestion: parsing validated against a real payload, not only synthetic fixtures.
 > - Bronze→silver: latest `ingested_at` per submission number selected before joins;
 >   `pathway` derived from the submission prefix; PMA **supplement suffixes**
@@ -70,6 +72,7 @@ for mortality-relevant fields, and security.
 > and a `findings/` note exists for anything a reviewer would look for later.
 >
 > **Output** exactly this shape:
+>
 > - **Verdict:** `approve` | `approve-with-nits` | `request-changes`
 > - **Findings**, most severe first, each as:
 >   `[blocker|major|minor|nit] path:line — <one-line defect> → <failure scenario> → <suggested fix>`
@@ -84,6 +87,7 @@ for mortality-relevant fields, and security.
 ---
 
 ## Wiring options (pick per `#3` discussion)
+
 - **GitHub Action** on `pull_request` that runs this prompt via Claude and posts the
   findings as a review comment. Automated, no local step.
 - **Claude Code skill / command** the author runs locally before pushing.
