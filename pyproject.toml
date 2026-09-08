@@ -55,7 +55,8 @@ package = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# `scripts` so the build tooling in scripts/ is unit-testable.
+pythonpath = ["src", "scripts"]
 addopts = "-ra --strict-markers"
 markers = [
     "spark: test requires a live local SparkSession (slow, needs a JVM)",
@@ -80,4 +81,5 @@ ignore = [
 "tests/*" = ["B018"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["registry"]
+# `warm_delta_jars` is our own build tooling in scripts/, not a third-party package.
+known-first-party = ["registry", "warm_delta_jars"]

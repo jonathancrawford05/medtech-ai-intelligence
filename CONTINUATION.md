@@ -4,9 +4,10 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-06 · **Branch:** `claude/project-setup-docker-uv-579h0b`
-**Suite:** non-Spark suite green (56 passing), ruff clean. Spark tests (10) and the
-new `live_network` test are not run in every environment — see §5.
+**Last updated:** 2026-09-07 · **Branch:** `claude/project-setup-docker-uv-579h0b`
+**Suite:** 66 passing (56 non-Spark + 10 Spark), 86% coverage, ruff clean; the
+`live_network` test is deselected outside a network-permitted host — see §5.
+**PR #1 merged to `main` 2026-09-07**; `main` is now the default branch.
 
 ---
 
@@ -15,7 +16,7 @@ new `live_network` test are not run in every environment — see §5.
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
-| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built and **live-verified 2026-09-06** (ADR 0009); fixtures are now a real export slice. openFDA client not started. |
+| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). openFDA client not started. |
 | **2 — Silver transforms** | 🔲 Not started | `schemas.py` is finished, which is the bulk of the design work |
 | **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
 | **4 — Monitoring** | 🔲 Not started | |
@@ -67,8 +68,11 @@ src/registry/
   ingest/fda_ai_list.py  CSV-export-first, HTML-fallback bronze ingester
   transform/ mart/ monitor/   empty packages, Phases 2-4
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
-scripts/warm_delta_jars.py       stages Delta JARs at image build time
+scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
 docs/adr/                        why things are the way they are
+docs/pr-review-routine.md        review prompt: P0-P3 rubric + test-integrity gate
+docs/validation-playbook.md      how each component gets validated
+findings/                        what was actually verified, and what was not
 ```
 
 ### Conventions that matter

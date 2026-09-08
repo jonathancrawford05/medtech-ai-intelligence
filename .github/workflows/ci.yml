@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # Only the default branch. Feature branches are covered by `pull_request`;
+    # listing both here made every PR commit trigger two identical runs, which
+    # doubled cost and had the two Docker builds contend for the same GHA cache.
+    # Accepted trade-off: a branch pushed with no PR open gets no CI signal
+    # until a PR exists. Open a draft PR if you want CI on work in progress.
+    branches: [main]
   pull_request:
   workflow_dispatch:
   schedule:
@@ -60,8 +65,17 @@ jobs:
           --cov=src/registry --cov-report=term-missing --cov-fail-under=70
 
   docker:
+    # Built on both architectures. amd64 is CI / Databricks parity; arm64 is what
+    # Docker Desktop runs on Apple Silicon, so this is what actually substantiates
+    # the arch-derived JAVA_HOME claim in CLAUDE.md (findings/0002).
+    # Native runners, deliberately not QEMU: emulating a JVM test suite is 10-40x
+    # slower and prone to emulation bugs, so a red job would tell us nothing.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -74,12 +88,20 @@ jobs:
           push: false
           load: true
           tags: medtech-ai-intelligence:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Per-arch cache scopes. A shared scope makes the two legs thrash each
+          # other's cache -- the same contention two concurrent builds hit before.
+          cache-from: type=gha,scope=${{ matrix.runner }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.runner }}
       - name: Phase 0 acceptance inside the image
         run: |
           docker run --rm -e REGISTRY_LAKEHOUSE_ROOT=/tmp/lakehouse \
             medtech-ai-intelligence:ci registry smoke
+      - name: Report the architecture actually exercised
+        run: |
+          docker run --rm medtech-ai-intelligence:ci \
+            python -c "import platform; print('container arch:', platform.machine())"
+          docker run --rm medtech-ai-intelligence:ci \
+            sh -c 'echo "JAVA_HOME=$JAVA_HOME -> $(readlink -f "$JAVA_HOME")"; java -version'
 
   docs:
     # Keep the growing doc set clean: style-lint Markdown and verify that internal
@@ -96,10 +118,11 @@ jobs:
           globs: |
             *.md
             docs/**/*.md
+            findings/**/*.md
       - name: Check internal links resolve
         uses: lycheeverse/lychee-action@v2
         with:
-          args: "--offline --no-progress *.md docs/**/*.md"
+          args: "--offline --no-progress *.md docs/**/*.md findings/**/*.md"
           fail: true
 
   live-network:
