@@ -5,6 +5,8 @@ on:
     # Only the default branch. Feature branches are covered by `pull_request`;
     # listing both here made every PR commit trigger two identical runs, which
     # doubled cost and had the two Docker builds contend for the same GHA cache.
+    # Accepted trade-off: a branch pushed with no PR open gets no CI signal
+    # until a PR exists. Open a draft PR if you want CI on work in progress.
     branches: [main]
   pull_request:
   workflow_dispatch:
