@@ -1,0 +1,112 @@
+# Scheduled FDA AI-list ingest into bronze.
+#
+# Distinct from ci.yml's `live-network` job: that guards the *source's shape*
+# (URL/headers/row-count drift) with a dry-run. This workflow does the real
+# write -- fetch -> parse -> ingest_snapshot -> bronze -- on a network-permitted
+# runner, then asserts the pull is full-sized (Phase 1 acceptance, finding 0001)
+# and keeps the bronze snapshot as an artifact.
+#
+# fda.gov / api.fda.gov are blocked from every agent/dev environment, so this
+# runner is the first place the pipeline actually touches the live source.
+name: Scheduled FDA ingest
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch + parse only; do not write bronze"
+        type: boolean
+        default: false
+  schedule:
+    # Weekly, Mondays 06:30 UTC -- 30 min after ci.yml's drift check so a shape
+    # change is visible before the write runs. Cron is always UTC.
+    - cron: "30 6 * * 1"
+
+concurrency:
+  # Never let two ingests overlap; let a running one finish rather than cancel.
+  group: fda-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REGISTRY_LAKEHOUSE_ROOT: ./lakehouse
+      # GitHub secret -> settings.openfda_api_key (env_prefix REGISTRY_).
+      # Unset is fine: the FDA AI-list ingest does not call openFDA; the key is
+      # here for the openFDA client (roadmap Issue 1) and the auth check below.
+      REGISTRY_OPENFDA_API_KEY: ${{ secrets.OPENFDA_API_KEY }}
+      # ~95% of the ~1,615-row source list. Override in repo variables if the
+      # list's size drifts materially.
+      INGEST_MIN_ROWS: ${{ vars.INGEST_MIN_ROWS || '1500' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.17"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      # Stage the Delta JARs once so the Spark write needs no Maven access.
+      - name: Stage Delta JARs
+        run: uv run python scripts/warm_delta_jars.py
+
+      - name: Validate openFDA API key (skipped if the secret is unset)
+        if: ${{ env.REGISTRY_OPENFDA_API_KEY != '' }}
+        run: |
+          uv run python - <<'PY'
+          import os, sys, httpx
+          key = os.environ["REGISTRY_OPENFDA_API_KEY"]
+          r = httpx.get(
+              "https://api.fda.gov/device/510k.json",
+              params={"api_key": key, "limit": 1},
+              timeout=30,
+          )
+          print("openFDA auth check:", r.status_code)
+          if r.status_code == 401 or r.status_code == 403:
+              print("openFDA rejected the API key (check the OPENFDA_API_KEY secret).")
+          sys.exit(0 if r.status_code == 200 else 1)
+          PY
+
+      - name: Dry-run (fetch + parse; nothing written)
+        run: uv run registry ingest-fda-list --dry-run --verbose
+
+      - name: Ingest into bronze
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: uv run registry ingest-fda-list --verbose
+
+      - name: Verify pull is full-sized (Phase 1 acceptance)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          uv run python scripts/check_bronze_rowcount.py
+          {
+            echo "### FDA ingest"
+            echo ""
+            echo '```'
+            cat ingest-summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload bronze snapshot + summary
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bronze-fda-ai-list-${{ github.run_id }}
+          path: |
+            lakehouse/**
+            ingest-summary.txt
+          retention-days: 30
+          if-no-files-found: error

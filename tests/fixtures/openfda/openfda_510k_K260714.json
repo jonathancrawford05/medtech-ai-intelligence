@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "disclaimer": "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+    "terms": "https://open.fda.gov/terms/",
+    "license": "https://open.fda.gov/license/",
+    "last_updated": "2026-08-31",
+    "results": { "skip": 0, "limit": 1, "total": 1 }
+  },
+  "results": [
+    {
+      "third_party_flag": "N",
+      "city": "Nice",
+      "advisory_committee_description": "Radiology",
+      "address_1": "455 Promenade Des Anglais  06200 Nice - France",
+      "address_2": "",
+      "statement_or_summary": "Summary",
+      "product_code": "QDQ",
+      "openfda": {
+        "registration_number": ["3042248552", "3005496266", "...(+9 more; trimmed for fixture)"],
+        "fei_number": ["3042248552", "3005496266", "...(+9 more; trimmed for fixture)"],
+        "device_name": "Radiological Computer Assisted Detection/Diagnosis Software For Lesions Suspicious For Cancer",
+        "medical_specialty_description": "Radiology",
+        "regulation_number": "892.2090",
+        "device_class": "2"
+      },
+      "zip_code": "06200",
+      "applicant": "Therapixel",
+      "decision_date": "2026-06-26",
+      "decision_code": "SESE",
+      "country_code": "FR",
+      "device_name": "MammoScreen® (5)",
+      "advisory_committee": "RA",
+      "contact": "Shalyna  Long Bansropun",
+      "expedited_review_flag": "",
+      "k_number": "K260714",
+      "state": "",
+      "date_received": "2026-03-05",
+      "review_advisory_committee": "RA",
+      "postal_code": "06200",
+      "decision_description": "Substantially Equivalent",
+      "clearance_type": "Special"
+    }
+  ]
+}
