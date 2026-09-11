@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "disclaimer": "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+    "terms": "https://open.fda.gov/terms/",
+    "license": "https://open.fda.gov/license/",
+    "last_updated": "2026-08-31",
+    "results": { "skip": 0, "limit": 1, "total": 1 }
+  },
+  "results": [
+    {
+      "third_party_flag": "N",
+      "city": "Chicago",
+      "advisory_committee_description": "Cardiovascular",
+      "address_1": "400 N Aberdeen St.",
+      "address_2": "Suite 1050",
+      "statement_or_summary": "",
+      "product_code": "SIF",
+      "openfda": {
+        "device_name": "Software Device System For Estimation Of Cardiac Pressures",
+        "medical_specialty_description": "Cardiovascular",
+        "regulation_number": "870.1150",
+        "device_class": "2"
+      },
+      "zip_code": "60642",
+      "applicant": "Cardiosense, Inc.",
+      "decision_date": "2026-05-22",
+      "decision_code": "DENG",
+      "country_code": "US",
+      "device_name": "PCWP Analysis Software",
+      "advisory_committee": "CV",
+      "contact": "Arezou  Azar",
+      "expedited_review_flag": "",
+      "k_number": "DEN250057",
+      "state": "IL",
+      "date_received": "2025-11-17",
+      "review_advisory_committee": "CV",
+      "postal_code": "60642",
+      "decision_description": "Unknown",
+      "clearance_type": "Direct"
+    }
+  ]
+}
