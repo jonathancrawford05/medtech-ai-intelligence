@@ -32,3 +32,6 @@ derby.log
 
 # OS
 .DS_Store
+
+# Desktop app output folder (Claude delivers file copies here)
+Claude outputs/
