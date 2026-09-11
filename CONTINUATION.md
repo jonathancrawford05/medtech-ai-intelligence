@@ -16,7 +16,7 @@ it is the only thing that survives a context window.
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
-| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). openFDA client not started. |
+| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). A scheduled GitHub Actions workflow now runs the live ingest + a row-count acceptance gate (closes 0001 on its first green run). **openFDA client (`ingest/openfda_client.py`) built and unit-verified against real fixtures** (ADR 0010, [finding 0004](findings/0004-openfda-client.md)); its `live_network` tests are unrun (egress-blocked). |
 | **2 — Silver transforms** | 🔲 Not started | `schemas.py` is finished, which is the bulk of the design work |
 | **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
 | **4 — Monitoring** | 🔲 Not started | |
@@ -66,6 +66,7 @@ src/registry/
   schemas.py             Pydantic models + generated Spark StructType mirrors
   cli.py                 `registry config | smoke | ingest-fda-list`
   ingest/fda_ai_list.py  CSV-export-first, HTML-fallback bronze ingester
+  ingest/openfda_client.py  typed api.fda.gov client (510k/pma/classification), cache + backoff
   transform/ mart/ monitor/   empty packages, Phases 2-4
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
@@ -94,10 +95,12 @@ findings/                        what was actually verified, and what was not
 
 1. ~~Verify the FDA path live~~ — **done** (§2, ADR 0009). Everything downstream
    inherited its assumptions from this; they now match the real source.
-2. **`ingest/openfda_client.py`** — thin `api.fda.gov` wrapper for 510(k), PMA,
-   De Novo and classification endpoints. Needs: response caching keyed by
-   submission number (avoid re-fetching unchanged records), rate-limit backoff,
-   and fixture-based tests. Record real responses as fixtures the first time.
+2. ~~**`ingest/openfda_client.py`**~~ — **done** (ADR 0010, finding 0004). Typed
+   `api.fda.gov` client over 510(k)/PMA/classification with submission-keyed
+   caching (in-memory + optional `openfda_cache_dir`), 429/5xx backoff, and
+   real-fixture tests. Note: no `de_novo` endpoint exists — De Novo grants come
+   from `510k` (`decision_code=DENG`); PMA supplements split on `/`. Remaining:
+   run its `live_network` tests on a net-permitted host.
 3. **`transform/bronze_to_silver.py`** — join the AI list against openFDA by
    submission number to populate `DeviceRecord`. This is where the raw decision
    date gets parsed, `pathway` is derived from the submission-number prefix
