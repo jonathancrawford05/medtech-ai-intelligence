@@ -20,6 +20,7 @@ flagged as AI — our bronze AI list is what identifies which ones are; the join
 Issue 2. This issue is just the client.
 
 **Scope.**
+
 - A thin, typed client over `api.fda.gov`: fetch by submission number
   (`510k`, `pma`, `de_novo`) and by product code (`classification`); handle pagination.
 - Rate-limit backoff (openFDA is ~240 req/min unauthenticated, higher with a key;
@@ -49,6 +50,7 @@ latest AI-list pull against openFDA (Issue 1). This is where the registry become
 useful.
 
 **Scope.**
+
 - **Select the latest `ingested_at` per `submission_number`** before joining — bronze
   is append-only and holds every pull.
 - Derive `pathway` from the submission prefix (`K…`→510k, `DEN…`→de_novo, `P…`→pma).
@@ -89,6 +91,7 @@ job:** that guards the source's *shape* (URL/headers/row-count); this monitors *
 movement for leads.
 
 **Scope.**
+
 - Diff the two most recent silver builds: **new** submission numbers, and specifically
   new **cardiovascular/metabolic-panel** devices, devices whose intended-use carries
   mortality/risk-prediction language, PCCP-flagged devices, and foundation-model
