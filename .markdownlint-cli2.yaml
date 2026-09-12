@@ -10,3 +10,4 @@ config:
 globs:
   - "*.md"
   - "docs/**/*.md"
+  - "findings/**/*.md"

@@ -42,7 +42,7 @@ third-party tracker's counts.
   ADR in `docs/adr/`. Never edit an accepted ADR — add one and mark the old
   `Superseded by NNNN`.
 - **Update the handoff.** Before ending a session, update `CONTINUATION.md` §1/§2/§4
-  and add a `findings/` note (in the project) for anything a reviewer looks for later.
+  and add a [`findings/`](findings/) note for anything a reviewer looks for later.
 - **Keep scope narrow:** one source working end to end beats four half-wired.
 
 ## Commands
@@ -70,5 +70,6 @@ uv run pytest -m live_network     # ONLY where fda.gov is reachable
 
 - Work on the branch named at the top of `CONTINUATION.md` unless told otherwise.
 - `make lint && make test` must be clean before committing.
-- Commit-message trailer for agent commits:
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+- Commit-message trailer for agent commits — no model name, so it does not drift
+  as models change:
+  `Co-Authored-By: Claude <noreply@anthropic.com>`

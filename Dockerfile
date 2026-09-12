@@ -46,19 +46,23 @@ COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --all-groups
 
+# Resolve the Delta JARs from Maven ONCE, here in the cached dependency layer,
+# and keep a copy in /opt/delta-jars. Only the script itself invalidates this,
+# so editing application code never triggers another Maven fetch.
+COPY scripts/warm_delta_jars.py ./scripts/
+RUN python scripts/warm_delta_jars.py --stage-to /opt/delta-jars
+
 # ---------------------------------------------------------------------------
 FROM deps AS dev
 
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --all-groups
 
-# Stage the Delta JARs onto Spark's classpath at build time, so container
-# startup needs no Maven access and no Ivy resolution. This must run AFTER the
-# final `uv sync` -- a later sync can reinstall pyspark and discard them.
-RUN python scripts/warm_delta_jars.py \
-    && python -c "import pathlib,pyspark; \
-assert list((pathlib.Path(pyspark.__file__).parent/'jars').glob('delta-spark*.jar')), \
-'Delta JARs missing from the Spark classpath'"
+# Put the JARs back on the classpath AFTER the final sync, which can reinstall
+# pyspark and discard them. This is a file copy from the layer above -- no
+# network and no JVM -- so a source change costs milliseconds, not a Maven
+# round trip. The script exits non-zero if they are not on the classpath.
+RUN python scripts/warm_delta_jars.py --from-dir /opt/delta-jars
 
 # Spark writes scratch data; give it a home a non-root user owns.
 RUN useradd --create-home --uid 1000 spark \
@@ -78,12 +82,8 @@ COPY config ./config
 COPY scripts ./scripts
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-# As above: stage the JARs after the final sync, and fail the build if they
-# are not actually on the classpath.
-RUN python scripts/warm_delta_jars.py \
-    && python -c "import pathlib,pyspark; \
-assert list((pathlib.Path(pyspark.__file__).parent/'jars').glob('delta-spark*.jar')), \
-'Delta JARs missing from the Spark classpath'"
+# As above: restore the JARs after the final sync, from the cached layer.
+RUN python scripts/warm_delta_jars.py --from-dir /opt/delta-jars
 
 RUN useradd --create-home --uid 1000 spark \
     && mkdir -p /app/lakehouse \
