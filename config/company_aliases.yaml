@@ -1,0 +1,129 @@
+# Hand-maintained applicant → resolved parent company lookup.
+#
+# The FDA lists the applicant exactly as filed, so one company appears under many
+# spellings ("Siemens Medical Solutions USA, Inc.", "Siemens Healthineers AG"),
+# and acquisitions mean yesterday's applicant belongs to today's parent.
+#
+# Automating M&A tracking is an explicit non-goal (development plan section 6):
+# the trend report's own examples (Abbott/Laralab, Siemens Healthineers) need
+# occasional human curation whatever the tooling. This file is that curation.
+#
+# Matching is on a normalised form of the applicant string: lowercased, with
+# punctuation and common corporate suffixes (inc, ltd, llc, gmbh, co, corp, sa,
+# ag, nv, bv, plc, kk, oy, ab, as, pty, srl, spa) removed. So one entry covers
+# "Aidoc Medical Ltd", "Aidoc Medical, Ltd." and "AIDOC MEDICAL LTD".
+#
+# `parent` is optional and records the current owner where it differs from the
+# resolved name — the acquisition history the report cares about.
+
+version: 1
+
+companies:
+  - resolved_name: Siemens Healthineers
+    parent: Siemens AG
+    aliases:
+      - Siemens Healthineers
+      - Siemens Medical Solutions USA
+      - Siemens Healthcare
+      - Siemens Shenzhen Magnetic Resonance
+
+  - resolved_name: GE HealthCare
+    aliases:
+      - GE HealthCare
+      - GE Medical Systems
+      - General Electric Company
+      - GE Healthcare Japan
+
+  - resolved_name: Philips
+    parent: Koninklijke Philips N.V.
+    aliases:
+      - Philips Medical Systems
+      - Koninklijke Philips
+      - Philips Healthcare
+      - Philips Ultrasound
+
+  - resolved_name: Canon Medical Systems
+    parent: Canon Inc.
+    aliases:
+      - Canon Medical Systems
+      - Toshiba Medical Systems
+
+  - resolved_name: Aidoc
+    aliases:
+      - Aidoc Medical
+      - Aidoc
+
+  - resolved_name: Abbott
+    aliases:
+      - Abbott Laboratories
+      - Abbott Diabetes Care
+      - Abbott Medical
+      - Laralab
+
+  - resolved_name: Medtronic
+    aliases:
+      - Medtronic
+      - Medtronic Navigation
+      - Covidien
+
+  - resolved_name: Boston Scientific
+    aliases:
+      - Boston Scientific
+      - Boston Scientific Scimed
+
+  - resolved_name: United Imaging
+    aliases:
+      - Shanghai United Imaging Healthcare
+      - United Imaging Healthcare
+
+  - resolved_name: Coreline Soft
+    aliases:
+      - Coreline Soft
+
+  - resolved_name: Caristo Diagnostics
+    aliases:
+      - Caristo Diagnostics
+
+  - resolved_name: Nanox AI
+    parent: Nano-X Imaging Ltd
+    aliases:
+      - Nanox AI
+      - Zebra Medical Vision
+
+  - resolved_name: HeartFlow
+    aliases:
+      - HeartFlow
+
+  - resolved_name: Cleerly
+    aliases:
+      - Cleerly
+
+  - resolved_name: Viz.ai
+    aliases:
+      - Viz.ai
+      - Viz
+
+  - resolved_name: Annalise.ai
+    aliases:
+      - Annalise.ai
+      - Annalise AI
+
+  - resolved_name: Lunit
+    aliases:
+      - Lunit
+
+  - resolved_name: Samsung Medison
+    parent: Samsung Electronics
+    aliases:
+      - Samsung Medison
+      - Samsung Electronics
+
+  - resolved_name: Fujifilm
+    aliases:
+      - Fujifilm Corporation
+      - Fujifilm Healthcare
+      - Hitachi Healthcare
+
+  - resolved_name: Hologic
+    aliases:
+      - Hologic

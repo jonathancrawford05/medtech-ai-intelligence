@@ -113,6 +113,10 @@ class Settings(BaseSettings):
         return self.config_dir / "specialty_taxonomy.yaml"
 
     @property
+    def company_aliases_path(self) -> Path:
+        return self.config_dir / "company_aliases.yaml"
+
+    @property
     def is_catalog_mode(self) -> bool:
         return self.storage_mode is StorageMode.CATALOG
 

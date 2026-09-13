@@ -122,6 +122,67 @@ class TestDeviceRecord:
             self._valid(submission_number="   ")
 
 
+class TestOptionalUntilEnriched:
+    """ADR 0012: openFDA-dependent fields are None until enrichment runs."""
+
+    def _list_only(self, **overrides):
+        """Exactly what the FDA AI list alone can supply — no openFDA fields."""
+        base = {
+            "submission_number": "K243456",
+            "device_name": "CaRi-Heart",
+            "applicant_raw": "Caristo Diagnostics Ltd",
+            "decision_date": dt.date(2024, 11, 1),
+            "pathway": "510k",
+            "specialty_panel": "Radiology",
+            "specialty_category": "cardiovascular",
+            "product_code": "QIH",
+            "source_url": "https://example.org/K243456",
+        }
+        base.update(overrides)
+        return DeviceRecord(**base)
+
+    def test_a_row_can_be_built_from_the_ai_list_alone(self):
+        """The point of the change: no openFDA round trip needed to construct a row."""
+        rec = self._list_only()
+        assert rec.device_class is None
+        assert rec.has_pccp is None
+        assert rec.cybersecurity_statement_present is None
+
+    def test_none_is_distinct_from_false(self):
+        """`None` = not yet enriched; `False` = enriched and the answer was no."""
+        unenriched = self._list_only()
+        enriched = self._list_only(has_pccp=False, cybersecurity_statement_present=False)
+        assert unenriched.has_pccp is None
+        assert enriched.has_pccp is False
+        assert unenriched.has_pccp != enriched.has_pccp
+
+    def test_none_device_class_is_distinct_from_unclassified(self):
+        """`None` = not enriched; "unclassified" = the FDA's own classification."""
+        assert self._list_only().device_class is None
+        assert self._list_only(device_class="unclassified").device_class == "unclassified"
+
+    def test_enriched_values_still_validate(self):
+        rec = self._list_only(
+            device_class="II", has_pccp=True, cybersecurity_statement_present=True
+        )
+        assert rec.device_class == "II"
+
+    def test_an_invalid_device_class_is_still_rejected(self):
+        """Optional must not mean unvalidated."""
+        with pytest.raises(ValueError):
+            self._list_only(device_class="IV")
+
+    def test_the_spark_mirror_marks_them_nullable(self):
+        fields = {f.name: f for f in spark_schema_for(DeviceRecord).fields}
+        for name in ("device_class", "has_pccp", "cybersecurity_statement_present"):
+            assert fields[name].nullable is True, name
+
+    def test_supplement_columns_exist_and_are_nullable(self):
+        fields = {f.name: f for f in spark_schema_for(DeviceRecord).fields}
+        for name in ("pma_base_number", "pma_supplement_number"):
+            assert fields[name].nullable is True, name
+
+
 class TestEvidenceRecord:
     def _valid(self, **overrides):
         base = {

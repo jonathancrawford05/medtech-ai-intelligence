@@ -133,12 +133,23 @@ class DeviceRecord(BaseModel):
     specialty_panel: str  # the FDA's own panel label
     specialty_category: str  # our curated taxonomy (config/specialty_taxonomy.yaml)
     product_code: str
-    device_class: DeviceClass
+
+    # PMA supplements keep their whole identifier in `submission_number`
+    # (`P130020/S005`) because a supplement is its own authorisation; these carry
+    # the split for openFDA lookups and device-family grouping (ADR 0012).
+    pma_base_number: str | None = None
+    pma_supplement_number: str | None = None
+
+    # Optional until enrichment runs (ADR 0012). `None` means "not yet enriched",
+    # which is a different claim from `False` — and for device_class, a different
+    # claim from the FDA's own "unclassified".
+    device_class: DeviceClass | None = None
     predicate_submission_number: str | None = None
     predicate_age_days: int | None = None
-    has_pccp: bool
+    has_pccp: bool | None = None
     pccp_summary: str | None = None
-    cybersecurity_statement_present: bool
+    cybersecurity_statement_present: bool | None = None
+
     source_url: str  # link back to the FDA record, for auditability
 
     @field_validator("submission_number", "product_code", mode="before")
