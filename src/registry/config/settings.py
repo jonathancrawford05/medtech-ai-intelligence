@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     fda_ai_list_csv_url: str = "https://www.fda.gov/media/178541/download?attachment"
     openfda_base_url: str = "https://api.fda.gov"
     openfda_api_key: str | None = None
+    # Where the openFDA client persists responses keyed by submission number, so
+    # an unchanged record is not refetched across runs (ADR 0010). None keeps the
+    # cache in memory only (per client instance). Not a Delta table: the client is
+    # decoupled from Spark; the bronze/silver join is a separate concern (Issue 2).
+    openfda_cache_dir: str | None = None
 
     # ---- HTTP behaviour --------------------------------------------------
     http_timeout_seconds: float = 30.0
