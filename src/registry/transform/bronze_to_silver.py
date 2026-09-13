@@ -138,7 +138,10 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
     return DeviceRecord(
         submission_number=submission,
         device_name=device_name,
-        applicant_raw=(row.get("applicant_raw") or "").strip() or device_name,
+        # None, not the device name: an applicant the FDA did not list must stay
+        # visibly absent (paired with applicant_resolved=None) rather than borrow
+        # another field's value.
+        applicant_raw=(row.get("applicant_raw") or "").strip() or None,
         applicant_resolved=resolution.resolved_name,
         decision_date=decision_date,
         pathway=pathway,

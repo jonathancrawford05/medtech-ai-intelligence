@@ -126,7 +126,10 @@ class DeviceRecord(BaseModel):
 
     submission_number: str  # primary key, e.g. "K243456"
     device_name: str
-    applicant_raw: str  # name exactly as the FDA lists it
+    # Name exactly as the FDA lists it, or None when the FDA lists no company.
+    # Never a substitute value: writing the device name here (as an earlier draft
+    # did) is indistinguishable from a real applicant to every consumer.
+    applicant_raw: str | None = None
     applicant_resolved: str | None = None  # populated by company_resolution.py
     decision_date: dt.date
     pathway: Pathway

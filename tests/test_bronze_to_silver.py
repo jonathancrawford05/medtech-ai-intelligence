@@ -88,6 +88,31 @@ class TestRowBuild:
         base.update(overrides)
         return base
 
+    @pytest.mark.parametrize("blank", ["", "   ", None])
+    def test_a_missing_company_stays_missing_rather_than_borrowing_the_device_name(
+        self, silver_ctx, blank
+    ):
+        """Review nit on PR #8. `applicant_raw` is documented as "the name exactly as
+        the FDA lists it"; falling back to the device name when the FDA omits the
+        company writes a device name into an applicant field, and since
+        `applicant_resolved` is None in that case too, no consumer can tell.
+
+        The row is still kept -- an authorisation with no listed applicant is a real
+        authorisation, and dropping it would understate the counts the trend report
+        is built on.
+        """
+        rec = bts.build_device_record(self._bronze(applicant_raw=blank), silver_ctx)
+        assert rec is not None, "a missing company must not drop the authorisation"
+        assert rec.applicant_raw is None
+        assert rec.applicant_resolved is None
+        assert rec.device_name == "CaRi-Heart"
+
+    def test_a_present_company_is_kept_verbatim(self, silver_ctx):
+        rec = bts.build_device_record(
+            self._bronze(applicant_raw="  Caristo Diagnostics Ltd  "), silver_ctx
+        )
+        assert rec.applicant_raw == "Caristo Diagnostics Ltd"
+
     def test_builds_a_device_record_from_the_ai_list_alone(self, silver_ctx):
         rec = bts.build_device_record(self._bronze(), silver_ctx)
         assert rec is not None

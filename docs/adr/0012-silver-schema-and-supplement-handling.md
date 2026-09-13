@@ -50,6 +50,25 @@ precondition for building it. The cost is that every consumer must handle `None`
 — the gold mart in particular must decide whether an unenriched row can qualify,
 and should filter on the confirmed mortality flag as ADR 0007 requires anyway.
 
+### Corollary — `applicant_raw` is optional for the same reason
+
+The FDA occasionally publishes a row with no `Company`. The first draft of the
+transform filled `applicant_raw` from `device_name` in that case, because the
+field was required and its validator rejects a blank string.
+
+That is the failure mode this ADR exists to prevent, in a field that has nothing
+to do with openFDA: a device name sitting in a field documented as "the name
+exactly as the FDA lists it" is indistinguishable, to every downstream consumer,
+from an applicant the FDA really did list. `applicant_resolved` is `None` in that
+case too, so nothing marks it as a substitution.
+
+`applicant_raw` is therefore `str | None`, `None` meaning **the FDA listed no
+company**. The row is still written: an authorisation with no listed applicant is
+a real authorisation, and dropping it would understate the counts the trend report
+is built on. The general rule, which future fields should follow: *when a value is
+unknown, say so — never borrow a neighbouring field's value to satisfy a
+non-optional type.*
+
 ## Decision 2 — the raw submission number stays the key; supplements split alongside
 
 `submission_number` keeps exactly what the FDA list published, suffix and all:
