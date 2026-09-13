@@ -22,18 +22,28 @@ from registry import tables
 from registry.config.settings import get_settings
 from registry.spark_session import get_spark
 
-MIN_ROWS = int(os.environ.get("INGEST_MIN_ROWS", "1500"))
-SUMMARY_PATH = Path(os.environ.get("INGEST_SUMMARY_PATH", "ingest-summary.txt"))
+DEFAULT_MIN_ROWS = 1500  # ~95% of the ~1,615-row source list
 
 
-def main() -> int:
+def _default_summary_path() -> Path:
+    return Path(os.environ.get("INGEST_SUMMARY_PATH", "ingest-summary.txt"))
+
+
+def main(min_rows: int | None = None, summary_path: Path | None = None) -> int:
+    # Read config here (not at import) so the check is unit-testable without env
+    # gymnastics: a test calls main(min_rows=..., summary_path=...) directly.
+    if min_rows is None:
+        min_rows = int(os.environ.get("INGEST_MIN_ROWS", str(DEFAULT_MIN_ROWS)))
+    if summary_path is None:
+        summary_path = _default_summary_path()
+
     settings = get_settings()
     spark = get_spark(settings)
     df = tables.read_table(spark, settings, "bronze_fda_ai_list")
 
     latest = df.orderBy(F.col("ingested_at").desc()).select("source_snapshot_id").first()
     if latest is None:
-        SUMMARY_PATH.write_text("FAIL: bronze_fda_ai_list is empty; no rows ingested\n")
+        summary_path.write_text("FAIL: bronze_fda_ai_list is empty; no rows ingested\n")
         print("FAIL: bronze_fda_ai_list is empty")
         return 1
 
@@ -44,15 +54,15 @@ def main() -> int:
 
     summary = (
         f"snapshot {snapshot_id}: {n_rows} rows "
-        f"({n_distinct} distinct submission numbers); floor {MIN_ROWS}"
+        f"({n_distinct} distinct submission numbers); floor {min_rows}"
     )
-    SUMMARY_PATH.write_text(summary + "\n")
+    summary_path.write_text(summary + "\n")
     print(summary)
 
-    if n_rows < MIN_ROWS:
-        print(f"FAIL: {n_rows} rows < required floor {MIN_ROWS}")
+    if n_rows < min_rows:
+        print(f"FAIL: {n_rows} rows < required floor {min_rows}")
         return 1
-    print(f"PASS: {n_rows} rows >= floor {MIN_ROWS}")
+    print(f"PASS: {n_rows} rows >= floor {min_rows}")
     return 0
 
 
