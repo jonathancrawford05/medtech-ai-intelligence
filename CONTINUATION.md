@@ -103,8 +103,12 @@ findings/                        what was actually verified, and what was not
 
 ## 4. Next tasks, in the order they make sense
 
-1. ~~Verify the FDA path live~~ — **done** (§2, ADR 0009). Everything downstream
-   inherited its assumptions from this; they now match the real source.
+1. **Verify the FDA path live** — acquisition **done**; the bronze write is not.
+   ADR 0009 verified the source by browser inspection, and a live dry run on
+   2026-09-13 fetched and parsed all 1,614 rows ([finding 0005](findings/0005-first-live-ingest-attempt.md)).
+   A full-size bronze **write** has still never run — that is the remaining half
+   of [finding 0001](findings/0001-phase-1-live-ingestion-gap.md) and of the
+   plan's Phase 1 acceptance. Easiest close: Actions → *Scheduled FDA ingest*.
 2. ~~**`ingest/openfda_client.py`**~~ — **done** (ADR 0010, finding 0004). Typed
    `api.fda.gov` client over 510(k)/PMA/classification with submission-keyed
    caching (in-memory + optional `openfda_cache_dir`), 429/5xx backoff, and
