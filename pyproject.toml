@@ -82,4 +82,4 @@ ignore = [
 
 [tool.ruff.lint.isort]
 # `warm_delta_jars` is our own build tooling in scripts/, not a third-party package.
-known-first-party = ["registry", "warm_delta_jars"]
+known-first-party = ["registry", "warm_delta_jars", "check_bronze_rowcount"]

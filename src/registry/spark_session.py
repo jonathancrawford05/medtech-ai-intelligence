@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
 
 from pyspark.sql import SparkSession
@@ -46,6 +49,94 @@ def _delta_jars_on_classpath() -> bool:
     except Exception:  # pragma: no cover - pyspark is a hard dependency
         return False
     return any(jars_dir.glob("delta-spark*.jar")) and any(jars_dir.glob("delta-storage*.jar"))
+
+
+# Spark 4.0 runs on JDK 17 or 21; 17 matches Databricks Runtime 17.x (ADR 0002).
+MINIMUM_JAVA_MAJOR = 17
+
+_JAVA_VERSION_RE = re.compile(r"(?:version\s+\"?|^openjdk\s+)(\d+)(?:[.\"\s]|$)", re.MULTILINE)
+
+_NO_JVM_HELP = """Spark needs a JVM and no usable one was found.
+
+Spark 4.0 requires JDK {minimum}+ ({found}).
+
+Any one of these fixes it:
+
+  1. Run it in the project image, which already carries JDK 17:
+       docker compose run --rm registry ingest-fda-list
+       docker compose run --rm test
+  2. Install a JDK locally, then re-sync so the Delta JARs are staged:
+       macOS:  brew install --cask temurin@17
+       Debian: apt-get install -y openjdk-17-jdk-headless
+       then:   make install
+  3. Let CI do it -- the "Scheduled FDA ingest" workflow runs the real ingest on a
+     runner that has JDK 17 and can reach fda.gov (docs/scheduled-ingest.md).
+
+If a JDK is installed but not on PATH, set JAVA_HOME to it."""
+
+
+class JavaRuntimeError(RuntimeError):
+    """No usable JVM for Spark. Carries the remedies, not just the symptom."""
+
+
+def _parse_java_major(output: str) -> int | None:
+    """Extract the major version from `java -version` output.
+
+    Handles both the legacy `1.8.0_401` form (major 8) and the modern
+    `17.0.20.1` form, across the `java version "..."` and bare `openjdk N` layouts.
+    """
+    match = _JAVA_VERSION_RE.search(output or "")
+    if match is None:
+        return None
+    major = int(match.group(1))
+    if major == 1:
+        # Legacy "1.8.0_x" scheme: the real major is the second component.
+        legacy = re.search(r"version\s+\"?1\.(\d+)", output)
+        return int(legacy.group(1)) if legacy else None
+    return major
+
+
+def _probe_java_version() -> tuple[int | None, str]:
+    """Return (major version or None, raw output) from the java on PATH/JAVA_HOME."""
+    java = None
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        candidate = Path(java_home) / "bin" / "java"
+        if candidate.exists():
+            java = str(candidate)
+    java = java or shutil.which("java")
+    if java is None:
+        return None, "no `java` on PATH and JAVA_HOME is unset or invalid"
+
+    try:
+        # `java -version` writes to stderr on every JDK worth supporting.
+        result = subprocess.run(
+            [java, "-version"], capture_output=True, text=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f"could not run `{java} -version`: {exc}"
+
+    output = f"{result.stderr}\n{result.stdout}".strip()
+    return _parse_java_major(output), output
+
+
+def _require_jvm() -> None:
+    """Fail early and legibly when Spark could not start for lack of a JVM.
+
+    Without this, a machine with no JDK dies inside py4j with JAVA_GATEWAY_EXITED,
+    which names neither the cause nor the fix (findings/0005).
+    """
+    major, raw = _probe_java_version()
+    if major is not None and major >= MINIMUM_JAVA_MAJOR:
+        logger.debug("JVM preflight passed: Java %s", major)
+        return
+
+    found = (
+        f"found Java {major}"
+        if major is not None
+        else f"none detected: {raw.splitlines()[0] if raw else 'unknown'}"
+    )
+    raise JavaRuntimeError(_NO_JVM_HELP.format(minimum=MINIMUM_JAVA_MAJOR, found=found))
 
 
 def _build_local_session(settings: Settings) -> SparkSession:
@@ -94,6 +185,9 @@ def get_spark(settings: Settings | None = None) -> SparkSession:
         return _session
 
     settings = settings or get_settings()
+    # Check for a JVM before py4j does, so a missing JDK reports itself in one
+    # readable sentence instead of JAVA_GATEWAY_EXITED (findings/0005).
+    _require_jvm()
     _session = _build_local_session(settings)
     _session.sparkContext.setLogLevel("WARN")
     return _session

@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "disclaimer": "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+    "terms": "https://open.fda.gov/terms/",
+    "license": "https://open.fda.gov/license/",
+    "last_updated": "2026-08-31",
+    "results": { "skip": 0, "limit": 1, "total": 1 }
+  },
+  "results": [
+    {
+      "third_party_flag": "N",
+      "life_sustain_support_flag": "N",
+      "gmp_exempt_flag": "N",
+      "summary_malfunction_reporting": "Ineligible",
+      "product_code": "QIH",
+      "openfda": {
+        "k_number": ["K240740", "K240943", "K254189", "...(+322 more; trimmed for fixture)"],
+        "registration_number": ["", "3003899230", "3013844297", "...(+234 more; trimmed for fixture)"],
+        "fei_number": ["", "3003899230", "3013844297", "...(+234 more; trimmed for fixture)"]
+      },
+      "review_panel": "RA",
+      "medical_specialty": "RA",
+      "device_name": "Automated Radiological Image Processing Software",
+      "review_code": "",
+      "unclassified_reason": "",
+      "medical_specialty_description": "Radiology",
+      "device_class": "2",
+      "definition": "To provide automated radiological image processing and analysis tools.    Software implementing artificial intelligence including nonadaptive machine learning algorithms trained with clinical and/or artificial data. In these devices, the algorithm training data typically impacts device performance. Adaptive AI algorithms are not within scope of this product code.",
+      "regulation_number": "892.2050",
+      "implant_flag": "N",
+      "submission_type_id": "1"
+    }
+  ]
+}

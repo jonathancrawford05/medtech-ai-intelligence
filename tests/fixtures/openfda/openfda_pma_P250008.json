@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "disclaimer": "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+    "terms": "https://open.fda.gov/terms/",
+    "license": "https://open.fda.gov/license/",
+    "last_updated": "2026-08-31",
+    "results": { "skip": 0, "limit": 5, "total": 2 }
+  },
+  "results": [
+    {
+      "pma_number": "P250008",
+      "supplement_number": "",
+      "applicant": "Perimeter Medical Imaging Ai, Inc.",
+      "street_1": "555 Richmond St. W",
+      "street_2": "Suite 511",
+      "city": "Toronto",
+      "state": "",
+      "zip": "M5V 3B1",
+      "zip_ext": "",
+      "generic_name": "OCT imaging system with AI/ML software for adjunctive detection of breast cancer",
+      "trade_name": "Claire OCT System",
+      "product_code": "SHH",
+      "advisory_committee": "SU",
+      "advisory_committee_description": "General, Plastic Surgery",
+      "supplement_type": "",
+      "supplement_reason": "",
+      "expedited_review_flag": "N",
+      "date_received": "2025-03-13",
+      "decision_date": "2026-03-03",
+      "docket_number": "",
+      "decision_code": "APPR",
+      "ao_statement": "The Claire OCT System is an adjunctive three-dimensional imaging tool which provides volumetric cross-sectional, real-time depth visualization, coupled with an artificial intelligence computer-aided detection algorithm which identifies and marks focal areas suspicious for breast cancer and is used concurrently with physician interpretation of the images. The Claire OCT System is intended for use in conjunction with other standard methods for evaluation of the margins of excised lumpectomy tissue during surgical procedures in patients with a biopsy-confirmed diagnosis of breast cancer.",
+      "openfda": {
+        "registration_number": ["3013276158", "3043527620"],
+        "fei_number": ["3013276158", "3043527620"],
+        "device_name": "Oct Imaging System With Ai/Ml Software For Adjunctive Detection Of Breast Cancer",
+        "medical_specialty_description": "Unknown",
+        "regulation_number": "",
+        "device_class": "3"
+      }
+    },
+    {
+      "pma_number": "P250008",
+      "supplement_number": "S001",
+      "applicant": "Perimeter Medical Imaging Ai, Inc.",
+      "street_1": "555 Richmond St. W",
+      "street_2": "Suite 511",
+      "city": "Toronto",
+      "state": "",
+      "zip": "M5V 3B1",
+      "zip_ext": "",
+      "generic_name": "OCT imaging system with AI/ML software for adjunctive detection of breast cancer",
+      "trade_name": "Claire OCT System",
+      "product_code": "SHH",
+      "advisory_committee": "SU",
+      "advisory_committee_description": "General, Plastic Surgery",
+      "supplement_type": "Normal 180 Day Track No User Fee",
+      "supplement_reason": "Location Change - Manufacturer/Sterilizer/Packager/Supplier",
+      "expedited_review_flag": "N",
+      "date_received": "2026-03-13",
+      "decision_date": "2026-08-10",
+      "docket_number": "",
+      "decision_code": "APPR",
+      "ao_statement": "Approval for a manufacturing site located at RBC Development, LLC (dba Vantage MedTech / RBC Medical Innovations), located at 17100 W 118th Terrace, Olathe, KS 66061, performing cart assembly, consumable (Specimen Immobilizer) assembly, receiving inspection, and tech services and laboratory functions at this facility.",
+      "openfda": {
+        "registration_number": ["3013276158", "3043527620"],
+        "fei_number": ["3013276158", "3043527620"],
+        "device_name": "Oct Imaging System With Ai/Ml Software For Adjunctive Detection Of Breast Cancer",
+        "medical_specialty_description": "Unknown",
+        "regulation_number": "",
+        "device_class": "3"
+      }
+    }
+  ]
+}

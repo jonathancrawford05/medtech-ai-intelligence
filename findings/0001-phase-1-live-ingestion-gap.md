@@ -1,6 +1,11 @@
 # 0001 — Phase 1 acceptance is unmet: the pipeline has never run against the live FDA source
 
-**Date:** 2026-09-07 · **Status:** Open · **Component:** `ingest/fda_ai_list.py`
+**Date:** 2026-09-07 · **Status:** Open (acquisition half closed) · **Component:** `ingest/fda_ai_list.py`
+
+**Updated 2026-09-13:** acquisition is now verified by *execution* — a live
+dry run fetched and parsed all 1,614 rows from a developer machine. See
+[finding 0005](0005-first-live-ingest-attempt.md). Only the bronze write
+remains unexecuted; it was blocked by a missing JVM, now guarded.
 
 ## The finding
 
@@ -33,9 +38,10 @@ That number has never been measured. No bronze table has ever held 1,615 rows.
 | CSV export exists at `https://www.fda.gov/media/178541/download?attachment` | **Verified** — browser, 2026-09-06 (ADR 0009) |
 | Headers match `_HEADER_ALIASES` with no changes needed | **Verified** — browser, 2026-09-06 |
 | Export contains the full list, 1,615 data rows | **Verified** — browser, 2026-09-06 |
-| `parse_csv` handles all 1,615 real rows | **Assumed** — tested against a 14-row slice |
-| ≥95% of rows parse without error | **Unmeasured** |
-| A bronze write of the full list succeeds | **Never executed** |
+| `parse_csv` handles all 1,614 real rows | **Verified** — live dry run, 2026-09-13 (finding 0005) |
+| The known CSV URL serves it without falling back | **Verified** — live dry run, 2026-09-13 |
+| ≥95% of rows parse without error | **Verified** — 1,614 fetched, 1,614 parsed, no errors |
+| A bronze write of the full list succeeds | **Still never executed** — needs a JVM |
 | `_discover_csv_url` finds the real link on the real page | **Assumed** — tested against a fixture only |
 
 The 14-row fixture is a genuine slice of the real export, which is much better than
