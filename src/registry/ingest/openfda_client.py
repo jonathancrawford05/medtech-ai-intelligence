@@ -29,8 +29,11 @@ table, to keep the client decoupled from Spark.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -320,13 +323,22 @@ class OpenFdaClient:
 
     # -- cache -------------------------------------------------------------
     def _cache_get(self, key: str) -> tuple[bool, Any]:
-        """Return ``(hit, value)``. ``value`` is the cached payload (or ``None`` for a miss)."""
+        """Return ``(hit, value)``. ``value`` is the cached payload (or ``None`` for a miss).
+
+        The cache is an optimisation, never a source of truth: a corrupt or
+        unreadable entry is reported as a miss so the caller refetches and
+        overwrites it, rather than raising on every subsequent run.
+        """
         if key in self._memo:
             return True, self._memo[key]
         path = self._disk_path(key)
         if path is not None and path.exists():
-            payload = json.loads(path.read_text())
-            value = self._decode_disk(key, payload)
+            try:
+                payload = json.loads(path.read_text())
+                value = self._decode_disk(key, payload)
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                logger.warning("Ignoring unreadable openFDA cache entry %s: %s", path, exc)
+                return False, None
             self._memo[key] = value
             return True, value
         return False, None
@@ -336,8 +348,24 @@ class OpenFdaClient:
         path = self._disk_path(key)
         if path is None or value is None:
             return  # misses are memoised in process but not persisted
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self._encode_disk(key, value)))
+
+        # Write to a temp file in the same directory and rename: os.replace is
+        # atomic on POSIX and Windows, so a crash mid-write can never leave a
+        # half-written entry for the next run to choke on.
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.dumps(self._encode_disk(key, value))
+            with tempfile.NamedTemporaryFile(
+                "w", dir=path.parent, prefix=f".{path.stem}.", suffix=".tmp", delete=False
+            ) as handle:
+                handle.write(payload)
+                tmp_path = Path(handle.name)
+            os.replace(tmp_path, path)
+        except OSError as exc:
+            # Losing the cache must never fail the request it was meant to speed up.
+            logger.warning("Could not persist openFDA cache entry %s: %s", path, exc)
+            with contextlib.suppress(OSError, UnboundLocalError):
+                tmp_path.unlink()
 
     def _disk_path(self, key: str) -> Path | None:
         if self._cache_dir is None:

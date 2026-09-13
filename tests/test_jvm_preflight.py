@@ -74,14 +74,44 @@ class TestPreflight:
             mod._require_jvm()
 
     def test_is_skipped_on_databricks(self, monkeypatch):
-        """The runtime provides its own JVM; probing it would be wrong."""
+        """The runtime provides its own JVM, so get_spark must not probe for one.
+
+        This drives `get_spark()` itself rather than asserting on `_on_databricks()`:
+        the behaviour under test is that the preflight is *bypassed*, and only
+        calling the real entry point can show that.
+        """
         monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "17.3")
+        monkeypatch.setattr(mod, "_session", None)
 
         def _boom():
             raise AssertionError("must not probe for java on Databricks")
 
         monkeypatch.setattr(mod, "_probe_java_version", _boom)
-        assert mod._on_databricks() is True
+
+        # Stand in for the runtime-provided session so no JVM is started here.
+        sentinel = object()
+
+        class _FakeBuilder:
+            def getOrCreate(self):
+                return sentinel
+
+        class _FakeSparkSession:
+            builder = _FakeBuilder()
+
+        monkeypatch.setattr(mod, "SparkSession", _FakeSparkSession)
+
+        assert mod.get_spark() is sentinel
+
+    def test_preflight_runs_when_not_on_databricks(self, monkeypatch):
+        """The counterpart: off Databricks, get_spark must consult the preflight."""
+        monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+        monkeypatch.setattr(mod, "_session", None)
+        monkeypatch.setattr(
+            mod, "_probe_java_version", lambda: (None, "Unable to locate a Java Runtime.")
+        )
+
+        with pytest.raises(mod.JavaRuntimeError):
+            mod.get_spark()
 
 
 @pytest.mark.spark

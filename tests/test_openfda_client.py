@@ -194,6 +194,60 @@ class TestCaching:
         assert route.call_count == 1
         assert rec is not None and rec.product_code == "QIH"
 
+    @respx.mock
+    def test_a_corrupt_cache_file_is_treated_as_a_miss(self, openfda_dir, tmp_path):
+        """A truncated or garbage cache entry must not poison the key forever.
+
+        Without this, one bad file raises JSONDecodeError on every subsequent
+        run and the only cure is deleting the cache by hand.
+        """
+        route = respx.get(url__regex=K510).mock(
+            return_value=httpx.Response(200, json=_body(openfda_dir, "openfda_510k_K253628.json"))
+        )
+        cache = tmp_path / "openfda_cache"
+        client = _client(openfda_cache_dir=str(cache))
+        client.fetch_submission("K253628")
+        assert route.call_count == 1
+
+        cached = next(cache.glob("*.json"))
+        cached.write_text('{"results": [ truncated')  # simulate a crash mid-write
+
+        fresh = _client(openfda_cache_dir=str(cache))
+        rec = fresh.fetch_submission("K253628")
+
+        # Refetched rather than raising, and the bad file is repaired.
+        assert route.call_count == 2
+        assert rec is not None and rec.product_code == "QIH"
+        assert json.loads(cached.read_text())
+
+    @respx.mock
+    def test_cache_writes_leave_no_partial_file_behind(self, openfda_dir, tmp_path):
+        """The write goes via a temp file + os.replace, so readers never see a half file."""
+        respx.get(url__regex=K510).mock(
+            return_value=httpx.Response(200, json=_body(openfda_dir, "openfda_510k_K253628.json"))
+        )
+        cache = tmp_path / "openfda_cache"
+        _client(openfda_cache_dir=str(cache)).fetch_submission("K253628")
+
+        files = sorted(p.name for p in cache.iterdir())
+        assert all(f.endswith(".json") for f in files), f"stray temp file left behind: {files}"
+        assert len(files) == 1
+
+    @respx.mock
+    def test_an_unreadable_cache_dir_does_not_break_the_fetch(self, openfda_dir, tmp_path):
+        """Caching is an optimisation; losing it must never fail the request."""
+        route = respx.get(url__regex=K510).mock(
+            return_value=httpx.Response(200, json=_body(openfda_dir, "openfda_510k_K253628.json"))
+        )
+        # A regular file where the cache dir should be: mkdir will fail.
+        blocked = tmp_path / "not_a_dir"
+        blocked.write_text("")
+
+        rec = _client(openfda_cache_dir=str(blocked)).fetch_submission("K253628")
+
+        assert route.call_count == 1
+        assert rec is not None and rec.product_code == "QIH"
+
 
 class TestBackoff:
     @respx.mock
