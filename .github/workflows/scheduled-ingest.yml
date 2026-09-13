@@ -64,21 +64,32 @@ jobs:
       - name: Stage Delta JARs
         run: uv run python scripts/warm_delta_jars.py
 
+      # Non-fatal by design: only a genuine auth rejection (401/403) fails the job.
+      # A transient 429/5xx or network blip must NOT skip the FDA-list ingest below
+      # (which does not use openFDA) — it only warns.
       - name: Validate openFDA API key (skipped if the secret is unset)
         if: ${{ env.REGISTRY_OPENFDA_API_KEY != '' }}
         run: |
           uv run python - <<'PY'
           import os, sys, httpx
+
           key = os.environ["REGISTRY_OPENFDA_API_KEY"]
-          r = httpx.get(
-              "https://api.fda.gov/device/510k.json",
-              params={"api_key": key, "limit": 1},
-              timeout=30,
-          )
+          try:
+              r = httpx.get(
+                  "https://api.fda.gov/device/510k.json",
+                  params={"api_key": key, "limit": 1},
+                  timeout=30,
+              )
+          except httpx.HTTPError as exc:
+              print(f"::warning::openFDA key check skipped (request failed: {exc})")
+              sys.exit(0)
           print("openFDA auth check:", r.status_code)
-          if r.status_code == 401 or r.status_code == 403:
-              print("openFDA rejected the API key (check the OPENFDA_API_KEY secret).")
-          sys.exit(0 if r.status_code == 200 else 1)
+          if r.status_code in (401, 403):
+              print("::error::openFDA rejected the API key (check the OPENFDA_API_KEY secret).")
+              sys.exit(1)
+          if r.status_code != 200:
+              print(f"::warning::openFDA returned {r.status_code}; key not conclusively checked (transient?).")
+          sys.exit(0)
           PY
 
       - name: Dry-run (fetch + parse; nothing written)

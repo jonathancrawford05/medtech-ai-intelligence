@@ -56,6 +56,13 @@ uv run registry ingest-fda-list --dry-run --verbose   # expect ~1,600 rows, csv
 uv run pytest -m live_network                          # end-to-end against the live site
 ```
 
+That live run is now **automated**: `.github/workflows/scheduled-ingest.yml`
+(weekly + manual) runs the real ingest on a network-permitted runner, then
+`scripts/check_bronze_rowcount.py` asserts the pull is full-sized (≥
+`INGEST_MIN_ROWS`, default 1500). Its first green run is what closes finding 0001;
+until then that finding stays open. See `docs/scheduled-ingest.md` (incl. adding
+the `OPENFDA_API_KEY` secret).
+
 ## 3. What exists, and where
 
 ```text
@@ -70,6 +77,9 @@ src/registry/
   transform/ mart/ monitor/   empty packages, Phases 2-4
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
+scripts/check_bronze_rowcount.py Phase-1 acceptance gate (>= INGEST_MIN_ROWS)
+.github/workflows/scheduled-ingest.yml  weekly/manual live ingest -> bronze + gate
+tests/fixtures/openfda/          real (trimmed) openFDA captures + PROVENANCE.md
 docs/adr/                        why things are the way they are
 docs/pr-review-routine.md        review prompt: P0-P3 rubric + test-integrity gate
 docs/validation-playbook.md      how each component gets validated
