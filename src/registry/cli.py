@@ -77,6 +77,20 @@ def build_silver(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None
 
 
 @app.command()
+def inspect() -> None:
+    """Report what the local lakehouse holds, and exit non-zero if it looks wrong."""
+    from registry import lakehouse_report
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    report = lakehouse_report.build_report(get_spark(settings), settings)
+    for line in report.lines:
+        typer.echo(line)
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def smoke() -> None:
     """Verify Spark + Delta work end to end (the Phase 0 acceptance check)."""
     from registry import tables
