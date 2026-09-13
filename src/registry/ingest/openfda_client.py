@@ -251,9 +251,14 @@ class OpenFdaClient:
                     if (row.get("supplement_number") or "").upper() == supplement.upper():
                         return row
                 return None  # the requested supplement is not in the response
+            # A bare base number wants the base approval (empty supplement_number).
             for row in results:
                 if not row.get("supplement_number"):
                     return row
+            # The base row is not on this page (e.g. a PMA with more supplements
+            # than the page limit): return None rather than passing an arbitrary
+            # supplement off as the base approval.
+            return None
         return results[0]
 
     # -- HTTP with backoff -------------------------------------------------
@@ -261,8 +266,10 @@ class OpenFdaClient:
         """GET an openFDA endpoint. Returns the results list, or ``None`` for not-found.
 
         404 / ``NOT_FOUND`` → ``None`` (no record, not an error). 429 and 5xx and
-        network errors are retried with exponential backoff; a 400 is a bad query
-        (our bug) and raises. Exhausting retries raises ``OpenFdaUnavailableError``.
+        network errors are retried with exponential backoff. A 400 (bad query) and
+        401/403 (rejected/forbidden key) raise ``OpenFdaError`` immediately —
+        an auth failure must not be swallowed as a miss. Exhausting retries raises
+        ``OpenFdaUnavailableError``.
         """
         params: dict[str, Any] = {"search": search, "limit": limit}
         if self._settings.openfda_api_key:
@@ -285,6 +292,13 @@ class OpenFdaClient:
                 if code == 400:
                     raise OpenFdaError(
                         f"openFDA rejected the query as malformed (400): search={search!r}"
+                    )
+                if code in (401, 403):
+                    # A rejected/misconfigured key must NOT masquerade as "no record":
+                    # otherwise every lookup returns None and silver enrichment is
+                    # silently empty but indistinguishable from genuine misses.
+                    raise OpenFdaError(
+                        f"openFDA rejected the request ({code}); check settings.openfda_api_key."
                     )
                 if code != 429 and code < 500:
                     logger.info("openFDA %s returned %s; treating as no record", path, code)

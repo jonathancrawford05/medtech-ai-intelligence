@@ -123,6 +123,21 @@ class TestFetchPma:
         assert rec is not None
         assert rec.supplement_number in (None, "")
 
+    @respx.mock
+    def test_bare_pma_without_a_base_row_returns_none(self):
+        # Page carries only supplements (no empty supplement_number) -- e.g. a PMA
+        # with more supplements than the page limit. Don't pass a supplement off as
+        # the base approval; return None.
+        body = {
+            "meta": {"results": {"total": 2}},
+            "results": [
+                {"pma_number": "P130020", "supplement_number": "S001", "product_code": "OTE"},
+                {"pma_number": "P130020", "supplement_number": "S002", "product_code": "OTE"},
+            ],
+        }
+        respx.get(url__regex=PMA).mock(return_value=httpx.Response(200, json=body))
+        assert _client().fetch_submission("P130020") is None
+
 
 class TestMissingSubmission:
     @respx.mock
@@ -140,6 +155,17 @@ class TestMissingSubmission:
             )
         )
         assert _client().fetch_submission("K000000") is None
+
+    @pytest.mark.parametrize("status", [401, 403])
+    @respx.mock
+    def test_auth_rejection_raises_not_none(self, status):
+        # A rejected/forbidden key must surface as an error, not masquerade as a
+        # miss -- otherwise every lookup returns None and silver enrichment is
+        # silently empty but indistinguishable from genuine misses.
+        route = respx.get(url__regex=K510).mock(return_value=httpx.Response(status))
+        with pytest.raises(mod.OpenFdaError):
+            _client(openfda_api_key="bad-key", http_max_retries=3).fetch_submission("K253628")
+        assert route.call_count == 1  # auth failure is not retried
 
 
 class TestCaching:
