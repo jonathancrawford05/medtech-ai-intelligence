@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "disclaimer": "Do not rely on openFDA to make decisions regarding medical care. While we make every effort to ensure that data is accurate, you should assume all results are unvalidated. We may limit or otherwise restrict your access to the API in line with our Terms of Service.",
+    "terms": "https://open.fda.gov/terms/",
+    "license": "https://open.fda.gov/license/",
+    "last_updated": "2026-08-31",
+    "results": { "skip": 0, "limit": 1, "total": 1 }
+  },
+  "results": [
+    {
+      "third_party_flag": "N",
+      "city": "Arden Hills",
+      "advisory_committee_description": "Anesthesiology",
+      "address_1": "1265 Grey Fox Rd., Suite 400",
+      "address_2": "",
+      "statement_or_summary": "Summary",
+      "product_code": "MNR",
+      "openfda": {
+        "device_name": "Ventilatory Effort Recorder",
+        "medical_specialty_description": "Anesthesiology",
+        "regulation_number": "868.2375",
+        "device_class": "2",
+        "registration_number": ["", "3038274470", "...(+83 more; trimmed for fixture)"],
+        "fei_number": ["", "3038274470", "...(+83 more; trimmed for fixture)"]
+      },
+      "zip_code": "55112",
+      "applicant": "Vivaquant, Inc. Dba Rhythm Express",
+      "decision_date": "2026-06-22",
+      "decision_code": "SESE",
+      "country_code": "US",
+      "device_name": "RX-1 Sleep",
+      "advisory_committee": "AN",
+      "contact": "Brian  Brockway",
+      "expedited_review_flag": "",
+      "k_number": "K253148",
+      "state": "MN",
+      "date_received": "2025-09-25",
+      "review_advisory_committee": "AN",
+      "postal_code": "55112",
+      "decision_description": "Substantially Equivalent",
+      "clearance_type": "Traditional"
+    }
+  ]
+}

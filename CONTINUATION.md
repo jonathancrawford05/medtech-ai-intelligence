@@ -16,7 +16,7 @@ it is the only thing that survives a context window.
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
-| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). openFDA client not started. |
+| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). A **scheduled GitHub Actions workflow** now runs the live ingest with an automated row-count acceptance gate (`scripts/check_bronze_rowcount.py`) — it closes finding 0001 on its first green run (not yet run; egress-blocked here). openFDA responses captured as real fixtures ([finding 0003](findings/0003-openfda-live-verification.md)); the openFDA client itself is not started. |
 | **2 — Silver transforms** | 🔲 Not started | `schemas.py` is finished, which is the bulk of the design work |
 | **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
 | **4 — Monitoring** | 🔲 Not started | |
@@ -56,6 +56,13 @@ uv run registry ingest-fda-list --dry-run --verbose   # expect ~1,600 rows, csv
 uv run pytest -m live_network                          # end-to-end against the live site
 ```
 
+That live run is now **automated**: `.github/workflows/scheduled-ingest.yml`
+(weekly + manual) runs the real ingest on a network-permitted runner, then
+`scripts/check_bronze_rowcount.py` asserts the pull is full-sized (≥
+`INGEST_MIN_ROWS`, default 1500). Its first green run is what closes finding 0001;
+until then that finding stays open. See `docs/scheduled-ingest.md` (incl. adding
+the `OPENFDA_API_KEY` secret).
+
 ## 3. What exists, and where
 
 ```text
@@ -69,6 +76,9 @@ src/registry/
   transform/ mart/ monitor/   empty packages, Phases 2-4
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
+scripts/check_bronze_rowcount.py Phase-1 acceptance gate (>= INGEST_MIN_ROWS)
+.github/workflows/scheduled-ingest.yml  weekly/manual live ingest -> bronze + gate
+tests/fixtures/openfda/          real (trimmed) openFDA captures + PROVENANCE.md
 docs/adr/                        why things are the way they are
 docs/pr-review-routine.md        review prompt: P0-P3 rubric + test-integrity gate
 docs/validation-playbook.md      how each component gets validated
