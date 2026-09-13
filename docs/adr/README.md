@@ -16,6 +16,7 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0008](0008-generated-spark-schemas.md) | Generate Spark schemas from the Pydantic models | Accepted |
 | [0009](0009-fda-ai-list-acquisition-verified.md) | FDA list acquisition, live-verified: known CSV URL + link discovery | Accepted |
 | [0010](0010-openfda-client.md) | openFDA client: endpoint routing, missing = None, on-disk cache | Accepted |
+| [0011](0011-defer-durable-bronze-persistence.md) | Defer durable bronze persistence; Azure ADLS Gen2 is the target | Accepted |
 
 ## Writing a new one
 

@@ -4,10 +4,12 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-07 · **Branch:** `claude/project-setup-docker-uv-579h0b`
-**Suite:** 66 passing (56 non-Spark + 10 Spark), 86% coverage, ruff clean; the
-`live_network` test is deselected outside a network-permitted host — see §5.
-**PR #1 merged to `main` 2026-09-07**; `main` is now the default branch.
+**Last updated:** 2026-09-13 · **Branch:** work from `main`
+**Suite:** 121 passing, 89% coverage, ruff + markdownlint clean; `live_network`
+tests are deselected outside a network-permitted host — see §5.
+**PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
+branches rather than `main` and did not land until #6 brought them across —
+target `main` unless a stack is deliberate.
 
 ---
 
@@ -16,7 +18,7 @@ it is the only thing that survives a context window.
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
-| **1 — Ingestion** | 🟡 Partial | FDA AI list ingester built; acquisition **verified by browser inspection** 2026-09-06 (ADR 0009), fixtures are a real export slice. The pipeline has **never run against the live source**, so the plan's ≥95%-of-rows acceptance is unmeasured — [finding 0001](findings/0001-phase-1-live-ingestion-gap.md). A scheduled GitHub Actions workflow now runs the live ingest + a row-count acceptance gate (closes 0001 on its first green run). **openFDA client (`ingest/openfda_client.py`) built and unit-verified against real fixtures** (ADR 0010, [finding 0004](findings/0004-openfda-client.md)); its `live_network` tests are unrun (egress-blocked). |
+| **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
 | **2 — Silver transforms** | 🔲 Not started | `schemas.py` is finished, which is the bulk of the design work |
 | **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
 | **4 — Monitoring** | 🔲 Not started | |
@@ -27,7 +29,7 @@ get a working vertical slice before adding sources.
 
 ---
 
-## 2. FDA acquisition — verified live (2026-09-06) ✅
+## 2. FDA acquisition — verified live, and the pipeline run end to end ✅
 
 **Resolved.** The FDA path has now been checked against the real site (via a
 browser on an unrestricted network; `fda.gov` is still blocked from the build

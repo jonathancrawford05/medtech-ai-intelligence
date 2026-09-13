@@ -64,12 +64,27 @@ make ingest                        # uv run registry ingest-fda-list --verbose
 uv run python scripts/check_bronze_rowcount.py
 ```
 
-## Where the data goes, and the open decision
+## Where the data goes
 
-Today the bronze table is written to the runner's `./lakehouse` and kept only as
-a build artifact — enough to prove the pipeline runs full-sized and to inspect a
-pull, but **not durable shared state**. Choosing the persistent target (commit the
-Delta files, push to cloud object storage, or write straight to a Databricks
-Unity Catalog volume — `settings` already supports `storage_mode=catalog` with a
-`catalog.schema` root) is the next decision and should be recorded as an ADR
-before this workflow is relied on as the system of record.
+Decided in [ADR 0011](adr/0011-defer-durable-bronze-persistence.md): durable cloud
+persistence is **deferred** until there is a business Azure tenancy, with
+**Azure ADLS Gen2 named as the target**.
+
+Until then:
+
+- The runner's `./lakehouse` starts empty every run, so the CI table holds exactly
+  one snapshot. That is fine for what this workflow is for — proving the pipeline
+  runs full-sized and detecting source drift — but it is **not** shared state.
+- Each run uploads the full snapshot as a build artifact with **90-day retention**.
+  That is the off-machine archive: weekly captures that can be replayed into a real
+  table once Azure exists. Bronze history is not reconstructible — the FDA list is
+  mutable and you can only ever fetch *now* — so capturing each week matters even
+  while there is nowhere durable to put it.
+- The **developer's local `./lakehouse` is the working store**, refreshed weekly
+  via `make ingest`. It is the only copy that accumulates a queryable history, so
+  it wants an ordinary backup.
+
+When Azure arrives, no pipeline code changes: set
+`REGISTRY_LAKEHOUSE_ROOT=abfss://…` (still `storage_mode=path`), or
+`storage_mode=catalog` for a Unity Catalog table over the same container. See the
+ADR for the connector JARs and the single-writer LogStore caveat.

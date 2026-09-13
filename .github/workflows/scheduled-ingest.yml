@@ -119,5 +119,8 @@ jobs:
           path: |
             lakehouse/**
             ingest-summary.txt
-          retention-days: 30
+          # 90 days (the GitHub maximum): bronze history is not reconstructible,
+          # so each weekly capture is kept as long as possible until durable
+          # storage exists (ADR 0011).
+          retention-days: 90
           if-no-files-found: error

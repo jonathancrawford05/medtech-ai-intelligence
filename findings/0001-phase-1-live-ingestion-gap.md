@@ -1,6 +1,11 @@
 # 0001 — Phase 1 acceptance is unmet: the pipeline has never run against the live FDA source
 
-**Date:** 2026-09-07 · **Status:** Open (acquisition half closed) · **Component:** `ingest/fda_ai_list.py`
+**Date:** 2026-09-07 · **Status:** **Closed 2026-09-13** · **Component:** `ingest/fda_ai_list.py`
+
+**Closed by [finding 0006](0006-phase-1-acceptance-met.md):** a full-sized bronze
+write ran both locally and on CI — 1,614 rows fetched, parsed and written, 100%
+against the plan's 95% criterion. The body below is left intact as the record of
+what was open and why.
 
 **Updated 2026-09-13:** acquisition is now verified by *execution* — a live
 dry run fetched and parsed all 1,614 rows from a developer machine. See
