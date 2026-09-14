@@ -120,6 +120,38 @@ class TestBuildReport:
         assert "Nonexistent Panel" in text, "an uncurated panel must be named, not just counted"
         assert report.ok is False, "rows in the default specialty are a finding, not a statistic"
 
+    def test_separates_a_missing_panel_from_an_uncurated_one(self, spark, bronze_two_pulls):
+        """Review nit on PR #8. Both land in the default category, but "the FDA listed
+        no panel" and "a panel nobody has curated" are different facts with different
+        fixes -- only the second is answered by editing the taxonomy. Reporting them
+        together also renders as `Uncurated FDA panel(s): ''`, which reads as a bug."""
+        _write_silver(
+            spark,
+            bronze_two_pulls,
+            [
+                _silver_row("K1", panel="Nonexistent Panel", category="other"),
+                _silver_row("K2", panel="", category="other"),
+                _silver_row("K3", panel="   ", category="other"),
+            ],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert report.ok is False
+        assert "Nonexistent Panel" in text
+        assert "''" not in text, "an empty panel must not be listed as an uncurated label"
+        uncurated_line = next(line for line in report.lines if "Uncurated FDA panel" in line)
+        assert "1 row" in uncurated_line, uncurated_line
+        missing_line = next(line for line in report.lines if "no panel" in line)
+        assert "2 row" in missing_line, missing_line
+
+    def test_a_missing_panel_alone_is_still_reported(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1", panel="", category="other")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert report.ok is False
+        assert "no panel" in text
+        assert "Uncurated FDA panel" not in text, "nothing to curate when the FDA listed nothing"
+
     def test_is_clean_when_every_panel_is_curated(self, spark, bronze_two_pulls):
         _write_silver(spark, bronze_two_pulls, [_silver_row("K1"), _silver_row("K2")])
         report = lakehouse_report.build_report(spark, bronze_two_pulls)

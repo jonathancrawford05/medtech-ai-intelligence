@@ -5,7 +5,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 it is the only thing that survives a context window.
 
 **Last updated:** 2026-09-13 · **Branch:** `claude/silver-bronze-to-silver` (PR open)
-**Suite:** 210 passing, ruff + markdownlint clean; `live_network`
+**Suite:** 216 passing, 90% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —

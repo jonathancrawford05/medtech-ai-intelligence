@@ -134,17 +134,35 @@ def _silver_section(report: Report, silver: DataFrame, settings: Settings) -> No
     report.say("  specialty categories:")
     _render(report, _counts(silver, "specialty_category", limit=30), "specialty_category")
 
+    # Two different facts land in the default category and only one is fixed by
+    # editing the taxonomy, so they are reported separately: a panel we have not
+    # curated is a curation backlog item, a row with no panel at all is a gap in
+    # the source (or in parsing) that no taxonomy entry can close.
     default_category = taxonomy.load(settings).default_category
-    uncurated = silver.filter(F.col("specialty_category") == default_category)
+    defaulted = silver.filter(F.col("specialty_category") == default_category)
+    blank_panel = F.col("specialty_panel").isNull() | (F.trim(F.col("specialty_panel")) == "")
+
+    uncurated = defaulted.filter(~blank_panel)
     uncurated_count = uncurated.count()
     if uncurated_count:
         panels = sorted(
-            {r["specialty_panel"] for r in uncurated.select("specialty_panel").distinct().collect()}
+            {
+                r["specialty_panel"].strip()
+                for r in uncurated.select("specialty_panel").distinct().collect()
+            }
         )
         report.problem(
             f"{uncurated_count:,} row(s) fell to '{default_category}'. Uncurated FDA "
             f"panel(s): {', '.join(repr(p) for p in panels)}. Add them to "
             f"{settings.specialty_taxonomy_path}."
+        )
+
+    missing_count = defaulted.filter(blank_panel).count()
+    if missing_count:
+        report.problem(
+            f"{missing_count:,} row(s) have no panel at all, so they fell to "
+            f"'{default_category}'. Nothing to curate -- check the source column and "
+            "the bronze parse."
         )
 
     report.say()
