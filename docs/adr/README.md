@@ -17,6 +17,7 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0009](0009-fda-ai-list-acquisition-verified.md) | FDA list acquisition, live-verified: known CSV URL + link discovery | Accepted |
 | [0010](0010-openfda-client.md) | openFDA client: endpoint routing, missing = None, on-disk cache | Accepted |
 | [0011](0011-defer-durable-bronze-persistence.md) | Defer durable bronze persistence; Azure ADLS Gen2 is the target | Accepted |
+| [0012](0012-silver-schema-and-supplement-handling.md) | Optional-until-enriched silver fields; PMA supplements stay whole keys | Accepted |
 
 ## Writing a new one
 

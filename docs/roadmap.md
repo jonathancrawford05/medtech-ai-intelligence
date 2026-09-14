@@ -45,6 +45,13 @@ backoff retries on 429; fixtures are real slices; `-m "not live_network"` green.
 
 ## Issue 2 — bronze→silver transform (`transform/bronze_to_silver.py`)
 
+> **Status 2026-09-13 — partially delivered.** The transform, taxonomy loader and
+> company resolution are built and tested ([finding 0007](../findings/0007-silver-build.md));
+> the two flagged decisions are settled in
+> [ADR 0012](adr/0012-silver-schema-and-supplement-handling.md). **Outstanding:**
+> the openFDA enrichment pass (device class, predicate lineage, PCCP,
+> cybersecurity — all `None` today) and the two-stage mortality flag.
+
 **Why.** Turn raw pulls into the queryable `DeviceRecord` silver table by joining the
 latest AI-list pull against openFDA (Issue 1). This is where the registry becomes
 useful.

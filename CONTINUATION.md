@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-13 · **Branch:** work from `main`
-**Suite:** 121 passing, 89% coverage, ruff + markdownlint clean; `live_network`
+**Last updated:** 2026-09-13 · **Branch:** `claude/silver-bronze-to-silver` (PR open)
+**Suite:** 216 passing, 90% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -19,7 +19,7 @@ target `main` unless a stack is deliberate.
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
-| **2 — Silver transforms** | 🔲 Not started | `schemas.py` is finished, which is the bulk of the design work |
+| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). openFDA-dependent fields (`device_class`, predicate lineage, PCCP, cybersecurity) are **`None` until an enrichment pass exists** — coverage is currently 0% ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). |
 | **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
 | **4 — Monitoring** | 🔲 Not started | |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
@@ -125,14 +125,42 @@ findings/                        what was actually verified, and what was not
    submission number before joining.
 4. **`transform/company_resolution.py`** — start with a hand-maintained lookup in
    `config/`, ~20 applicants by volume. No M&A scraping (explicit non-goal).
-5. **Taxonomy loader** — read `config/specialty_taxonomy.yaml` via
-   `settings.specialty_taxonomy_path` to populate `specialty_category`. The file
-   exists; nothing reads it yet.
-6. Phases 3–5 per the development plan.
+5. ~~**Taxonomy loader**~~ — **done**. Reads `config/specialty_taxonomy.yaml`,
+   normalises panel spellings, records uncurated panels in `unmapped_panels`.
+6. **Run the pipeline over the real 1,614-row pull and inspect it.** On a host
+   that can reach `fda.gov`:
+
+   ```bash
+   uv run registry ingest-fda-list      # append a real pull to bronze
+   uv run registry build-silver         # rebuild silver from it
+   uv run registry inspect              # non-zero exit == something is wrong
+   ```
+
+   At 1,614 rows `inspect` will almost certainly name panels the taxonomy has
+   not curated — that is the point, and curating them is the follow-up.
+7. **openFDA enrichment pass.** `device_class`, predicate lineage, PCCP and the
+   cybersecurity flag are all `None` today; `inspect` reports 0.0% coverage for
+   each. This is the largest remaining gap in Phase 2.
+8. **Apply the finding-0008 lesson to `config/company_aliases.yaml`** — curated
+   config checked only against curated fixtures agrees with itself and can still
+   be wrong. Needs a coverage-threshold test against the real export, not a
+   zero-miss one.
+9. Phases 3–5 per the development plan.
 
 ---
 
 ## 5. Known gaps and traps
+
+- **Curated config is not validated by curated fixtures.** `specialty_taxonomy.yaml`
+  spelled a panel `General & Plastic Surgery` where the FDA export says
+  `General and Plastic Surgery`; every taxonomy test passed because every test
+  used *our* spelling. Two real rows silently became `other`. Lookups are now
+  normalised and a test reads panel labels straight out of the real-export
+  fixture ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). The same
+  hole is still open for `company_aliases.yaml`.
+- **`make test` locally will show 3 failures without network.** They are the
+  `live_network` tests; CI deselects them. Use `uv run pytest -m "not live_network"`
+  on a blocked host.
 
 - **Docker image built + Phase 0 verified (2026-09-06).** Built on Apple Silicon
   and `registry smoke` inside the image printed `Spark 4.0.1 up.` +

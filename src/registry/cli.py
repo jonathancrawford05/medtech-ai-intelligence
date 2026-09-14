@@ -64,6 +64,32 @@ def ingest_fda_list(
     typer.echo(f"Appended {written} rows to {settings.table_ref('bronze_fda_ai_list')}")
 
 
+@app.command("build-silver")
+def build_silver(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Rebuild `silver_devices` from the newest bronze pull."""
+    _setup_logging(verbose)
+    from registry.spark_session import get_spark
+    from registry.transform import bronze_to_silver
+
+    settings = get_settings()
+    written = bronze_to_silver.run(get_spark(settings), settings)
+    typer.echo(f"Wrote {written} rows to {settings.table_ref('silver_devices')}")
+
+
+@app.command()
+def inspect() -> None:
+    """Report what the local lakehouse holds, and exit non-zero if it looks wrong."""
+    from registry import lakehouse_report
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    report = lakehouse_report.build_report(get_spark(settings), settings)
+    for line in report.lines:
+        typer.echo(line)
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def smoke() -> None:
     """Verify Spark + Delta work end to end (the Phase 0 acceptance check)."""

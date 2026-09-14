@@ -49,3 +49,11 @@ def _isolate_env(monkeypatch) -> Iterator[None]:
         if key.startswith("REGISTRY_"):
             monkeypatch.delenv(key, raising=False)
     yield
+
+
+@pytest.fixture
+def silver_ctx():
+    """Curated lookups the bronze->silver row build needs, from the repo config."""
+    from registry.transform.bronze_to_silver import SilverContext
+
+    return SilverContext.load(Settings())

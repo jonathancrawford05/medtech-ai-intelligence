@@ -73,6 +73,22 @@ make test-fast  # skip the JVM tests
 make lint       # ruff check + format check
 ```
 
+### Running the pipeline, and checking what it produced
+
+```bash
+uv run registry ingest-fda-list --dry-run   # fetch + parse, write nothing
+uv run registry ingest-fda-list             # append a pull to bronze
+uv run registry build-silver                # rebuild silver from the newest pull
+uv run registry inspect                     # read it back and say whether it looks right
+```
+
+`inspect` is a verdict, not a dump: it exits non-zero when a silver row has a null
+key or decision date, or when rows fall into the taxonomy's default specialty —
+which means an FDA panel nobody has curated yet. That check is there because it
+found a real one (see [`findings/0008`](findings/0008-taxonomy-spelling-mismatch.md)).
+Missing openFDA enrichment is reported as coverage, not as a failure: those fields
+stay null by design until the enrichment pass lands (ADR 0012).
+
 ## Configuration
 
 Everything is environment-driven with a `REGISTRY_` prefix; copy `.env.example`
@@ -171,10 +187,12 @@ Optional: `uv run pre-commit install`.
 | `src/registry/schemas.py` | Pydantic models + generated Spark schemas |
 | `src/registry/ingest/` | Source acquisition → bronze |
 | `src/registry/transform/` | Bronze → silver (Phase 2) |
+| `src/registry/lakehouse_report.py` | `registry inspect` — read the lakehouse back, verdict + non-zero exit |
 | `src/registry/mart/` | Gold-layer marts (Phase 3) |
 | `src/registry/monitor/` | New-device diffing (Phase 4) |
 | `config/` | Hand-curated YAML lookups |
 | `docs/adr/` | Architecture decision records |
+| `findings/` | What was verified by execution, and what it cost |
 | `CONTINUATION.md` | Current state and next steps |
 
 ## Non-goals for the prototype
