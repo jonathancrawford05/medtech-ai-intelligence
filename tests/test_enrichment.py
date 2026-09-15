@@ -134,6 +134,21 @@ class TestBuildEnrichment:
         enrichment.build_records(SILVER_ROWS, client)
         assert sorted(client.classification_calls) == ["QAS", "QIH"]
 
+    def test_does_not_look_up_the_unknown_product_code_sentinel(self):
+        """`build_device_record` writes "UNKNOWN" when the FDA row has no product
+        code. It is our sentinel, not an FDA code, so querying it is a guaranteed
+        miss -- and on a source that starts omitting product codes it would be a
+        guaranteed miss repeated for every affected device."""
+        rows = [
+            {"submission_number": "K9", "product_code": "UNKNOWN", "decision_date": None},
+            {"submission_number": "K1", "product_code": "QAS", "decision_date": None},
+        ]
+        client = FakeClient()
+        records = {r.submission_number: r for r in enrichment.build_records(rows, client)}
+        assert client.classification_calls == ["QAS"]
+        # The device is still enriched by tier 2 and still written.
+        assert records["K9"].classification_found is False
+
     def test_populates_device_class_from_the_classification_tier(self):
         client = FakeClient(classifications={"QAS": _classification("QAS", device_class="3")})
         records = {r.submission_number: r for r in enrichment.build_records(SILVER_ROWS, client)}

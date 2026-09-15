@@ -5,7 +5,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 it is the only thing that survives a context window.
 
 **Last updated:** 2026-09-15 · **Branch:** `claude/openfda-enrichment` (PR open)
-**Suite:** 216 passing, 90% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
+**Suite:** 255 passing, 89% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -132,14 +132,19 @@ findings/                        what was actually verified, and what was not
    rows, one per submission, 0 missing raw values, dates parsing across 1995–2026.
    Found and fixed the FDA's own `Clinical Toxcicology` misspelling and a pull-history
    bug in `inspect`.
-7. ~~**openFDA enrichment pass**~~ — **built** ([ADR 0013](docs/adr/0013-openfda-enrichment-architecture.md)).
-   **Never run against the live API** — `api.fda.gov` is blocked from agent
-   environments; run `registry enrich-openfda` on the Mac and record the result.
-   Expect ~181 + 1,614 calls on the first run, near-zero after (disk cache).
-8. **The PDF pass** — predicate lineage, PCCP and the cybersecurity statement are
-   **not in any openFDA endpoint**; they are in the 510(k) summary PDF. Deferred
-   pending business buy-in (ADR 0013 Decision 4). `statement_or_summary` is now
-   recorded so the scope of that work is a query, not a guess.
+7. ~~**openFDA enrichment pass**~~ — **built and verified live 2026-09-15**
+   ([ADR 0013](docs/adr/0013-openfda-enrichment-architecture.md),
+   [finding 0010](findings/0010-live-openfda-enrichment.md)). Both tiers 100% over
+   the real 1,614 rows; `device_class` fully populated; 99% Class II. Re-running is
+   near-free via the disk cache. Note `api.fda.gov` is blocked from agent
+   environments — live runs happen on the Mac.
+8. **The PDF pass (roadmap Issue 4)** — predicate lineage, PCCP and the
+   cybersecurity statement are **not in any openFDA endpoint**; they are in the
+   510(k) summary PDF. Deferred pending business buy-in (ADR 0013 Decision 4).
+   **The ceiling is now measured: 1,541 of 1,614 devices (95.5%) filed a public
+   Summary**; only 11 are structurally unreachable. Given 96% of the registry
+   cleared by demonstrating equivalence to a predicate, predicate lineage is the
+   highest-value item outstanding.
 9. **Curation backlog surfaced by the full run** (finding 0009): three GE entities
    resolve separately (76 authorisations across them), and
    `config/company_aliases.yaml` still has the untested-against-reality hole that

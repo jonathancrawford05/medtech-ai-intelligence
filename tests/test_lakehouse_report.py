@@ -42,6 +42,7 @@ def _silver_row(
     panel: str = "Cardiovascular",
     category: str = "cardiovascular",
     decision_date: dt.date | None = dt.date(2024, 1, 15),
+    device_class: str | None = None,
 ):
     return (
         submission,
@@ -53,14 +54,14 @@ def _silver_row(
         panel,
         category,
         "QAS",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        None,  # pma_base_number
+        None,  # pma_supplement_number
+        device_class,
+        None,  # predicate_submission_number
+        None,  # predicate_age_days
+        None,  # has_pccp
+        None,  # pccp_summary
+        None,  # cybersecurity_statement_present
         "https://example.test/list",
     )
 
@@ -205,13 +206,38 @@ class TestBuildReport:
         assert any("decision_date" in line for line in report.lines)
 
     def test_reports_enrichment_coverage_so_zero_percent_is_visible(self, spark, bronze_two_pulls):
-        """ADR 0012 leaves these null until the openFDA pass runs; 0% must be legible
-        as "not enriched yet" rather than looking like a silently empty column."""
+        """ADR 0012 leaves device_class null until the openFDA pass runs; 0% must be
+        legible as "not enriched yet" rather than a silently empty column."""
         _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
         report = lakehouse_report.build_report(spark, bronze_two_pulls)
         text = "\n".join(report.lines)
         assert "device_class" in text and "0.0%" in text
         assert report.ok is True, "missing enrichment is expected, not a failure"
+
+    def test_does_not_call_the_pdf_only_fields_unenriched(self, spark, bronze_two_pulls):
+        """Found on the first live enrichment run. The report grouped all four
+        unenriched fields under "0% is expected until that pass runs" -- so after a
+        100%-successful openFDA pass it showed device_class at 100% and the other
+        three at 0%, telling a reader the pass had not run.
+
+        Three of those four are not obtainable from openFDA at all (ADR 0013
+        Decision 4). They must be reported as awaiting a *different* pass, never as
+        coverage of the one that just succeeded.
+        """
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1", device_class="II")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+
+        openfda_line = next(ln for ln in report.lines if "device_class" in ln and "%" in ln)
+        assert "100.0%" in openfda_line, openfda_line
+
+        assert "has_pccp" in text and "Issue 4" in text
+        pdf_lines = [ln for ln in report.lines if "has_pccp" in ln]
+        assert all("%" not in ln for ln in pdf_lines), (
+            "a percentage implies a fetch that could have filled it",
+            pdf_lines,
+        )
+        assert report.ok is True
 
     def test_a_silverless_lakehouse_is_reported_not_an_error(self, spark, bronze_two_pulls):
         report = lakehouse_report.build_report(spark, bronze_two_pulls)

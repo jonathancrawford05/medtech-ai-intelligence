@@ -48,6 +48,11 @@ _DEVICE_CLASS = {"1": "I", "2": "II", "3": "III"}
 _TRUE = {"y", "yes", "true"}
 _FALSE = {"n", "no", "false"}
 
+# `build_device_record` writes this when the FDA row carries no product code. It is
+# our sentinel, not an FDA code, so looking it up is a guaranteed miss -- and would
+# be one call per affected device if the source ever starts omitting the column.
+_UNKNOWN_PRODUCT_CODE = "UNKNOWN"
+
 
 class SupportsOpenFda(Protocol):
     """The slice of ``OpenFdaClient`` this module uses (so tests can fake it)."""
@@ -123,9 +128,10 @@ def build_records(
     # two-tier split. Misses are cached as None so a bad code is not retried per
     # device that happens to use it.
     codes = {
-        (row.get("product_code") or "").strip().upper()
+        code
         for row in rows
-        if (row.get("product_code") or "").strip()
+        if (code := (row.get("product_code") or "").strip().upper())
+        and code != _UNKNOWN_PRODUCT_CODE
     }
     classifications: dict[str, Any] = {}
     for code in sorted(codes):

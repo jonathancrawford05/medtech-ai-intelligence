@@ -79,8 +79,16 @@ failure costs only the calls that did not land.
 Three of these earn their place beyond completeness:
 
 - **`life_sustain_support_flag`** is an FDA-assigned structured flag on the device
-  classification. It is a far better stage-1 input to the two-stage mortality flag
-  (ADR 0007) than keyword matching, and it costs nothing extra.
+  classification, and it costs nothing extra to collect.
+
+  > **Corrected 2026-09-15, against the live run.** This ADR originally called it
+  > "a far better stage-1 input to the two-stage mortality flag than keyword
+  > matching". The first full pass returns **True for 3 of 1,614 devices** — against
+  > 154 in the cardiovascular specialty alone. It is a high-precision, near-zero-recall
+  > signal: whatever it flags is worth attention, but it cannot be the stage-1 filter,
+  > because stage 1 must not miss. It is a *rule-in* signal only. The claim was made
+  > from the field's name before any data existed to test it; see
+  > [finding 0010](../../findings/0010-live-openfda-enrichment.md).
 - **`review_time_days`** is a trend the curated list cannot express at all, and it
   is the kind of thing the underwriting audience asks about unprompted.
 - **`statement_or_summary`** is the fetchability flag for the PDF work below.

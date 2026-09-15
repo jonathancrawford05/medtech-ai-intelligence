@@ -201,7 +201,6 @@ Optional: `uv run pre-commit install`.
 | `src/registry/transform/` | Bronze → silver (Phase 2) |
 | `src/registry/lakehouse_report.py` | `registry inspect` — read the lakehouse back, verdict + non-zero exit |
 | `src/registry/transform/enrichment.py` | openFDA enrichment → `silver_device_enrichment` (ADR 0013) |
-| `src/registry/transform/enrichment.py` | openFDA enrichment → `silver_device_enrichment` (ADR 0013) |
 | `src/registry/mart/` | Gold-layer marts (Phase 3) |
 | `src/registry/monitor/` | New-device diffing (Phase 4) |
 | `config/` | Hand-curated YAML lookups |

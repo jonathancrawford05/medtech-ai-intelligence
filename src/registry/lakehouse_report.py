@@ -34,11 +34,18 @@ from registry.transform import taxonomy
 # source changed shape or the parser lost a column, which silver cannot fix.
 _BRONZE_COLUMNS = ("device_name", "applicant_raw", "decision_date_raw", "panel_raw", "product_code")
 
-# Populated by the openFDA enrichment pass; all null until it runs (ADR 0012).
-_ENRICHMENT_COLUMNS = (
-    "device_class",
+# Populated by `registry enrich-openfda`; null until it runs (ADR 0012).
+_OPENFDA_COLUMNS = ("device_class",)
+
+# NOT obtainable from openFDA at any coverage -- no endpoint carries them. They are
+# in the 510(k) summary PDF (ADR 0013 Decision 4, roadmap Issue 4). Reporting these
+# as "0% coverage" alongside the openFDA fields told a reader that a pass which had
+# just succeeded at 100% had not run.
+_DOCUMENT_ONLY_COLUMNS = (
     "predicate_submission_number",
+    "predicate_age_days",
     "has_pccp",
+    "pccp_summary",
     "cybersecurity_statement_present",
 )
 
@@ -179,11 +186,21 @@ def _silver_section(report: Report, silver: DataFrame, settings: Settings) -> No
         )
 
     report.say()
-    report.say("  openFDA enrichment coverage (0% is expected until that pass runs, ADR 0012):")
-    for column in _ENRICHMENT_COLUMNS:
+    report.say("  openFDA enrichment (run `registry enrich-openfda`; 0% means not yet run):")
+    for column in _OPENFDA_COLUMNS:
         filled = silver.filter(F.col(column).isNotNull()).count()
         pct = 100 * filled / rows if rows else 0.0
         report.say(f"    {column:<32} {filled:>7,} / {rows:,}  ({pct:.1f}%)")
+
+    # Deliberately no percentage: a coverage figure implies a fetch that could have
+    # filled the column, and none exists yet.
+    report.say()
+    report.say("  awaiting the document pass (roadmap Issue 4) -- not in any openFDA endpoint:")
+    report.say(f"    {', '.join(_DOCUMENT_ONLY_COLUMNS)}")
+    report.say(
+        "    These live in the 510(k) summary PDF. `silver_device_enrichment."
+        "statement_or_summary` says how many are fetchable."
+    )
 
     supplements = silver.filter(F.col("pma_supplement_number").isNotNull())
     supplement_count = supplements.count()
