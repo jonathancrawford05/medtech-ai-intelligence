@@ -97,6 +97,30 @@ def enrich_openfda(
     typer.echo(f"Enriched {written} devices into {settings.table_ref('silver_device_enrichment')}")
 
 
+@app.command("build-mart")
+def build_mart(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Load the curated mortality seed and rebuild the gold mortality mart.
+
+    Only devices with a *confirmed* judgement qualify (ADR 0007): a keyword hit is
+    a lead to review, never an answer.
+    """
+    _setup_logging(verbose)
+    from registry.mart import mortality_relevant
+    from registry.spark_session import get_spark
+    from registry.transform import mortality_seed
+
+    settings = get_settings()
+    spark = get_spark(settings)
+
+    curated = mortality_seed.run(spark, settings)
+    typer.echo(f"Loaded {curated} curated judgement(s) into {mortality_seed.EVIDENCE_TABLE}")
+
+    written = mortality_relevant.run(spark, settings)
+    typer.echo(f"Wrote {written} row(s) to {settings.table_ref(mortality_relevant.MART_TABLE)}")
+    if curated and not written:
+        typer.echo("Note: judgements exist but none are confirmed True.")
+
+
 @app.command()
 def inspect() -> None:
     """Report what the local lakehouse holds, and exit non-zero if it looks wrong."""

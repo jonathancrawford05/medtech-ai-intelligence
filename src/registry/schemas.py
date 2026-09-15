@@ -241,12 +241,20 @@ class EvidenceRecord(BaseModel):
     """
 
     submission_number: str  # FK to DeviceRecord
-    reports_sensitivity_specificity: bool
+
+    # Read from the 510(k) summary PDF, which nothing fetches yet (roadmap Issue
+    # 4). `None` means "no summary has been read", which is a different claim
+    # from False ("the summary reports no sensitivity/specificity") -- the same
+    # distinction ADR 0012 drew for the openFDA fields.
+    reports_sensitivity_specificity: bool | None = None
     sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
     specificity: float | None = Field(default=None, ge=0.0, le=1.0)
-    discloses_demographics: bool
+    discloses_demographics: bool | None = None
     demographic_summary: str | None = None
+
+    # The evidence the mortality judgement was made from, verbatim.
     intended_use_text: str
+    intended_use_source: str | None = None
 
     mortality_keyword_flag: bool
     mortality_confirmed_flag: bool | None = None
