@@ -20,13 +20,13 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from registry.config.settings import Settings, get_settings
 from registry.ingest.openfda_client import split_pma_number
 from registry.schemas import DeviceRecord, spark_schema_for
-from registry.transform import company_resolution, taxonomy
+from registry.transform import company_resolution, enrichment, taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,12 @@ class SilverContext:
 
     taxonomy: taxonomy.SpecialtyTaxonomy
     companies: company_resolution.CompanyLookup
+    # Submission number -> DeviceClass, read from `silver_device_enrichment` by the
+    # caller. A plain dict, not a client: build-silver must stay offline and
+    # deterministic (ADR 0013), so the fetch happens in `registry enrich-openfda`
+    # and this transform only ever reads what it produced. Empty is normal -- it is
+    # what silver did before enrichment existed.
+    device_classes: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def load(cls, settings: Settings | None = None) -> SilverContext:
@@ -150,9 +156,13 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
         product_code=(row.get("product_code") or "").strip().upper() or "UNKNOWN",
         pma_base_number=base,
         pma_supplement_number=supplement,
+        # Absent from the map means "not enriched", which is what None already
+        # says -- never a default class (ADR 0012).
+        device_class=ctx.device_classes.get(submission),
         source_url=(row.get("source_url") or "").strip() or "",
-        # device_class / has_pccp / cybersecurity_statement_present / predicate
-        # lineage stay None until the openFDA enrichment pass (ADR 0012).
+        # has_pccp, pccp_summary, cybersecurity_statement_present and predicate
+        # lineage stay None: no openFDA endpoint carries them, they are in the
+        # 510(k) summary PDF (ADR 0013 Decision 4).
     )
 
 
@@ -188,6 +198,9 @@ def run(spark=None, settings: Settings | None = None) -> int:
     settings = settings or get_settings()
     spark = spark or get_spark(settings)
     ctx = SilverContext.load(settings)
+    ctx = replace(ctx, device_classes=enrichment.device_classes_by_submission(spark, settings))
+    if ctx.device_classes:
+        logger.info("Joined %d device classes from enrichment", len(ctx.device_classes))
 
     rows = latest_bronze_rows(spark, settings)
     records = [rec for row in rows if (rec := build_device_record(row, ctx)) is not None]

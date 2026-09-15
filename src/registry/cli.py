@@ -76,6 +76,27 @@ def build_silver(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None
     typer.echo(f"Wrote {written} rows to {settings.table_ref('silver_devices')}")
 
 
+@app.command("enrich-openfda")
+def enrich_openfda(
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    limit: int = typer.Option(
+        0, "--limit", help="Enrich only the first N devices (for a cheap trial run)."
+    ),
+) -> None:
+    """Fetch openFDA facts for every silver device into `silver_device_enrichment`.
+
+    Separate from `build-silver` on purpose (ADR 0013): rebuilding silver stays
+    offline and free, and re-fetching is a deliberate act.
+    """
+    _setup_logging(verbose)
+    from registry.spark_session import get_spark
+    from registry.transform import enrichment
+
+    settings = get_settings()
+    written = enrichment.run(get_spark(settings), settings, limit=limit or None)
+    typer.echo(f"Enriched {written} devices into {settings.table_ref('silver_device_enrichment')}")
+
+
 @app.command()
 def inspect() -> None:
     """Report what the local lakehouse holds, and exit non-zero if it looks wrong."""

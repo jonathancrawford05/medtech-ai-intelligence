@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-13 · **Branch:** `claude/silver-bronze-to-silver` (PR open)
-**Suite:** 216 passing, 90% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
+**Last updated:** 2026-09-15 · **Branch:** `claude/openfda-enrichment` (PR open)
+**Suite:** 255 passing, 89% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -127,25 +127,33 @@ findings/                        what was actually verified, and what was not
    `config/`, ~20 applicants by volume. No M&A scraping (explicit non-goal).
 5. ~~**Taxonomy loader**~~ — **done**. Reads `config/specialty_taxonomy.yaml`,
    normalises panel spellings, records uncurated panels in `unmapped_panels`.
-6. **Run the pipeline over the real 1,614-row pull and inspect it.** On a host
-   that can reach `fda.gov`:
-
-   ```bash
-   uv run registry ingest-fda-list      # append a real pull to bronze
-   uv run registry build-silver         # rebuild silver from it
-   uv run registry inspect              # non-zero exit == something is wrong
-   ```
-
-   At 1,614 rows `inspect` will almost certainly name panels the taxonomy has
-   not curated — that is the point, and curating them is the follow-up.
-7. **openFDA enrichment pass.** `device_class`, predicate lineage, PCCP and the
-   cybersecurity flag are all `None` today; `inspect` reports 0.0% coverage for
-   each. This is the largest remaining gap in Phase 2.
-8. **Apply the finding-0008 lesson to `config/company_aliases.yaml`** — curated
-   config checked only against curated fixtures agrees with itself and can still
-   be wrong. Needs a coverage-threshold test against the real export, not a
-   zero-miss one.
-9. Phases 3–5 per the development plan.
+6. ~~**Run the pipeline over the real 1,614-row pull**~~ — **done 2026-09-15**
+   ([finding 0009](findings/0009-first-full-scale-silver-run.md)). 1,614 silver
+   rows, one per submission, 0 missing raw values, dates parsing across 1995–2026.
+   Found and fixed the FDA's own `Clinical Toxcicology` misspelling and a pull-history
+   bug in `inspect`.
+7. ~~**openFDA enrichment pass**~~ — **built and verified live 2026-09-15**
+   ([ADR 0013](docs/adr/0013-openfda-enrichment-architecture.md),
+   [finding 0010](findings/0010-live-openfda-enrichment.md)). Both tiers 100% over
+   the real 1,614 rows; `device_class` fully populated; 99% Class II. Re-running is
+   near-free via the disk cache. Note `api.fda.gov` is blocked from agent
+   environments — live runs happen on the Mac.
+8. **The PDF pass (roadmap Issue 4)** — predicate lineage, PCCP and the
+   cybersecurity statement are **not in any openFDA endpoint**; they are in the
+   510(k) summary PDF. Deferred pending business buy-in (ADR 0013 Decision 4).
+   **The ceiling is now measured: 1,541 of 1,614 devices (95.5%) filed a public
+   Summary**; only 11 are structurally unreachable. Given 96% of the registry
+   cleared by demonstrating equivalence to a predicate, predicate lineage is the
+   highest-value item outstanding.
+9. **Curation backlog surfaced by the full run** (finding 0009): three GE entities
+   resolve separately (76 authorisations across them), and
+   `config/company_aliases.yaml` still has the untested-against-reality hole that
+   `specialty_taxonomy.yaml` had. Needs a coverage threshold, not a zero-miss test.
+10. **The two-stage mortality flag** (ADR 0007) — the other outstanding half of
+    Issue 2. Cardiovascular is only 154 of 1,614 rows, so hand review is tractable,
+    and `life_sustain_support` from enrichment is a better stage-1 signal than
+    keywords.
+11. Phases 3–5 per the development plan.
 
 ---
 

@@ -87,6 +87,30 @@ class TestLoad:
             taxonomy.load(Settings(config_dir=tmp_path / "nope"))
 
 
+class TestSourceSideMisspellings:
+    """The FDA misspells its own panel names, and normalisation cannot fix that.
+
+    The 1,614-row export spells the Clinical Toxicology panel "Clinical
+    Toxcicology". Normalisation collapses punctuation and connector words, not
+    transpositions -- so a misspelling has to be curated explicitly, as its own key
+    mapping to the same category. Guessing at near-misses (edit distance, fuzzy
+    matching) would silently map genuinely new panels onto existing categories,
+    which is the failure the unmapped-panel report exists to prevent.
+    """
+
+    def test_the_fda_misspelling_of_clinical_toxicology_is_curated(self):
+        real = taxonomy.load(Settings())
+        assert real.category_for("Clinical Toxcicology") == "metabolic"
+        assert real.category_for("Clinical Toxicology") == "metabolic"
+        assert real.unmapped_panels == set()
+
+    def test_a_misspelling_we_have_not_seen_is_still_reported(self):
+        """The fix is curation, not fuzzy matching: an unseen typo must surface."""
+        real = taxonomy.load(Settings())
+        assert real.category_for("Cardiovasular") == "other"
+        assert "Cardiovasular" in real.unmapped_panels
+
+
 class TestPanelLabelNormalisation:
     """FDA panel labels are not spelled consistently across sources and years.
 

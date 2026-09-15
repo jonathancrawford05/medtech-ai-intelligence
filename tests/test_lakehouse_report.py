@@ -42,6 +42,7 @@ def _silver_row(
     panel: str = "Cardiovascular",
     category: str = "cardiovascular",
     decision_date: dt.date | None = dt.date(2024, 1, 15),
+    device_class: str | None = None,
 ):
     return (
         submission,
@@ -53,14 +54,14 @@ def _silver_row(
         panel,
         category,
         "QAS",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        None,  # pma_base_number
+        None,  # pma_supplement_number
+        device_class,
+        None,  # predicate_submission_number
+        None,  # predicate_age_days
+        None,  # has_pccp
+        None,  # pccp_summary
+        None,  # cybersecurity_statement_present
         "https://example.test/list",
     )
 
@@ -73,6 +74,25 @@ def bronze_two_pulls(spark, lakehouse):
         _bronze_row("K2", "snap-a", dt.datetime(2024, 3, 1, 9, 0)),
         _bronze_row("K1", "snap-b", dt.datetime(2024, 4, 1, 9, 0)),
         _bronze_row("K2", "snap-b", dt.datetime(2024, 4, 1, 9, 0)),
+    ]
+    df = spark.createDataFrame(rows, spark_schema_for(BronzeFdaAiListRecord))
+    tables.write_table(df, lakehouse, "bronze_fda_ai_list", mode="overwrite")
+    return lakehouse
+
+
+@pytest.fixture
+def bronze_two_identical_pulls(spark, lakehouse):
+    """Two pulls whose payloads were byte-identical, so they share a snapshot id.
+
+    `source_snapshot_id` is a content hash, so re-ingesting an unchanged FDA export
+    produces the same id with a later `ingested_at`. This is the common case, not an
+    edge case -- the list does not change every day.
+    """
+    rows = [
+        _bronze_row("K1", "same-snap", dt.datetime(2024, 3, 1, 9, 0)),
+        _bronze_row("K2", "same-snap", dt.datetime(2024, 3, 1, 9, 0)),
+        _bronze_row("K1", "same-snap", dt.datetime(2024, 4, 1, 9, 0)),
+        _bronze_row("K2", "same-snap", dt.datetime(2024, 4, 1, 9, 0)),
     ]
     df = spark.createDataFrame(rows, spark_schema_for(BronzeFdaAiListRecord))
     tables.write_table(df, lakehouse, "bronze_fda_ai_list", mode="overwrite")
@@ -105,6 +125,23 @@ class TestBuildReport:
         # Two pulls must be visible as two snapshots: bronze being append-only is
         # the invariant a reader is checking, and one total row count hides it.
         assert "snap-a" in text and "snap-b" in text
+
+    def test_counts_repeat_pulls_of_identical_content_as_separate_pulls(
+        self, spark, bronze_two_identical_pulls
+    ):
+        """Found on the first 1,614-row run: bronze held 3,228 rows across two pulls
+        of an unchanged export, and the report said "1 pull(s) retained" -- because it
+        grouped on the content hash alone. A row count at twice the distinct
+        submissions with one pull listed is self-contradictory, and it hides exactly
+        the accumulation the append-only invariant is there to make visible."""
+        report = lakehouse_report.build_report(spark, bronze_two_identical_pulls)
+        text = "\n".join(report.lines)
+        assert "2 pull(s) retained" in text, text
+        # Each pull is listed with its own timestamp and its own row count, not summed.
+        assert "2024-03-01" in text and "2024-04-01" in text
+        pull_lines = [ln for ln in report.lines if "same-snap" in ln]
+        assert len(pull_lines) == 2, pull_lines
+        assert all("4 rows" not in ln for ln in pull_lines), pull_lines
 
     def test_names_the_panels_behind_rows_in_the_default_specialty(self, spark, bronze_two_pulls):
         _write_silver(
@@ -169,15 +206,115 @@ class TestBuildReport:
         assert any("decision_date" in line for line in report.lines)
 
     def test_reports_enrichment_coverage_so_zero_percent_is_visible(self, spark, bronze_two_pulls):
-        """ADR 0012 leaves these null until the openFDA pass runs; 0% must be legible
-        as "not enriched yet" rather than looking like a silently empty column."""
+        """ADR 0012 leaves device_class null until the openFDA pass runs; 0% must be
+        legible as "not enriched yet" rather than a silently empty column."""
         _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
         report = lakehouse_report.build_report(spark, bronze_two_pulls)
         text = "\n".join(report.lines)
         assert "device_class" in text and "0.0%" in text
         assert report.ok is True, "missing enrichment is expected, not a failure"
 
+    def test_does_not_call_the_pdf_only_fields_unenriched(self, spark, bronze_two_pulls):
+        """Found on the first live enrichment run. The report grouped all four
+        unenriched fields under "0% is expected until that pass runs" -- so after a
+        100%-successful openFDA pass it showed device_class at 100% and the other
+        three at 0%, telling a reader the pass had not run.
+
+        Three of those four are not obtainable from openFDA at all (ADR 0013
+        Decision 4). They must be reported as awaiting a *different* pass, never as
+        coverage of the one that just succeeded.
+        """
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1", device_class="II")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+
+        openfda_line = next(ln for ln in report.lines if "device_class" in ln and "%" in ln)
+        assert "100.0%" in openfda_line, openfda_line
+
+        assert "has_pccp" in text and "Issue 4" in text
+        pdf_lines = [ln for ln in report.lines if "has_pccp" in ln]
+        assert all("%" not in ln for ln in pdf_lines), (
+            "a percentage implies a fetch that could have filled it",
+            pdf_lines,
+        )
+        assert report.ok is True
+
     def test_a_silverless_lakehouse_is_reported_not_an_error(self, spark, bronze_two_pulls):
         report = lakehouse_report.build_report(spark, bronze_two_pulls)
         assert report.ok is True
         assert any("build-silver" in line for line in report.lines)
+
+
+class TestEnrichmentSection:
+    """`registry inspect` must report the two openFDA tiers separately (ADR 0013):
+    they succeed independently, so one number would hide a half-failed pass."""
+
+    def _write_enrichment(self, spark, settings, rows):
+        from registry.schemas import DeviceEnrichmentRecord
+
+        tables.write_table(
+            spark.createDataFrame(rows, spark_schema_for(DeviceEnrichmentRecord)),
+            settings,
+            "silver_device_enrichment",
+            mode="overwrite",
+        )
+
+    def _enrichment_row(self, submission, **overrides):
+        from registry.schemas import DeviceEnrichmentRecord
+
+        base = {
+            "submission_number": submission,
+            "enriched_at": dt.datetime(2026, 9, 15, 9, 0),
+            "submission_found": True,
+            "classification_found": True,
+            "device_class_raw": "2",
+            "statement_or_summary": "Summary",
+            "review_time_days": 222,
+            "life_sustain_support": False,
+        }
+        base.update(overrides)
+        return DeviceEnrichmentRecord(**base).model_dump()
+
+    def test_says_what_to_run_when_enrichment_is_missing(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("enrich-openfda" in line for line in report.lines), report.lines
+        assert report.ok is True, "never having enriched is not a failure"
+
+    def test_reports_the_two_tiers_separately(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1"), _silver_row("K2")])
+        self._write_enrichment(
+            spark,
+            bronze_two_pulls,
+            [
+                self._enrichment_row("K1"),
+                # tier 1 hit, tier 2 missed -- the case a single number would hide
+                self._enrichment_row("K2", submission_found=False, review_time_days=None),
+            ],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "tier 1" in text and "tier 2" in text
+        assert "2 / 2  (100.0%)" in text, text  # classification
+        assert "1 / 2  (50.0%)" in text, text  # submission
+        assert report.ok is True
+
+    def test_a_tier_resolving_nothing_is_a_problem(self, spark, bronze_two_pulls):
+        """Zero hits across a whole tier is a broken pass, not a coverage statistic."""
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        self._write_enrichment(
+            spark,
+            bronze_two_pulls,
+            [self._enrichment_row("K1", classification_found=False, device_class_raw=None)],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert report.ok is False
+        assert any("openFDA reachability" in line for line in report.lines)
+
+    def test_summarises_review_time_and_summary_availability(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        self._write_enrichment(spark, bronze_two_pulls, [self._enrichment_row("K1")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "median 222d" in text, text
+        assert "Summary" in text

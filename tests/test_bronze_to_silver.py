@@ -11,6 +11,7 @@ pull wins, schema parity) carries the `spark` marker.
 from __future__ import annotations
 
 import datetime as dt
+from dataclasses import replace
 
 import pytest
 
@@ -112,6 +113,18 @@ class TestRowBuild:
             self._bronze(applicant_raw="  Caristo Diagnostics Ltd  "), silver_ctx
         )
         assert rec.applicant_raw == "Caristo Diagnostics Ltd"
+
+    def test_device_class_comes_from_the_enrichment_map_when_one_is_supplied(self, silver_ctx):
+        """ADR 0013: build-silver stays offline -- it reads a map someone else
+        fetched, it never calls openFDA itself."""
+        ctx = replace(silver_ctx, device_classes={"K243456": "II"})
+        rec = bts.build_device_record(self._bronze(), ctx)
+        assert rec.device_class == "II"
+
+    def test_a_submission_absent_from_the_map_stays_unenriched(self, silver_ctx):
+        ctx = replace(silver_ctx, device_classes={"K999999": "III"})
+        rec = bts.build_device_record(self._bronze(), ctx)
+        assert rec.device_class is None, "absent must mean unknown, not a default"
 
     def test_builds_a_device_record_from_the_ai_list_alone(self, silver_ctx):
         rec = bts.build_device_record(self._bronze(), silver_ctx)

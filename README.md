@@ -79,15 +79,27 @@ make lint       # ruff check + format check
 uv run registry ingest-fda-list --dry-run   # fetch + parse, write nothing
 uv run registry ingest-fda-list             # append a pull to bronze
 uv run registry build-silver                # rebuild silver from the newest pull
+uv run registry enrich-openfda              # fetch openFDA facts (needs api.fda.gov)
 uv run registry inspect                     # read it back and say whether it looks right
 ```
+
+`enrich-openfda` is deliberately **not** part of `build-silver` (ADR 0013): rebuilding
+silver stays offline, deterministic and free, and re-fetching is a deliberate act. It
+writes `silver_device_enrichment`, which `build-silver` then left-joins to fill
+`device_class`. Two tiers — 181 product-code lookups cover all 1,614 devices for the
+class, then one call per device for review time and 510(k)-summary availability. Both
+go through the on-disk cache, so a re-run after a partial failure fetches only what
+did not land. `--limit N` gives a cheap trial run.
 
 `inspect` is a verdict, not a dump: it exits non-zero when a silver row has a null
 key or decision date, or when rows fall into the taxonomy's default specialty —
 which means an FDA panel nobody has curated yet. That check is there because it
 found a real one (see [`findings/0008`](findings/0008-taxonomy-spelling-mismatch.md)).
-Missing openFDA enrichment is reported as coverage, not as a failure: those fields
-stay null by design until the enrichment pass lands (ADR 0012).
+Missing enrichment is reported as coverage, not as a failure. The two openFDA tiers
+are reported separately, because they succeed independently and one number would hide
+a half-failed pass. Predicate lineage, PCCP and the cybersecurity statement stay null
+even after enrichment: **no openFDA endpoint carries them** — they live in the 510(k)
+summary PDF, which is deferred work (ADR 0013).
 
 ## Configuration
 
@@ -188,6 +200,7 @@ Optional: `uv run pre-commit install`.
 | `src/registry/ingest/` | Source acquisition → bronze |
 | `src/registry/transform/` | Bronze → silver (Phase 2) |
 | `src/registry/lakehouse_report.py` | `registry inspect` — read the lakehouse back, verdict + non-zero exit |
+| `src/registry/transform/enrichment.py` | openFDA enrichment → `silver_device_enrichment` (ADR 0013) |
 | `src/registry/mart/` | Gold-layer marts (Phase 3) |
 | `src/registry/monitor/` | New-device diffing (Phase 4) |
 | `config/` | Hand-curated YAML lookups |

@@ -166,6 +166,66 @@ class DeviceRecord(BaseModel):
         return _non_blank(v) if isinstance(v, str) else v
 
 
+class DeviceEnrichmentRecord(BaseModel):
+    """openFDA-derived facts for one submission (`silver_device_enrichment`).
+
+    Kept out of ``DeviceRecord`` deliberately (ADR 0013): rebuilding silver is a
+    cheap, offline, deterministic operation, and it stays that way only if the
+    remote fetch lives in its own table. ``build_silver`` left-joins this to fill
+    ``DeviceRecord.device_class``; everything else is a research surface consumers
+    join to, not part of the silver contract.
+
+    Two tiers, independently populated, so `*_found` is per tier:
+
+    ``classification_found``
+        Tier 1 -- the ``classification`` endpoint, keyed by **product code**. 181
+        codes cover all 1,614 devices, so this is where ``device_class`` is worth
+        getting from.
+    ``submission_found``
+        Tier 2 -- ``510k`` / ``pma``, keyed by **submission number**. Per-device
+        facts a product code cannot carry.
+    """
+
+    submission_number: str  # FK to DeviceRecord
+    enriched_at: dt.datetime
+
+    # -- tier 2: the submission endpoint ------------------------------------
+    submission_found: bool
+    endpoint: str | None = None  # "510k" or "pma"
+    decision_code: str | None = None  # SESE, DENG, APPR, ...
+    decision_description: str | None = None
+    clearance_type: str | None = None
+    date_received: dt.date | None = None
+    # decision_date - date_received. The curated AI list cannot express this at
+    # all, and FDA review duration is a trend the underwriting audience asks for.
+    review_time_days: int | None = None
+    # "Summary" (a public 510(k) summary PDF exists) vs "Statement" (none does).
+    # This is the fetchability flag that scopes the future PDF pass (ADR 0013).
+    statement_or_summary: str | None = None
+    third_party_review: bool | None = None
+    expedited_review: bool | None = None
+    advisory_committee_description: str | None = None
+    applicant_openfda: str | None = None  # the FDA's own spelling, for cross-check
+
+    # -- tier 1: the classification endpoint --------------------------------
+    classification_found: bool
+    product_code: str | None = None
+    device_class_raw: str | None = None  # "1"/"2"/"3" as openFDA returns it
+    unclassified_reason: str | None = None
+    regulation_number: str | None = None
+    classification_specialty: str | None = None  # FDA's specialty, vs our panel
+    classification_definition: str | None = None  # short free text, not narrative
+    # FDA-assigned structured flag. A far better stage-1 input to the two-stage
+    # mortality flag (ADR 0007) than keyword matching, and it costs nothing extra.
+    life_sustain_support: bool | None = None
+    implant: bool | None = None
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+
 class EvidenceRecord(BaseModel):
     """Evidence-quality fields extracted from device summary text.
 
