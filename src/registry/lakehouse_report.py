@@ -90,15 +90,28 @@ def _bronze_section(report: Report, bronze: DataFrame) -> None:
 
     report.say()
     report.say("  pull history (bronze is append-only, so pulls accumulate):")
+    # Group on (snapshot, ingested_at), not the snapshot alone: `source_snapshot_id`
+    # is a content hash, so re-ingesting an unchanged export reuses it. Grouping on
+    # the hash alone merged those pulls into one line carrying their summed row
+    # count -- "1 pull" holding twice the distinct submissions.
     pulls = (
-        bronze.groupBy("source_snapshot_id")
-        .agg(F.min("ingested_at").alias("ingested_at"), F.count("*").alias("rows"))
-        .orderBy("ingested_at")
+        bronze.groupBy("source_snapshot_id", "ingested_at")
+        .agg(F.count("*").alias("rows"))
+        .orderBy("ingested_at", "source_snapshot_id")
         .collect()
     )
+    seen_snapshots: set[str] = set()
     for row in pulls:
-        report.say(f"    {row['ingested_at']}  {row['source_snapshot_id']}  {row['rows']:>7,} rows")
-    report.say(f"  -> {len(pulls)} pull(s) retained")
+        snapshot = row["source_snapshot_id"]
+        # A repeat of a hash we have already listed means the source was unchanged
+        # between pulls -- worth saying, because it is the normal case and it
+        # explains why the row count grows while the content does not.
+        note = "  (unchanged since an earlier pull)" if snapshot in seen_snapshots else ""
+        seen_snapshots.add(snapshot)
+        report.say(f"    {row['ingested_at']}  {snapshot}  {row['rows']:>7,} rows{note}")
+    report.say(
+        f"  -> {len(pulls)} pull(s) retained, {len(seen_snapshots)} distinct source snapshot(s)"
+    )
 
     report.say()
     report.say("  completeness of the raw columns:")
@@ -198,6 +211,50 @@ def _silver_section(report: Report, silver: DataFrame, settings: Settings) -> No
         report.say(f"    {year}  {row['count']:>7,}")
 
 
+def _enrichment_section(report: Report, enrichment: DataFrame) -> None:
+    rows = enrichment.count()
+    report.rule("ENRICHMENT  silver_device_enrichment  (openFDA, ADR 0013)")
+    report.say(f"  rows                        : {rows:,}")
+
+    # The two tiers succeed independently, so one coverage number would hide a
+    # half-failed pass: tier 1 is 181 product-code calls, tier 2 is one per device.
+    for label, column in (
+        ("tier 1  classification (by product code)", "classification_found"),
+        ("tier 2  submission (510k / pma)", "submission_found"),
+    ):
+        hits = enrichment.filter(F.col(column)).count()
+        pct = 100 * hits / rows if rows else 0.0
+        report.say(f"    {label:<42} {hits:>7,} / {rows:,}  ({pct:.1f}%)")
+        if rows and hits == 0:
+            report.problem(f"{label.strip()} resolved nothing -- check openFDA reachability")
+
+    report.say()
+    report.say("  device class, as openFDA reports it:")
+    _render(report, _counts(enrichment, "device_class_raw"), "device_class_raw")
+
+    report.say("  FDA life-sustain/support flag (a stage-1 mortality signal, ADR 0007):")
+    _render(report, _counts(enrichment, "life_sustain_support"), "life_sustain_support")
+
+    report.say("  510(k) summary availability -- this scopes the future PDF pass:")
+    _render(report, _counts(enrichment, "statement_or_summary"), "statement_or_summary")
+
+    known = enrichment.filter(F.col("review_time_days").isNotNull())
+    known_count = known.count()
+    report.say()
+    report.say(f"  FDA review time, where both dates are known ({known_count:,} rows):")
+    if known_count:
+        stats = known.agg(
+            F.min("review_time_days").alias("min"),
+            F.expr("percentile_approx(review_time_days, 0.5)").alias("median"),
+            F.avg("review_time_days").alias("mean"),
+            F.max("review_time_days").alias("max"),
+        ).collect()[0]
+        report.say(
+            f"    min {stats['min']:,}d   median {int(stats['median']):,}d   "
+            f"mean {stats['mean']:.0f}d   max {stats['max']:,}d"
+        )
+
+
 def build_report(spark: SparkSession, settings: Settings | None = None) -> Report:
     """Inspect the configured lakehouse and return the lines plus a verdict."""
     settings = settings or get_settings()
@@ -220,4 +277,13 @@ def build_report(spark: SparkSession, settings: Settings | None = None) -> Repor
         return report
 
     _silver_section(report, tables.read_table(spark, settings, "silver_devices"), settings)
+
+    if not tables.table_exists(spark, settings, "silver_device_enrichment"):
+        report.say()
+        report.say(
+            "No silver_device_enrichment table yet. Run: uv run registry enrich-openfda --verbose"
+        )
+        return report
+
+    _enrichment_section(report, tables.read_table(spark, settings, "silver_device_enrichment"))
     return report

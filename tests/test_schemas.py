@@ -72,7 +72,14 @@ class TestFieldParity:
     """A generated schema is only useful if it cannot drift from the model."""
 
     @pytest.mark.parametrize(
-        "model", [DeviceRecord, EvidenceRecord, CompanyRecord, schemas.BronzeFdaAiListRecord]
+        "model",
+        [
+            DeviceRecord,
+            EvidenceRecord,
+            CompanyRecord,
+            schemas.BronzeFdaAiListRecord,
+            schemas.DeviceEnrichmentRecord,
+        ],
     )
     def test_every_model_field_appears_in_the_struct(self, model):
         struct = spark_schema_for(model)

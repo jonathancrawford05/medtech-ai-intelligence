@@ -16,6 +16,10 @@ panels:
   Cardiovascular: cardiovascular
   Clinical Chemistry: metabolic
   Clinical Toxicology: metabolic
+  # The FDA's own export misspells this panel. Curated explicitly rather than
+  # fuzzy-matched: guessing at near-misses would silently swallow genuinely new
+  # panels that the unmapped-panel report is meant to surface. See findings/0009.
+  Clinical Toxcicology: metabolic
   Radiology: radiology
   Neurology: neurology
   Anesthesiology: critical_care

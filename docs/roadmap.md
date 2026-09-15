@@ -45,12 +45,18 @@ backoff retries on 429; fixtures are real slices; `-m "not live_network"` green.
 
 ## Issue 2 — bronze→silver transform (`transform/bronze_to_silver.py`)
 
-> **Status 2026-09-13 — partially delivered.** The transform, taxonomy loader and
-> company resolution are built and tested ([finding 0007](../findings/0007-silver-build.md));
-> the two flagged decisions are settled in
-> [ADR 0012](adr/0012-silver-schema-and-supplement-handling.md). **Outstanding:**
-> the openFDA enrichment pass (device class, predicate lineage, PCCP,
-> cybersecurity — all `None` today) and the two-stage mortality flag.
+> **Status 2026-09-15 — enrichment built; two acceptance criteria cannot be met here.**
+> Transform, taxonomy loader and company resolution are built and tested
+> ([finding 0007](../findings/0007-silver-build.md)); decisions in
+> [ADR 0012](adr/0012-silver-schema-and-supplement-handling.md). Run at full scale
+> over the real 1,614-row pull ([finding 0009](../findings/0009-first-full-scale-silver-run.md)).
+> openFDA enrichment is built and wired ([ADR 0013](adr/0013-openfda-enrichment-architecture.md)),
+> populating `device_class` plus a research surface in `silver_device_enrichment`.
+>
+> **This issue's "predicate lineage" criterion is not achievable from openFDA.** No
+> endpoint carries predicates, PCCP or the cybersecurity statement — they are in the
+> 510(k) summary PDF. Split out as Issue 4 rather than left as a permanently open
+> checkbox here. **Also outstanding:** the two-stage mortality flag.
 
 **Why.** Turn raw pulls into the queryable `DeviceRecord` silver table by joining the
 latest AI-list pull against openFDA (Issue 1). This is where the registry becomes
@@ -64,7 +70,8 @@ useful.
   **Decide handling of PMA supplement suffixes** like `P130020/S005` (keep raw, or
   strip for the openFDA/deep-link lookup) — ADR.
 - Parse the raw decision date here (bronze deliberately kept it unparsed).
-- Populate device class and predicate lineage from the openFDA record.
+- Populate device class from the openFDA record. ~~and predicate lineage~~ — see
+  the status note: predicate lineage is not in the API (Issue 4).
 - **Company resolution** (`transform/company_resolution.py`): a hand-maintained lookup
   in `config/` (~20 top applicants by volume) → resolved parent company. **No M&A
   scraping** (explicit non-goal).
@@ -116,6 +123,46 @@ synthetic snapshots that differ by a known set of rows).
 **Acceptance.** Given two snapshots, returns the correct new/changed leads per category;
 empty on identical snapshots; the time-series/gold query works; deterministic on
 fixtures.
+
+---
+
+## Issue 4 — document-derived fields (`ingest/summaries/…`)
+
+> **Status 2026-09-15 — deferred pending business buy-in.** Scoped, not started.
+
+**Why.** `predicate_submission_number`, `predicate_age_days`, `has_pccp`,
+`pccp_summary` and `cybersecurity_statement_present` are `None` in silver and no
+openFDA endpoint can fill them. They exist only in the 510(k) summary PDF and the
+decision summary at `accessdata.fda.gov`. Predicate lineage in particular is what
+turns the registry from a list into a *genealogy* — which devices descend from
+which, and how old the evidence at the root actually is.
+
+**What already exists to scope it.** `silver_device_enrichment.statement_or_summary`
+records, per device, whether a public **Summary** was filed (a fetchable document)
+or only a **Statement** (no public document). The size and the ceiling of this
+work are therefore a query, not an estimate.
+
+**Scope, in the order value arrives.**
+
+- Count what is actually fetchable from the enrichment table before writing any
+  fetcher.
+- Acquire and cache summary PDFs, same content-hash + `ingested_at` discipline as
+  bronze. Assume some are scanned images and will need OCR; assume some 404.
+- **Predicate extraction first.** 510(k) summaries state the predicate in a
+  formulaic sentence; this is pattern extraction, not document understanding, and
+  it unlocks the lineage graph.
+- PCCP and cybersecurity presence next — likewise closer to a section-heading
+  search than to NLP.
+- Only then consider anything model-assisted, and if so, under ADR 0007's
+  two-stage rule: a logged, reviewable pass, never a silent judgement.
+
+**Decisions → ADR.** Document acquisition and caching; what "extraction confidence"
+means and how a low-confidence extraction is represented (almost certainly `None`
+plus a recorded attempt, consistent with ADR 0012).
+
+**Acceptance.** Fetchable-document count reported; predicate extracted for a
+majority of devices that filed a Summary, with every extraction traceable to the
+source document and page.
 
 ---
 
