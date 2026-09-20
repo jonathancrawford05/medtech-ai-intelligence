@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-15 · **Branch:** `claude/gold-mart-and-handoff` (PR open)
-**Suite:** 277 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
+**Last updated:** 2026-09-20 · **Branch:** `claude/gold-mart-and-handoff` (PR #10 open)
+**Suite:** 282 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —

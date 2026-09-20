@@ -121,6 +121,48 @@ class TestTheRowAnUnderwriterReads:
         assert mortality_relevant.build(spark, settings)[0]["keyword_disagrees"] is False
 
 
+class TestBeforeAnythingIsCurated:
+    """The table-absent branch, which every other test skips past by pre-seeding
+    `silver_evidence`. It is the state the repo is actually in on `main` today, so
+    a typo or schema mismatch here would ship as "the mart is broken on a fresh
+    lakehouse" rather than being caught."""
+
+    @pytest.fixture
+    def devices_only(self, spark, lakehouse):
+        tables.write_table(
+            spark.createDataFrame([_device("K1")], spark_schema_for(DeviceRecord)),
+            lakehouse,
+            "silver_devices",
+            mode="overwrite",
+        )
+        return lakehouse
+
+    def test_build_is_empty_when_no_evidence_table_exists(self, spark, devices_only):
+        assert mortality_relevant.build(spark, devices_only) == []
+
+    def test_run_writes_an_empty_mart_with_the_right_columns(self, spark, devices_only):
+        """The schema must survive the empty case -- a consumer querying
+        `intended_use_source` should get no rows, not a missing-column error."""
+        assert mortality_relevant.run(spark, devices_only) == 0
+        written = tables.read_table(spark, devices_only, mortality_relevant.MART_TABLE)
+        assert written.count() == 0
+        assert set(written.columns) == set(mortality_relevant._COLUMNS)
+
+    def test_the_mart_populates_once_evidence_arrives(self, spark, devices_only):
+        """Curation is the only thing standing between the empty mart and a full
+        one -- no code change, no schema migration."""
+        assert mortality_relevant.run(spark, devices_only) == 0
+        tables.write_table(
+            spark.createDataFrame(
+                [_evidence("K1", confirmed=True)], spark_schema_for(EvidenceRecord)
+            ),
+            devices_only,
+            "silver_evidence",
+            mode="overwrite",
+        )
+        assert mortality_relevant.run(spark, devices_only) == 1
+
+
 class TestRun:
     def test_writes_the_gold_table_and_reports_the_count(self, spark, seeded):
         settings = seeded(
