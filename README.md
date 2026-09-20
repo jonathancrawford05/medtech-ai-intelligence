@@ -80,8 +80,15 @@ uv run registry ingest-fda-list --dry-run   # fetch + parse, write nothing
 uv run registry ingest-fda-list             # append a pull to bronze
 uv run registry build-silver                # rebuild silver from the newest pull
 uv run registry enrich-openfda              # fetch openFDA facts (needs api.fda.gov)
+uv run registry build-mart                  # curated judgements -> the gold mart
 uv run registry inspect                     # read it back and say whether it looks right
 ```
+
+`build-mart` loads `config/mortality_seed.yaml` into `silver_evidence` and rebuilds
+`gold_mortality_relevant`. **Only devices with a confirmed judgement qualify** — not
+the specialty taxonomy, not the stage-1 keyword flag (ADR 0007/0014). Until curation
+happens the mart is legitimately empty, and that is the honest state of the registry
+rather than something to engineer around.
 
 `enrich-openfda` is deliberately **not** part of `build-silver` (ADR 0013): rebuilding
 silver stays offline, deterministic and free, and re-fetching is a deliberate act. It
@@ -201,10 +208,13 @@ Optional: `uv run pre-commit install`.
 | `src/registry/transform/` | Bronze → silver (Phase 2) |
 | `src/registry/lakehouse_report.py` | `registry inspect` — read the lakehouse back, verdict + non-zero exit |
 | `src/registry/transform/enrichment.py` | openFDA enrichment → `silver_device_enrichment` (ADR 0013) |
+| `src/registry/transform/mortality_seed.py` | Curated judgements → `silver_evidence` (ADR 0007/0014) |
+| `src/registry/mart/mortality_relevant.py` | The gold mortality mart — the deliverable |
 | `src/registry/mart/` | Gold-layer marts (Phase 3) |
 | `src/registry/monitor/` | New-device diffing (Phase 4) |
 | `config/` | Hand-curated YAML lookups |
 | `docs/adr/` | Architecture decision records |
+| `docs/handoffs/` | Briefs for other sessions picking up a workstream |
 | `findings/` | What was verified by execution, and what it cost |
 | `CONTINUATION.md` | Current state and next steps |
 

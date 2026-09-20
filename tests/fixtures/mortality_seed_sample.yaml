@@ -1,0 +1,25 @@
+version: 1
+reviewed:
+  - submission_number: K243456
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      CaRi-Heart is intended to analyse coronary CT angiography images to
+      quantify perivascular fat attenuation and report an eight-year risk of
+      cardiac mortality.
+    intended_use_source: https://example.test/K243456
+    notes: Explicit cardiac mortality risk output.
+  - submission_number: K111111
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Intended to improve contrast in cardiac MR images. No risk output.
+    intended_use_source: https://example.test/K111111
+    notes: Image quality only, despite being a cardiac device.
+  - submission_number: P130020/S005
+    mortality_confirmed: true
+    review_method: human
+    intended_use_text: >-
+      Intended for use in assessing risk of major adverse cardiac events.
+    intended_use_source: https://example.test/P130020
+    notes: Reviewed by a person; supplement keeps its whole key.

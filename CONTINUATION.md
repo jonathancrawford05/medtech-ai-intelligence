@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-15 · **Branch:** `claude/openfda-enrichment` (PR open)
-**Suite:** 255 passing, 89% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
+**Last updated:** 2026-09-20 · **Branch:** `claude/gold-mart-and-handoff` (PR #10 open)
+**Suite:** 282 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -149,11 +149,16 @@ findings/                        what was actually verified, and what was not
    resolve separately (76 authorisations across them), and
    `config/company_aliases.yaml` still has the untested-against-reality hole that
    `specialty_taxonomy.yaml` had. Needs a coverage threshold, not a zero-miss test.
-10. **The two-stage mortality flag** (ADR 0007) — the other outstanding half of
-    Issue 2. Cardiovascular is only 154 of 1,614 rows, so hand review is tractable,
-    and `life_sustain_support` from enrichment is a better stage-1 signal than
-    keywords.
-11. Phases 3–5 per the development plan.
+10. ~~**The two-stage mortality flag**~~ — **mechanism built** ([ADR 0014](docs/adr/0014-gold-mortality-mart.md)):
+    `registry build-mart` loads `config/mortality_seed.yaml` → `silver_evidence` →
+    `gold_mortality_relevant`. **The mart is empty until someone curates**, which is
+    the honest state, not a defect. Curation is handed to a Cowork session —
+    see [`docs/handoffs/cowork-spike-and-curation.md`](docs/handoffs/cowork-spike-and-curation.md).
+11. **Widen the stage-1 keyword list, but from evidence.** The first end-to-end run
+    flagged `keyword_disagrees` on a device whose intended use says "cardiac risk
+    stratification" — not in the regex. Deliberately not tuned to that one example;
+    the `keyword_disagrees` column exists to accumulate real cases first.
+12. Phases 3–5 per the development plan (monitoring, Databricks dry run).
 
 ---
 

@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # ---- Lakehouse -------------------------------------------------------
     # Local: a directory ("./lakehouse"). Databricks: a namespace ("main.registry").
     lakehouse_root: str = "./lakehouse"
+    mortality_seed_filename: str = "mortality_seed.yaml"
     storage_mode: StorageMode = StorageMode.PATH
 
     # ---- Spark -----------------------------------------------------------
@@ -107,6 +108,11 @@ class Settings(BaseSettings):
                 f"catalog.schema namespace (e.g. 'main.registry'), got {self.lakehouse_root!r}"
             )
         return self
+
+    @property
+    def mortality_seed_path(self) -> Path:
+        """The hand-curated mortality judgements (ADR 0007 stage 2)."""
+        return self.config_dir / self.mortality_seed_filename
 
     @property
     def specialty_taxonomy_path(self) -> Path:

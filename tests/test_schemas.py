@@ -208,6 +208,35 @@ class TestEvidenceRecord:
         rec = self._valid()
         assert rec.mortality_keyword_flag is True
 
+    def _seed_only(self, **overrides):
+        """A record built from the curated seed alone -- no 510(k) summary read."""
+        base = {
+            "submission_number": "K243456",
+            "intended_use_text": "Estimates cardiovascular risk of death.",
+            "intended_use_source": "https://example.test/K243456",
+            "mortality_keyword_flag": True,
+        }
+        base.update(overrides)
+        return EvidenceRecord(**base)
+
+    def test_summary_fields_default_to_unread(self):
+        """ADR 0014 Decision 4: these come from the 510(k) summary PDF, which
+        nothing fetches yet, so a curated record must be constructible without
+        asserting anything about a document nobody has read."""
+        rec = self._seed_only()
+        assert rec.reports_sensitivity_specificity is None
+        assert rec.discloses_demographics is None
+
+    def test_none_summary_fields_are_distinct_from_false(self):
+        """`None` = no summary has been read; `False` = the summary was read and
+        reports none. Same distinction ADR 0012 drew for the openFDA fields."""
+        unread = self._seed_only()
+        read = self._seed_only(reports_sensitivity_specificity=False, discloses_demographics=False)
+        assert unread.reports_sensitivity_specificity is None
+        assert read.reports_sensitivity_specificity is False
+        assert unread.reports_sensitivity_specificity != read.reports_sensitivity_specificity
+        assert unread.discloses_demographics != read.discloses_demographics
+
     def test_confirmed_flag_defaults_to_unreviewed(self):
         """None means 'no human/LLM has confirmed yet' -- distinct from False."""
         assert self._valid().mortality_confirmed_flag is None
