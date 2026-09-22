@@ -126,3 +126,30 @@ class TestRefusesUnprovenancedJudgements:
         )
         with pytest.raises(ValueError, match="K1"):
             mortality_seed.load(self._write(tmp_path, entry + entry))
+
+
+class TestCommittedSeed:
+    """The *real* committed seed (config/mortality_seed.yaml), not the fixture.
+
+    A malformed hand-edit to the curated seed otherwise surfaces only at
+    ``build-mart`` time; this pins it in the fast (non-spark) suite. The counts are
+    a canary -- update them deliberately when the curation itself changes.
+    """
+
+    def test_the_committed_seed_loads_and_every_judgement_is_auditable(self):
+        # Settings() with its default config_dir resolves to the repo's config/.
+        records = mortality_seed.load(Settings())
+
+        # It loads at all: the loader raises on malformed data (ADR 0014 Decision 5).
+        assert len(records) == 133
+        assert sum(1 for r in records if r.mortality_confirmed_flag is True) == 11
+
+        # ADR 0007: every judgement carries auditable provenance.
+        for r in records:
+            assert r.mortality_review_method in {"human", "llm_assisted"}
+            assert r.intended_use_text.strip()
+            assert (r.intended_use_source or "").strip()
+
+        # One judgement per device (the loader enforces this; pin it here too).
+        subs = [r.submission_number for r in records]
+        assert len(subs) == len(set(subs))

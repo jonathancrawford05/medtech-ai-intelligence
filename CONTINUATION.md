@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-20 · **Branch:** `cowork-spike-and-curation` (PR open; do not merge)
+**Last updated:** 2026-09-22 · **Branch:** `cowork-spike-and-curation` — PR #11 (approve-with-nits; review nits addressed). Run `make lint` + `registry build-mart` on a JDK-17 / Py-3.11 host.
 **Suite:** 282 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -146,8 +146,11 @@ findings/                        what was actually verified, and what was not
    project** — build a fetch+regex pass (normalise the text layer first; it splits
    ligatures), route the small scanned tail (pre-2010) to a deferred OCR bucket.
    **PCCP is NOT in the summary text (0/60)** — correct ADR 0013's assumption; it needs a
-   different source. Cybersecurity appears in ~13% as a presence flag. No `src/` change
-   made; next step is the acquisition code + a full-scale re-run.
+   different source (do not expect it from the summary PDF). Cybersecurity appears in ~13% as
+   a presence flag. No `src/` change made; next step is the acquisition code + a full-scale re-run.
+   **Roadmap follow-up (PR #11 review nit, will not be dropped):** when that acquisition pass is
+   built, add a new ADR amending **ADR 0013 Decision 4** to record that PCCP is absent from the
+   public 510(k) Summary text — supersede, do not edit the accepted ADR (evidence: finding 0011).
 9. ~~**Curation backlog surfaced by the full run**~~ — **aliases swept**
    ([finding 0013](findings/0013-company-alias-sweep.md)). `config/company_aliases.yaml`
    extended: GE consolidated to **109 authorisations (now the #1 applicant, ahead of
