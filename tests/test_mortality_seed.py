@@ -164,13 +164,13 @@ class TestStage1KeywordCoverage:
     @pytest.mark.parametrize(
         "text",
         [
-            "likelihood of future hemodynamic instability",        # CLEWICU / AHI
-            "likelihood of future hypotensive events",             # Acumen HPI
-            "the Global Hypoperfusion Index",                      # Edwards GHI
-            "identify loss of pulse events",                       # Loss of Pulse Detection
-            "screen U.S. Service members for hemorrhage risk",     # APPRAISE-HRI
-            "early warning for impending patient deterioration",   # eCART
-            "plaque identification and characterization",          # HeartFlow
+            "likelihood of future hemodynamic instability",  # CLEWICU / AHI
+            "likelihood of future hypotensive events",  # Acumen HPI
+            "the Global Hypoperfusion Index",  # Edwards GHI
+            "identify loss of pulse events",  # Loss of Pulse Detection
+            "screen U.S. Service members for hemorrhage risk",  # APPRAISE-HRI
+            "early warning for impending patient deterioration",  # eCART
+            "plaque identification and characterization",  # HeartFlow
         ],
     )
     def test_flags_the_evidence_backed_phrasings(self, text):

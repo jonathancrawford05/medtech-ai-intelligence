@@ -323,7 +323,9 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
         star = " *" if row["keyword_disagrees"] else ""
         name = (row["device_name"] or "")[:40]
         applicant = row["applicant_resolved"] or ""
-        report.say(f"    {row['submission_number']:<11} {row['decision_date']}  {name:<40}  {applicant}{star}")
+        report.say(
+            f"    {row['submission_number']:<11} {row['decision_date']}  {name:<40}  {applicant}{star}"
+        )
 
 
 def build_report(spark: SparkSession, settings: Settings | None = None) -> Report:

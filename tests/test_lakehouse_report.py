@@ -407,6 +407,6 @@ class TestGoldSection:
         text = "\n".join(report.lines)
         assert "GOLD" in text
         assert "K1" in text and "K2" not in text.split("GOLD", 1)[1]
-        disagree_line = next(l for l in report.lines if "keyword_disagrees (curator" in l)
+        disagree_line = next(line for line in report.lines if "keyword_disagrees (curator" in line)
         assert "1 / 1" in disagree_line, disagree_line
         assert report.ok is True
