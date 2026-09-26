@@ -153,3 +153,40 @@ class TestCommittedSeed:
         # One judgement per device (the loader enforces this; pin it here too).
         subs = [r.submission_number for r in records]
         assert len(subs) == len(set(subs))
+
+
+class TestStage1KeywordCoverage:
+    """Stage 1 is a cheap, recall-oriented lead flag (ADR 0007), widened from the
+    curation evidence in findings/0012 and 0014: 8 of the 11 confirmed devices used
+    mortality-relevant language stage 1 did not recognise. It is still never the
+    mart filter (ADR 0014) -- widening it only shrinks the keyword_disagrees gap."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "likelihood of future hemodynamic instability",        # CLEWICU / AHI
+            "likelihood of future hypotensive events",             # Acumen HPI
+            "the Global Hypoperfusion Index",                      # Edwards GHI
+            "identify loss of pulse events",                       # Loss of Pulse Detection
+            "screen U.S. Service members for hemorrhage risk",     # APPRAISE-HRI
+            "early warning for impending patient deterioration",   # eCART
+            "plaque identification and characterization",          # HeartFlow
+        ],
+    )
+    def test_flags_the_evidence_backed_phrasings(self, text):
+        assert mortality_seed.keyword_flag(text) is True
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "assessment of arrhythmias using ECG data",  # rhythm detection, not risk
+            "an electronic stethoscope for auscultation",  # heart sounds
+            "non-invasive spot measurement of pulse rate",  # vitals -- not "loss of pulse"
+        ],
+    )
+    def test_does_not_flag_routine_diagnostic_or_monitoring_text(self, text):
+        assert mortality_seed.keyword_flag(text) is False
+
+    def test_the_original_terms_still_match(self):
+        assert mortality_seed.keyword_flag("aggregate statistical mortality risk") is True
+        assert mortality_seed.keyword_flag("risk of a major adverse cardiac event") is True
