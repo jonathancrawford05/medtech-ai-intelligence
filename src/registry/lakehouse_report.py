@@ -28,6 +28,7 @@ from pyspark.sql import functions as F
 
 from registry import tables
 from registry.config.settings import Settings, get_settings
+from registry.mart import mortality_relevant
 from registry.transform import taxonomy
 
 # Raw columns bronze should have captured for every row. Emptiness here means the
@@ -272,6 +273,59 @@ def _enrichment_section(report: Report, enrichment: DataFrame) -> None:
         )
 
 
+def _gold_section(report: Report, mart: DataFrame) -> None:
+    rows = mart.count()
+    report.rule("GOLD  gold_mortality_relevant  (the mortality-relevant leads, ADR 0007/0014)")
+    report.say(f"  rows (devices with a confirmed mortality/MACE judgement) : {rows:,}")
+
+    # An empty mart is the honest pre-curation state, not a defect: the mart gates
+    # on the confirmed flag alone, so it stays empty until someone curates the seed
+    # (ADR 0014). Reporting it is the point -- before this section, `inspect` could
+    # not tell a full mart from an empty one; it showed neither.
+    if rows == 0:
+        report.say(
+            "  empty -- nothing has a confirmed mortality judgement yet. Seed "
+            "config/mortality_seed.yaml, then run: uv run registry build-mart"
+        )
+        return
+
+    # `keyword_disagrees`: a curator confirmed a device the stage-1 keyword pass did
+    # not flag -- the row most worth a second look (ADR 0014 Decision 2), and a live
+    # measure of how much the stage-1 keyword list is still missing.
+    disagrees = mart.filter(F.col("keyword_disagrees")).count()
+    report.say(
+        f"  stage-1 keyword_disagrees (curator confirmed, keyword missed) : "
+        f"{disagrees:,} / {rows:,}"
+    )
+
+    report.say()
+    report.say("  specialty categories of the confirmed leads (the panel is not the filter):")
+    _render(report, _counts(mart, "specialty_category"), "specialty_category")
+
+    report.say()
+    report.say("  review method (ADR 0007 provenance -- every judgement is audited):")
+    _render(report, _counts(mart, "mortality_review_method"), "mortality_review_method")
+
+    report.say()
+    report.say("  the leads, newest first (* = stage-1 keyword_disagrees):")
+    for row in (
+        mart.orderBy(F.col("decision_date").desc_nulls_last(), F.col("submission_number"))
+        .select(
+            "submission_number",
+            "decision_date",
+            "device_name",
+            "applicant_resolved",
+            "keyword_disagrees",
+        )
+        .limit(15)
+        .collect()
+    ):
+        star = " *" if row["keyword_disagrees"] else ""
+        name = (row["device_name"] or "")[:40]
+        applicant = row["applicant_resolved"] or ""
+        report.say(f"    {row['submission_number']:<11} {row['decision_date']}  {name:<40}  {applicant}{star}")
+
+
 def build_report(spark: SparkSession, settings: Settings | None = None) -> Report:
     """Inspect the configured lakehouse and return the lines plus a verdict."""
     settings = settings or get_settings()
@@ -303,4 +357,13 @@ def build_report(spark: SparkSession, settings: Settings | None = None) -> Repor
         return report
 
     _enrichment_section(report, tables.read_table(spark, settings, "silver_device_enrichment"))
+
+    if not tables.table_exists(spark, settings, mortality_relevant.MART_TABLE):
+        report.say()
+        report.say(
+            "No gold_mortality_relevant table yet. Run: uv run registry build-mart --verbose"
+        )
+        return report
+
+    _gold_section(report, tables.read_table(spark, settings, mortality_relevant.MART_TABLE))
     return report

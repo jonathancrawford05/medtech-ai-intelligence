@@ -167,11 +167,18 @@ findings/                        what was actually verified, and what was not
     is no longer empty: `build-mart` writes **11 rows**. Run it on a JDK-17/Py-3.11 host (the
     dev VM is 3.10 / no JDK 17 — §5). Some entries can be upgraded to `human` after Jonathan
     reviews them; K231038 (Edwards hypoperfusion) is flagged for manual review (omitted, no
-    clean IFU).
-11. **Widen the stage-1 keyword list, but from evidence.** The first end-to-end run
-    flagged `keyword_disagrees` on a device whose intended use says "cardiac risk
-    stratification" — not in the regex. Deliberately not tuned to that one example;
-    the `keyword_disagrees` column exists to accumulate real cases first.
+    clean IFU). **`registry inspect` now has a GOLD section** (2026-09-26): it reports
+    the mart rows, the `keyword_disagrees` count, the specialty split and the leads newest-first
+    — the missing surface that made gold look empty even when the mart held 11 rows. Absent mart
+    prints a "run build-mart" note; empty mart is not a failure (ADR 0014).
+11. ~~**Widen the stage-1 keyword list, but from evidence**~~ — **done 2026-09-26**
+    ([finding 0014](findings/0014-stage1-keyword-widening.md)). Widened from the curated seed,
+    not from the one "cardiac risk stratification" example: 7 terms added, each tracing to a
+    distinct `confirmed=true` device in finding 0012 (hemodynamic instability, hypotension, loss
+    of pulse, hemorrhage, deterioration, plaque, hypoperfusion). `keyword_disagrees` over the
+    committed seed drops **8 → 0** with **zero** new hits on the 122 curated negatives. Stage 1
+    stays a lead flag, never the mart filter (ADR 0014). Covered by
+    `test_mortality_seed.py::TestStage1KeywordCoverage`.
 12. Phases 3–5 per the development plan (monitoring, Databricks dry run).
 
 ---

@@ -17,6 +17,7 @@ import pytest
 from pyspark.sql.types import StructType
 
 from registry import lakehouse_report, tables
+from registry.mart import mortality_relevant
 from registry.schemas import BronzeFdaAiListRecord, DeviceRecord, spark_schema_for
 
 pytestmark = pytest.mark.spark
@@ -318,3 +319,94 @@ class TestEnrichmentSection:
         text = "\n".join(report.lines)
         assert "median 222d" in text, text
         assert "Summary" in text
+
+
+class TestGoldSection:
+    """`registry inspect` must surface the gold mart -- the registry's actual
+    deliverable. Before this the verdict tool was blind to it: a full mart and an
+    empty one were indistinguishable from `inspect` (it showed neither), so nobody
+    could confirm from the verdict that curation had landed."""
+
+    def _reach_gold(self, spark, settings):
+        """Seed the tables `inspect` walks before it reaches the gold section."""
+        from registry.schemas import DeviceEnrichmentRecord
+
+        _write_silver(spark, settings, [_silver_row("K1"), _silver_row("K2")])
+        rows = [
+            DeviceEnrichmentRecord(
+                submission_number=s_,
+                enriched_at=dt.datetime(2026, 9, 15, 9, 0),
+                submission_found=True,
+                classification_found=True,
+                device_class_raw="2",
+                statement_or_summary="Summary",
+                review_time_days=222,
+                life_sustain_support=False,
+            ).model_dump()
+            for s_ in ("K1", "K2")
+        ]
+        tables.write_table(
+            spark.createDataFrame(rows, spark_schema_for(DeviceEnrichmentRecord)),
+            settings,
+            "silver_device_enrichment",
+            mode="overwrite",
+        )
+
+    def _write_evidence(self, spark, settings, rows):
+        from registry.schemas import EvidenceRecord
+
+        tables.write_table(
+            spark.createDataFrame(rows, spark_schema_for(EvidenceRecord)),
+            settings,
+            "silver_evidence",
+            mode="overwrite",
+        )
+
+    def _evidence(self, submission, *, confirmed, keyword, text="Predicts risk of death."):
+        from registry.schemas import EvidenceRecord
+
+        return EvidenceRecord(
+            submission_number=submission,
+            intended_use_text=text,
+            intended_use_source="https://example.test/src",
+            mortality_keyword_flag=keyword,
+            mortality_confirmed_flag=confirmed,
+            mortality_review_method="llm_assisted" if confirmed is not None else None,
+        ).model_dump()
+
+    def test_says_what_to_run_when_the_mart_is_missing(self, spark, bronze_two_pulls):
+        self._reach_gold(spark, bronze_two_pulls)
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("build-mart" in line for line in report.lines), report.lines
+        assert report.ok is True, "never having built the mart is not a failure"
+
+    def test_an_empty_mart_is_reported_not_a_failure(self, spark, bronze_two_pulls):
+        """An empty mart is the honest pre-curation state (ADR 0014), so it is
+        reported, not flagged."""
+        self._reach_gold(spark, bronze_two_pulls)
+        mortality_relevant.run(spark, bronze_two_pulls)  # no evidence -> empty mart
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "GOLD" in text and "empty" in text, text
+        assert report.ok is True
+
+    def test_reports_the_leads_and_the_keyword_disagreement(self, spark, bronze_two_pulls):
+        self._reach_gold(spark, bronze_two_pulls)
+        self._write_evidence(
+            spark,
+            bronze_two_pulls,
+            [
+                # confirmed, but stage-1 keyword missed it -> keyword_disagrees
+                self._evidence("K1", confirmed=True, keyword=False),
+                # reviewed and rejected -> never in the mart
+                self._evidence("K2", confirmed=False, keyword=True),
+            ],
+        )
+        assert mortality_relevant.run(spark, bronze_two_pulls) == 1
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "GOLD" in text
+        assert "K1" in text and "K2" not in text.split("GOLD", 1)[1]
+        disagree_line = next(l for l in report.lines if "keyword_disagrees (curator" in l)
+        assert "1 / 1" in disagree_line, disagree_line
+        assert report.ok is True

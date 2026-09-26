@@ -40,7 +40,13 @@ _MORTALITY_KEYWORDS = re.compile(
     r"mace|major adverse cardiac event\w*|major adverse cardiovascular event\w*|"
     r"cardiac arrest|sudden cardiac|"
     r"risk (?:of|for) (?:death|dying)|"
-    r"life[- ]threatening|prognos\w*"
+    r"life[- ]threatening|prognos\w*|"
+    # Widened from curation evidence (findings/0012 / 0014): 8 of the 11 confirmed
+    # devices used mortality-relevant language stage 1 did not recognise. Stage 1
+    # stays a cheap, recall-oriented lead flag -- never the mart filter (ADR 0014),
+    # so widening it only shrinks the keyword_disagrees gap.
+    r"hemodynamic instabilit\w*|hypotens\w*|hypoperfus\w*|"
+    r"loss of pulse|h(?:ae|e)morrhag\w*|deteriorat\w*|plaque\w*"
     r")\b",
     re.IGNORECASE,
 )
