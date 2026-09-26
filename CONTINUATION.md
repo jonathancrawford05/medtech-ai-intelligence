@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-20 · **Branch:** `claude/gold-mart-and-handoff` (PR #10 open)
+**Last updated:** 2026-09-22 · **Branch:** `cowork-spike-and-curation` — PR #11 (approve-with-nits; review nits addressed). Run `make lint` + `registry build-mart` on a JDK-17 / Py-3.11 host.
 **Suite:** 282 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -20,7 +20,7 @@ target `main` unless a stack is deliberate.
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
 | **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). openFDA-dependent fields (`device_class`, predicate lineage, PCCP, cybersecurity) are **`None` until an enrichment pass exists** — coverage is currently 0% ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). |
-| **3 — Evidence & gold mart** | 🔲 Not started | Schema support for the two-stage flag is in place |
+| **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
 | **4 — Monitoring** | 🔲 Not started | |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
 
@@ -138,22 +138,36 @@ findings/                        what was actually verified, and what was not
    the real 1,614 rows; `device_class` fully populated; 99% Class II. Re-running is
    near-free via the disk cache. Note `api.fda.gov` is blocked from agent
    environments — live runs happen on the Mac.
-8. **The PDF pass (roadmap Issue 4)** — predicate lineage, PCCP and the
-   cybersecurity statement are **not in any openFDA endpoint**; they are in the
-   510(k) summary PDF. Deferred pending business buy-in (ADR 0013 Decision 4).
-   **The ceiling is now measured: 1,541 of 1,614 devices (95.5%) filed a public
-   Summary**; only 11 are structurally unreachable. Given 96% of the registry
-   cleared by demonstrating equivalence to a predicate, predicate lineage is the
-   highest-value item outstanding.
-9. **Curation backlog surfaced by the full run** (finding 0009): three GE entities
-   resolve separately (76 authorisations across them), and
-   `config/company_aliases.yaml` still has the untested-against-reality hole that
-   `specialty_taxonomy.yaml` had. Needs a coverage threshold, not a zero-miss test.
-10. ~~**The two-stage mortality flag**~~ — **mechanism built** ([ADR 0014](docs/adr/0014-gold-mortality-mart.md)):
-    `registry build-mart` loads `config/mortality_seed.yaml` → `silver_evidence` →
-    `gold_mortality_relevant`. **The mart is empty until someone curates**, which is
-    the honest state, not a defect. Curation is handed to a Cowork session —
-    see [`docs/handoffs/cowork-spike-and-curation.md`](docs/handoffs/cowork-spike-and-curation.md).
+8. **The PDF pass (roadmap Issue 4)** — **spike done, measured** ([finding 0011](findings/0011-pdf-spike.md)).
+   60 Summary-only devices, stratified by decision year, fetched from
+   `accessdata.fda.gov`: **100% fetch, 59/60 with a real text layer, 57/60 predicate
+   K-numbers recovered by regex**. URL pattern confirmed (`cdrh_docs/pdf{int(yy)}/<K>.pdf`,
+   bare `pdf/` for pre-2002). Verdict: **predicate lineage is regex-viable, not an OCR
+   project** — build a fetch+regex pass (normalise the text layer first; it splits
+   ligatures), route the small scanned tail (pre-2010) to a deferred OCR bucket.
+   **PCCP is NOT in the summary text (0/60)** — correct ADR 0013's assumption; it needs a
+   different source (do not expect it from the summary PDF). Cybersecurity appears in ~13% as
+   a presence flag. No `src/` change made; next step is the acquisition code + a full-scale re-run.
+   **Roadmap follow-up (PR #11 review nit, will not be dropped):** when that acquisition pass is
+   built, add a new ADR amending **ADR 0013 Decision 4** to record that PCCP is absent from the
+   public 510(k) Summary text — supersede, do not edit the accepted ADR (evidence: finding 0011).
+9. ~~**Curation backlog surfaced by the full run**~~ — **aliases swept**
+   ([finding 0013](findings/0013-company-alias-sweep.md)). `config/company_aliases.yaml`
+   extended: GE consolidated to **109 authorisations (now the #1 applicant, ahead of
+   Siemens)** — the split was 8x worse than the "76 across three" finding 0009 saw;
+   missed spellings of Philips/Siemens/Canon/United Imaging/Fujifilm/Medtronic/BSC/Nanox
+   merged; single-company AI tail consolidated. Matched rows 390→760; unmatched 1,224→854.
+   No matching-logic change. Varian→Siemens and Arterys (M&A) left separate and noted.
+   **Still open:** the alias table has no coverage test — add a volume-based threshold, not
+   a zero-miss assertion (same reasoning as the taxonomy).
+10. ~~**The two-stage mortality flag**~~ — **mechanism built AND seeded** ([ADR 0014](docs/adr/0014-gold-mortality-mart.md),
+    [finding 0012](findings/0012-mortality-seed-curation.md)). `config/mortality_seed.yaml`
+    now holds 133 curated judgements (11 true, 122 false) over the cardiovascular set, all
+    `review_method: llm_assisted` with verbatim intended-use evidence + source URLs. The mart
+    is no longer empty: `build-mart` writes **11 rows**. Run it on a JDK-17/Py-3.11 host (the
+    dev VM is 3.10 / no JDK 17 — §5). Some entries can be upgraded to `human` after Jonathan
+    reviews them; K231038 (Edwards hypoperfusion) is flagged for manual review (omitted, no
+    clean IFU).
 11. **Widen the stage-1 keyword list, but from evidence.** The first end-to-end run
     flagged `keyword_disagrees` on a device whose intended use says "cardiac risk
     stratification" — not in the regex. Deliberately not tuned to that one example;

@@ -1,0 +1,1619 @@
+version: 1
+# Stage 2 of ADR 0007 — the curated mortality/MACE relevance judgement.
+#
+# Scope: the 154 devices in specialty_category = 'cardiovascular' (see the Cowork
+# handoff docs/handoffs/cowork-spike-and-curation.md). Every entry is a judgement about
+# whether the device's INTENDED USE concerns predicting, stratifying or detecting risk of
+# death or a major adverse cardiac event (MACE) — not merely whether the device touches
+# the cardiovascular system.
+#
+# review_method is llm_assisted throughout: a Cowork session read each 510(k) Summary's
+# Indications-for-Use text and formed the judgement (exactly the case ADR 0007 invented
+# the label for). Jonathan can upgrade individual entries to `human` after review.
+#
+# intended_use_text is a verbatim excerpt of the Indications-for-Use statement, extracted
+# from the 510(k) summary PDF text layer (pdf.js), whitespace-normalised and truncated to
+# the leading sentence(s); intended_use_source is the authoritative PDF. See
+# findings/0011-pdf-spike.md for extraction fidelity notes (the text layer occasionally
+# splits glyphs).
+#
+# The inclusion rule (conservative, per ADR 0007/0014: under-inclusion is recoverable,
+# over-inclusion is not): mortality_confirmed=true only where the intended use explicitly
+# concerns risk of death, clinical deterioration, or an acute life-threatening event
+# (hemodynamic instability, hemorrhage, cardiac arrest), OR quantifies coronary plaque
+# burden (the handoff's named in-scope example). Devices that merely detect/diagnose a
+# condition (arrhythmia, low EF, CAD, amyloidosis, pulmonary hypertension), monitor, or
+# image are recorded false — with a note where the call was close. Devices whose summary
+# yielded no clean verbatim intended-use text are OMITTED (absent = not reviewed), not
+# guessed: see findings/0012-mortality-seed-curation.md for the omitted list.
+reviewed:
+  - submission_number: K172959
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Rothman Index uses commonly recorded vital sign, nursing assessment, and lab data to compute
+      a patient status index. The Rothman Index is a single measure of a patient’s physiologic
+      condition based on the aggregate statistical mortality risk associated with the values of the
+      patient’s vital signs, nur
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf17/K172959.pdf
+    notes: >-
+      Rothman Index (PeraServer/PeraTrend): outputs a patient status index explicitly based on the
+      aggregate statistical mortality risk of the patient's vital signs — a direct mortality-risk
+      stratifier.
+  - submission_number: K183370
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      PeraMobile Indications for Use: The Rothman Index uses commonly recorded vital sign, nursing
+      assessment, and lab data to provide a patient status index. The Rothman Index is a single
+      measure of a patient’s physiologic condition based on the aggregate statistical mortality risk
+      associated with the values o
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K183370.pdf
+    notes: >-
+      Rothman Index (PeraMobile/PeraWatch): same statistical-mortality-risk index as K172959.
+  - submission_number: K183646
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Edwards Lifesciences Acumen Hypotension Prediction Index feature provides the clinician with
+      physiological insight into a patient’s likelihood of future hypotensive events (defined as mean
+      arterial pressure < 65 mmHg for at least one minute in duration) and the associated
+      hemodynamics. The Acumen HPI feature is intended for use in surgical or non- surgical patients
+      receiving advanced hemodynamic monitoring. The A
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K183646.pdf
+    notes: >-
+      Acumen Hypotension Prediction Index: predicts likelihood of future hypotensive events
+      (hemodynamic instability) in monitored patients.
+  - submission_number: K200717
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      CLEWICU provides the clinician with physiological insight into a patient's likelihood of future
+      hemodynamic instability. CLEWICU is intended for use with intensive care unit (ICU) patients 18
+      years and over. CLEWICU is considered to provide additional information regarding the patient's
+      predicted future risk for clinical deterioration, as well as identifying patients at low risk f
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K200717.pdf
+    notes: >-
+      CLEWICU: predicts a patient's likelihood of future hemodynamic instability and future risk for
+      clinical deterioration in the ICU — acute deterioration/mortality-risk stratification.
+  - submission_number: K212219
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The AHI System is intended for use by healthcare professionals managing patients 18 years or
+      older who are receiving continuous physiological monitoring with electrocardiography (ECG) in
+      hospitals. AHI provides a frequently updated binary output over time based on pattern analysis
+      of a lead-II ECG waveform intended to describe a patient's hemodynamic status and indicate if a
+      patient is showing signs of hemodynamic instability.
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K212219.pdf
+    notes: >-
+      AHI System: flags hemodynamic instability from the ECG waveform — acute deterioration risk.
+  - submission_number: K213857
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The HeartFlow Analysis is an AI-based medical device software for the clinical quantitative and
+      qualitative analysis of previously acquired Computed Tomography DICOM data for patients with
+      suspected coronary artery disease. It provides anatomic data, plaque identification and
+      characterization, as well as the calculations of FFRCT, a coronary physiological simulation,
+      computed from simulated pressu
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213857.pdf
+    notes: >-
+      HeartFlow Analysis: provides coronary plaque identification and characterization (plaque burden)
+      feeding cardiac risk — the handoff's explicit in-scope example.
+  - submission_number: K233216
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      CLEWICU provides the clinician with physiological insight into a patient’s likelihood of future
+      hemodynamic instability. CLEWICU is intended for use in hospital critical care settings for
+      patients 18 years and over. CLEWICU is considered to provide additional information regarding
+      the patient’s predicted future risk for c
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233216.pdf
+    notes: >-
+      CLEWICU (updated clearance): same future-hemodynamic-instability / clinical-deterioration risk
+      prediction.
+  - submission_number: K233249
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The APPRAISE-HRI is a mobile health app intended to provide a means for military healthcare
+      providers to screen U.S. Service members for hemorrhage risk after a physically traumatic event
+      and stratify casualties who need immediate attention and emergency evacuation from those who are
+      injured but may not be at risk for hemor
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233249.pdf
+    notes: >-
+      APPRAISE-HRI: stratifies hemorrhage risk and triages casualties needing immediate attention and
+      emergency evacuation — explicit death-risk triage.
+  - submission_number: K233253
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      eCART is a software product that provides automated risk stratification and early warning for
+      impending patient deterioration, signified as the composite outcome of death or ICU transfer. It
+      is intended to be used on hospitalized ward patients 18 years of age or older by trained medical
+      professionals. As a clinical decision support
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233253.pdf
+    notes: >-
+      eCART: automated risk stratification / early warning for deterioration, defined as the composite
+      outcome of death or ICU transfer — an explicit death endpoint.
+  - submission_number: K242967
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      Loss of Pulse Detection is a software-only mobile medical application that is intended to be
+      used with compatible consumer wrist-worn products to analyze pulse data to identify loss of
+      pulse events and provide audio, visual, and haptic alerts to the user. If the user remains
+      unresponsive to these alerts, Lo
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K242967.pdf
+    notes: >-
+      Loss of Pulse Detection: identifies loss-of-pulse (cardiac arrest) events and escalates for
+      emergency response — detection of an acute lethal event.
+  - submission_number: K250902
+    mortality_confirmed: true
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Heartflow Analysis is an AI-based medical device software for the clinical quantitative and
+      qualitative analysis of previously acquired Computed Tomography DICOM data for adult patients
+      (ages 22 years and older) with suspected coronary artery disease. It provides anatomic data,
+      plaque localization and characteriza
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250902.pdf
+    notes: >-
+      HeartFlow Analysis: provides coronary plaque localization and characterization (plaque burden);
+      in scope per the plaque-burden example.
+  - submission_number: K081140
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Visensia ® with alert is an accessory to multi-parameter patient monitors (bedside, ambulatory,
+      or centralized location) or clinical information systems and is indicated for use by health care
+      professionals with those non-paediatric high dependency care patients for whom multi-parameter
+      patient monitoring has been routine. Visensia ® provides the clinician with a patient status
+      index (Visensia® In
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf8/K081140.pdf
+    notes: >-
+      Visensia: multi-parameter patient-status early-warning index; the stated intended use names no
+      death/MACE endpoint (contrast the Rothman Index, which does).
+  - submission_number: K121617
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      807.92(a)(5) Sensi is a decision support software package intended to assist medical examiners
+      in heart auscultation. The Sensi system consists of the following components: 1. The Sensi
+      Diagnostic Heart Murmur Software program running on a personal computer (PC) with interfaces to:
+      o a compatible electronic stethoscope o A database with patient and health worker information o
+      Functions to record,
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf12/K121617.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K131044
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      807.92(a)(5) The SensiCardiac Mobi is an electronic auscultatory device, intended to provide
+      support to the physician in the evaluation of patients' heart sounds. The product acquires and
+      records the acoustic signals of the heart and analyzes these signals. The analysis procedure
+      will identify specific heart sounds that may be present. Identified sounds include S1, S2, and
+      suspected murmurs. The d
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf13/K131044.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K152733
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      HeartFlow FFRCT is a post-processing software for the clinical quantitative and qualitative
+      analysis of previously acquired Computed Tomography DICOM data for clinically stable symptomatic
+      patients with coronary artery disease. It provides FFRCT, a mathematically derived quantity,
+      computed from simulated pressure, veloc
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf15/K152733.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K160016
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The StratoScientific Steth IO Stethoscope and Phonocardiogram Model 1.0 is intended for medical
+      diagnostic purposes only. It may be used for the detection and amplification of sounds from the
+      heart, and lungs with the use of selective frequency ranges. It has been tested for use on
+      adults undergoing a physical assessment. The StratoScientific Steth IO Stethoscope and
+      Phonocardiogram Model 1.0 is intende
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf16/K160016.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K160401
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Tyto Stethoscope is an electronic stethoscope that enables transmission of auscultation
+      sound data, whereby a clinician at one location on an IP network can listen to the auscultation
+      sounds of a patient on site or at a different location on the IP network with the signal carried
+      on an IP connection betw
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf16/K160401.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K161772
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      HeartFlow FFRCT is a coronary physiologic simulation software for the clinical quantitative and
+      qualitative analysis of previously acquired Computed Tomography DICOM data for clinically stable
+      symptomatic patients with coronary artery disease. It provides FFRCT, a mathematically derived
+      quantity, computed from simulated
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf16/K161772.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K163339
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      : The SpectralMD™ DeepView™ Wound Imaging System 2.0 is an optical imaging device intended for
+      studies of blood flow in the microcirculation. The DeepView System is suitable for a wide
+      variety of clinical applications including plastic surgery, diabetes, dermatology, vascular
+      surgery, wound healing, neurology, physiology, neurosurgery and anesthetics. In particular, it
+      can be used for measuring pe
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf16/K163339.pdf
+    notes: >-
+      Tissue perfusion/oxygenation optical imaging — not death/MACE risk stratification.
+  - submission_number: K163694
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      - The intended use of the Rooti Rx System is to allow a patient at home or in the workplace to
+      record single-lead electrocardiography (ECG) data for post-analysis by medical professionals.
+      The Rooti Rx device stores the ECG data, and the recorded data is transmitted to a medica
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf16/K163694.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K170568
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The CardioLogs ECG Analysis Platform is intended for use by qualified healthcare professionals
+      for the assessment of arrhythmias using ECG data in subjects over 18 years of age. The product
+      supports downloadi
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf17/K170568.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K171056
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The WAVE Clinical Platform is software intended to route, store, and display data, alarms,
+      results and diagnostic information from medical devices, Electronic Medical Records (EMR), and
+      Clinical Information Systems (CIS). The WAVE Clinical Platform is a remote monitoring platform
+      that displays physiologic data, waveforms, alarms, results and diagnostic information routed
+      through the WAVE Clinical
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf17/K171056.pdf
+    notes: >-
+      WAVE Clinical Platform: routes/displays physiologic data and alarms (remote monitoring), not
+      death/MACE risk stratification.
+  - submission_number: K172122
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      A bioimpedance spectroscopy device for use on adult human patients, utilizing impedance ratios
+      that are displayed as an L-Dex ratio that supports the measurement of extracellular fluid volume
+      differences between the limbs and is presented to the clinician on an L-Dex scale as an aid to
+      their clinical assessment of unil
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf17/K172122.pdf
+    notes: >-
+      Bioimpedance fluid/body-composition measurement — not death/MACE risk stratification.
+  - submission_number: K173872
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      FibriCheck is indicated for self-testing by patients who have been diagnosed with, or are
+      susceptible to developing, atrial fibrillation and who would like to monitor and record their
+      heart rhythms on an intermittent basis. Type of Use (Select one or both, as applicable)
+      Prescription Use (Part 21 CFR 801 Subpart D) Over
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf17/K173872.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K180126
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The SOZO Body Fluid Analyzer has the following uses: For adult human patients at risk of
+      lymphedema: A bioimpedance spectroscopy device for use on adult human patients, utilizing
+      impedance ratios that are displayed as an L-Dex ratio that supports the measurement of
+      extracellular volume differences between the limbs and is presente
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K180126.pdf
+    notes: >-
+      Bioimpedance fluid/body-composition measurement — not death/MACE risk stratification.
+  - submission_number: K180432
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The AI-ECG Platform is designed to assist physicians in measuring and interpreting 12-lead
+      resting ECG, and the interpretation by the analysis program may then be confirmed, edited, or
+      deleted by the physician. The program is intended for use by qualified healthcare professionals
+      in hospitals and other healthcare facilit
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K180432.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K181352
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Loop System is intended for adult patients in the home environment for passive, non-
+      invasive, intermittent data collection of physiological parameters that will later be
+      transmitted to a web server for remote review by a clinician. The Loop System measures and
+      records: • arterial oxygen saturation (SpO2) • heart rate (HR
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K181352.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K181823
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      KardiaAI is a software analysis library intended to assess ambulatory electrocardiogram (ECG)
+      rhythms from adult subjects. The device supports analyzing data recorded in compatible formats
+      from any ambulatory ECG devices such as event recorders, or other similar devices. The library
+      is intended to be integrated into other device software. The library is not intended for use in
+      life supporting, or
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K181823.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K181988
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The eMurmur ID software system is a decision support device for the healthcare provider (the
+      user) in the evaluation of patient heart sounds. eMurmur ID is used to record, display, analyze,
+      and store the acoustic signal of the heart, recorded by means of an electronic stethoscope. The
+      automated analysis will identify specific
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K181988.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K182035
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Statement page 4-1 of 1 HeartFlow, Inc. 1400 Seaport Blvd., Bldg B Redwood City, CA 94063 T +1
+      (650) 241-1221 www.heartflow.com FFR CT v 2.18 K182035 2018 INDICATIONS FOR USE STATEMENT 510(k)
+      Number (if known): _________________ Device Name: FFR CT HeartFlow FFR CT is a coronary
+      physiologic simulation software for the clinical quantitative and qualitative analysis of
+      previously acquired Computed T
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K182035.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K182149
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      CathWorks FFRangio™ is a software device for the clinical quantitative and qualitative analysis
+      of previously acquired angiography DICOM data for patients with coronary artery disease. It
+      provides FFRangio™, a mathematically derived quantity, computed from simulated blood flow
+      information obtained from a 3D computer model, gen
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K182149.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K182344
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      RhythmAnalytics is a software application for the assessment of cardiac arrhythmias using
+      single-lead ECG data in subjects over 18 years of age. It is intended for use by a healthcare
+      solution integrator to build web or mobile applications to let qualified healthcare
+      professionals review and confirm the analytic result. The product supports downloading and
+      analysing data recorded in compatible fo
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K182344.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K182456
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Study Watch is intended to record, store, transfer, and display single-channel
+      electrocardiogram (ECG) rhythms. The Study Watch is intended for use by healthcare
+      professionals, adult patients (22 years or older) with known or suspected heart conditions, and
+      health conscious individuals. Type of Use (Select one or both, a
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K182456.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K182790
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Intended Use of the Cardio- TriTest™ is to provide the GP with three different types of non-
+      invasive heart bio-signals as an aid to the Physician in making a broader and more complete
+      diagnosis of cardiovascular health. Indication for use The intended use of the device is to
+      acquire and record the 3 different types of heart bio- signals (ECG, PCG, and MCG) and combine
+      the results into a contiguous p
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K182790.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K183282
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Biovitals Analytic Engine (BA Engine) is intended to be used wi th continuous biometric data
+      from already cleared sensors measuring heart rate, respiratory rate, and activity in ambulatory
+      patients being monitored in a healthcare facility or at home, during periods of minimal
+      activity. The device learns the correlation between multiple vital signs during the patient’s
+      daily activity and build
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K183282.pdf
+    notes: >-
+      Biovitals Analytic Engine: individualized multi-vital-sign deviation index; intended use states
+      no death/MACE endpoint.
+  - submission_number: K183322
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The physIQ Heart Rhythm and Respiration Module (Version 2.0) is intended for use by a physician
+      or other qualified medical professionals for the calculation of heart rate and heart rate
+      variability, the detection of atrial fibrillation and determination of respiration rate using
+      ambulatory ECG and trixial accelerometer data. The physIQ Heart Rhythm and Respiration Module
+      supports receiving and analyzing single-lead
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K183322.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K183704
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      intended use and similar technological characteristics to the following device, Rhythmedix, LLC.
+      RhythmStar System which was cleared under K141813. K183704 Page 1 of 7 IV. DEVICE DESCRIPTION
+      The Rhythm Express RX-1 will be worn by adult patients for a period of time as prescribed by a
+      physician, typically 1 day to 4 weeks, and will continuously monitor ECG. RX-1 will function in
+      one of three modes: a) Mobile Cardiac
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf18/K183704.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K190334
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The MIMOSA Imager is intended to non-invasively estimate the spatial distribution of percent
+      oxygen saturation (StO2) in a volume of tissue. This is performed in medical environments
+      including physician offices, hospitals, ambulatory care and Emergency Medical Services. The
+      MIMOSA Imager is indicated for use in monitoring patients
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190334.pdf
+    notes: >-
+      Tissue perfusion/oxygenation optical imaging — not death/MACE risk stratification.
+  - submission_number: K190529
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Form Approved: OMB No. 0910 - 0120 Expiration Date: 06/30/2020 See PRA Statement below. Page 1
+      of 4 510(k) SUMMARY ImpediMed’s SOZO ® system Submitter: ImpediMed Limited Unit 1 50 Parker
+      Court Pinkenba Qld 4008 Australia Phone: 760 585 2104 Facsimile: 760 804 9245 Contact Person:
+      Reuben Lawson Date Prepared: November 25, 2019 Name of Device: SOZO ® Common or Usual Name: Body
+      Fluid Analyzer Regulat
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190529.pdf
+    notes: >-
+      Bioimpedance fluid/body-composition measurement — not death/MACE risk stratification.
+  - submission_number: K190593
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Zio ECG Utilization Service (ZEUS) System is intended to analyze and report symptomatic and
+      asymptomatic cardiac events and continuous electrocardiogram information for long-term
+      monitoring. After patient monitoring by Zio XT or Zio AT Patch, a final report is generated
+      based on the beat-to
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190593.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K190925
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      HeartFlow Analysis is a coronary physiologic simulation software for the clinical quantitative
+      and qualitative analysis of previously acquired Computed Tomography DICOM data for clinically
+      stable symptomatic patients with coronary artery disease. It provides FFRCT, a mathematically
+      derived quantity, computed from simu
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190925.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K192004
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Eko Analysis Software is intended to provide support to the physician in the evaluation of
+      patients' heart sounds and ECG’s. The software analyzes simultaneous ECG and heart sounds. The
+      software will detect the presence of suspected murmurs in the heart sounds. The software also
+      detects the presence of a
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K192004.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K192415
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Study Watch with Irregular Pulse Monitor is indicated for use by adult patients (22 years
+      and older) who have been diagnosed with, or are susceptible to developing, atrial fibrillation
+      enabling them to monitor and record their heart rhythms. Study Watch is also intended to record,
+      store, tran
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K192415.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K192442
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      CathWorks FFRangio™ is a software device for the clinical quantitative and qualitative analysis
+      of previously acquired angiography DICOM data for patients with coronary artery disease. It
+      provides FFRangio™, a mathematically derived quantity, computed from simulated blood flow
+      information obtained from a 3D computer mod
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K192442.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K192732
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The BodyGuardian System detects and monitors cardiac arrhythmias in ambulatory patients, when
+      prescribed by a physician or other qualified healthcare professional. Not for use with patients
+      requiring attended, in-hospital monitoring for life threatening arrhythmias. The Preventice
+      BodyGuardian Remot
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K192732.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K193631
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Stethee™ Pro 1 is an electronic stethoscope intended for screening and medical diagnostic
+      purposes only. It may be used for the detection and amplification of sounds from the heart,
+      lungs, arteries, veins, and other internal organs with or without the use of selective
+      frequencies. It can be used on any person undergoin
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf19/K193631.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K200036
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The AI-ECG Tracker is intended to be used by qualified healthcare professionals in hospitals and
+      healthcare facilities for the assessment of arrhythmias using ECG data acquired from adults (age
+      22 and older) without pacemakers. The product supports downloading and analyzing data recorded
+      from electrodes with conductive pa
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K200036.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K200833
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Rhythm Express remote cardiac monitoring system is intended for use by patients greater than
+      10 kg who either have or are at risk of having cardiac disease and those that demonstrate
+      intermittent symptoms indicative of cardiac disease and require cardiac monitoring on a
+      continuing
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K200833.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K201298
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The VX1 assists operators in the real-time manual annotation of 3D anatomical and electrical
+      maps of human atria for the presence of multipolar intra-cardiac atrial electrograms exhibiting
+      spatiotemporal dispersion during atrial fibrillation or atrial tachycardia. The clinical
+      significance of utilizing the VX1 software to help identi
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K201298.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K201985
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Form Approved: 0MB No. 0910-0120 Expiration Date: 06/30/2020 See PRA Statement below. KardiaAI
+      is a software analysis library intended to assess ambulatory electrocardiogram (ECG) rhythms
+      from adult subjects (when prescribed or used under the care of a physician). The device supports
+      analyzing data recorded in compatible fonnats from any ambulatory ECG devices such as event
+      recorders, or other similar devices. The li
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K201985.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K202527
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Indications for Use statement for the ZEUS System is as follows: The device is intended to
+      capture, analyze and report symptomatic and asymptomatic cardiac events and continuous
+      electrocardiogram information for long-term monitoring. After wear, ECG data from compatible
+      monitoring devices is processed and analyzed by the ZEUS System. A final report is generated on
+      the beat-to-beat information
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K202527.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K203329
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The HeartFlow Analysis is a coronary physiological simulation software for the clinical
+      quantitative and qualitative analysis of previously acquired Computed Tomography DICOM data for
+      clinically stable symptomatic patients with coronary artery disease . It provides the
+      calculations of FFR CT, a mathematically derived quantity, computed from simulated pressure,
+      velocity and blood flow information o
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf20/K203329.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K210484
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The LINQ II ICM Indications for Use remains the same as a result of this submission and are as
+      follows: The LINQ II ICM is an insertable automatically-activated and patient-activated
+      monitoring system that records subcutaneous ECG and is indicated in the following cases: •
+      patients with clinical syndromes or situations at increased risk of cardiac arrhythmias •
+      patients who experience transient sy
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K210484.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K210822
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      DeepRhythmAl is a cloud-based software for the assessment of cardiac arrhythmias using two lead
+      ECG data in adult patients. It is intended for use by a healthcare solution integrator to build
+      web, mobile or another types of applications to let qualified healthcare professionals review
+      and confirm the analytic result. The pr
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K210822.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K211906
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Oxehealth Vital Signs device is intended for noninvasive spot measurement of pulse rate and
+      estimated breathing rate (chest wall movements) when the subject is still. It is software
+      assessing video footage from a fixed-installation solution for use within single occupancy rooms
+      within hospitals, general care and secure
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K211906.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K212516
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Irregular Rhythm Notification Feature is a software-only mobile medical application that is
+      intended to be used with the Apple Watch. The feature analyzes pulse rate data to identify
+      episodes of irregular heart rhythms suggestive of atrial fibrillation (AFib) and provides a
+      notification to the user. The feature is intended for over-the-counter (OTC) use. It is not
+      intended to provide a notific
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K212516.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K213357
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Study Watch with Irregular Pulse Monitor is indicated for use by adult patients (22 years
+      and older) who have been diagnosed with, or are susceptible to developing, atrial fibrillation
+      enabling them to monitor and record their heart rhythms. Study Watch is also intended to record,
+      store, transfer, and display single-channel electrocardiogram (ECG) rhythms. The Study Watch
+      with Irregular Pulse
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213357.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K213409
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Indications for Use statement for the subject ZEUS System (Zio Watch) is as follows: The
+      ZEUS System (Zio Watch), as part of the Zio Watch Service, is intended to process and analyze
+      electrocardiogram (ECG) and photoplethysmogram (PPG) based data to detect and report on the
+      presence of Atrial Fibrillation (AF) over the monitoring period. The report provides ECG
+      information for the intended use
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213409.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K213657
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      DEEPVESSEL FFR is a coronary physiological simulation software for the clinical quantitative and
+      qualitative analysis of previously acquired Computed Tomography DICOM data for clinically stable
+      symptomatic patients with coronary artery disease. It provides DVFFR (a CT-derived FFR
+      measurement) computed from static coronary C
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213657.pdf
+    notes: >-
+      FFR/CT-FFR: functional coronary lesion physiology (ischemia significance), not patient-level
+      death/MACE risk stratification.
+  - submission_number: K213794
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Eko Murmur Analysis Software is intended to provide decision support to clinicians in their
+      evaluation of patients' heart sounds. The software analyzes heart sounds and phonocardiograms
+      (and ECG signals, when available). The software will automatically detect murmurs that may be
+      present, and the murmur timing and character, including S1, S2, innocent heart murmurs,
+      structural heart murmurs, an
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213794.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K213971
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Atrial Fibrillation (AFib) History Feature is an over-the-counter ("OTC") software-only
+      mobile medical application intended for users 22 years of age and over who have a diagnosis of
+      atrial fibrillation (AFib). The feature opportunistically analyzes pulse rate data to identify
+      episodes of irregula
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf21/K213971.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K220766
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The ’eMurmur Heart AI’ software is a decision support system in the evaluation of recorded
+      patient heart sounds. The automated analysis by eMurmur Heart AI identifies specific heart
+      sounds that may be present, including S1, S2, physiological heart murmurs, pathological heart
+      murmurs and the absence of a heart murmur. eMurmur Heart AI is indicated for use in a setting
+      where auscultation would typically be performed by
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K220766.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K220786
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      STAR Apollo™ Mapping System assists users in manual annotation of 3D anatomical and electrical
+      maps of human atria using data from multipolar, intracardiac, atrial, electrograms during atrial
+      fibrillation. The clinical significance of utilizing the STAR Apollo Mapping System, to help
+      identify areas with intra
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K220786.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K220899
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The modified Oxehealth Vital Signs is intended to be used for Non-invasive spot check
+      measurements of pulse rate and breathing rate (chest wall movements). Page 1 of 8 K220899 The
+      modified Oxehealth Vital Signs is indicated for use are as follows: “The Oxehealth Vital Signs
+      device is intended for noninvasive spot measurement of pulse rate and estimated breathing rate
+      (chest wall movements) when t
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K220899.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K221962
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The LINQ II ICM is an insertable automatically activated and patient-activated monitoring system
+      that records subcutaneous ECG and is indicated in adult patients, and in pediatric patients who
+      are at least 2 years old, in the following cases: * Patients with clinical syndromes or situati
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K221962.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K222389
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The device is intended to capture, analyze and report symptomatic and asymptomatic cardiac
+      events and continuous electrocardiogram information for long-term monitoring. After wear, ECG
+      data from compatible monitoring devices is processed and analyzed by the ZEUS System. A final
+      report is generated on the beat-to-beat informa
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K222389.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K223073
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Alio is a wireless remote monitoring system intended for use by healthcare providers (HCP) to
+      collect physiological data in clinical and non-clinical settings. The data includes measured
+      hemoglobin (Hgb) and hematocrit (Hct), skin temperature, auscultation sound data, and heart
+      rate. Data is transmitted wirelessly from the SmartPatch wearable sensor to a web-based portal
+      for the HCP’s review. The
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K223073.pdf
+    notes: >-
+      Remote physiological monitoring (multi-parameter) — not death/MACE risk stratification.
+  - submission_number: K223516
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The VX1+ assists operators in the real - time manual or automatic annotation of 3D anatomical
+      and electrical maps of human atria for the presence of multipolar intra - cardiac atrial
+      electrograms exhibiting spatiotemporal dispersion during atrial fibrillation or atrial
+      tachycardia. The clinical significance of utilizing the VX1+ software to help identify areas
+      with intra - cardiac atrial electrograms exhibiting spati
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K223516.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K223622
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Form Approved: 0MB No. 0910-0120 Expiration Date: 06/30/2023 See PRA Statement below. The FH
+      Vitals SDK is designed to measure the pulse rate based on the given facial video stream. It is
+      intended for non-invasive spot measurements of pulse rate when the subject is still. This SDK is
+      not intended for use in patients with known or suspected heart arrhythmias. While the SDK can be
+      used for general healthcare, it is not
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K223622.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K223630
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Form Approved: 0MB No. 0910-0120 Expiration Date: 06/30/2023 See PRA Statement below. The Reveal
+      LINQ ICM is an insertable automatically-activated and patient-activated monitoring system that
+      records subcutaneous ECG and is indicated in the following cases: • patients with clinical
+      syndromes or situations at increased risk of cardiac arrhythmias • patients who experience
+      transient symptoms such as dizziness, pal
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K223630.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K223905
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Vivio® System is indicated to non-invasively estimate left ventricular end-diastolic
+      pressure (LVEDP) is above or below 18mmHg. This measurement can aid in the diagnosis of heart
+      failure when used by qualified healthcare professionals as an adjunct alongside other clinically
+      relevant information. For use in adults only
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf22/K223905.pdf
+    notes: >-
+      Estimates left-ventricular end-diastolic pressure to aid heart-failure diagnosis — diagnostic
+      aid, not death/MACE risk stratification.
+  - submission_number: K230273
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Early Bird is indicated for the introduction of catheters, catheter balloons, and other
+      diagnostic and interventional devices into the femoral artery or femoral vein while maintaining
+      hemostasis during diagnostic and interventional endovascular procedures. The Early Bird provides
+      physicians w
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K230273.pdf
+    notes: >-
+      Early Bird: endovascular access sheath with procedural bleed detection — procedural monitoring,
+      not patient death/MACE risk stratification.
+  - submission_number: K230292
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Samsung ECG Monitor Application with Irregular Heart Rhythm Notification is an over-the-
+      counter (OTC) software- only, mobile medical application operating on a compatible Samsung
+      Galaxy Watch and Phone for informational use only in adults 22 year
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K230292.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K230553
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The LINQ II ICM is an insertable automatically-activated and patient-activated monitoring system
+      that records subcutaneous ECG and is indicated in adult patients, and in pediatric patients who
+      are at least 2 years old, in the following cases: • patients with clinical syndromes or situat
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K230553.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K230812
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Withings Scan Monitor 2.0 is intended to record, store and transfer lead II and lead - III
+      of a two - channel electrocardiogram (ECG). In addition, it calculates and displays leads I,
+      aVR, aVF, aVL. The Withings Scan
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K230812.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K230842
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The SignalHF System is intended for use by qualified healthcare professionals (HCP) managing
+      patients over 18 years old who are receiving physiological monitoring for Heart Failure
+      surveillance and implanted with a compatible Cardiac Implantable Electronic Devices (CIED)
+      (i.e., compatible pacemakers, ICDs, and CRTs). The Signal
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K230842.pdf
+    notes: >-
+      SignalHF: heart-failure surveillance monitoring via CIED data — monitoring, not risk
+      stratification.
+  - submission_number: K231010
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      AliveCor’s Corvair ECG analysis system assists the healthcare professional (HCP) in measuring
+      and interpreting resting diagnostic ECGs for rhythm and morphological information by providing
+      an initial automated interpretation. The interpretation by the analysis program may then be
+      confirmed, edited, or deleted by the HCP. The a
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K231010.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K231173
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The IRNF is a software-only mobile medical application that is intended to be used with the
+      Apple Watch. The feature analyzes pulse rate data to identify episodes of irregular heart
+      rhythms suggestive of atrial fibrillation (AFib) and provides a notification to the user. The
+      feature is intend
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K231173.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K231207
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The intended use of the CARTO™ 3 System is catheter - based cardiac electrophysiological (EP)
+      procedures. The CARTOTM 3 System provides information about the electrical activity of the heart
+      and about catheter location during the procedure. The system can be used on patients who are
+      eligible
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K231207.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K231335
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Cleerly ISCHEMIA analysis software is an automated machine learning-based decision support tool,
+      indicated as a diagnostic aid for patients undergoing CT analysis using Cleerly Labs software.
+      When utilized by an interpreting healthcare provider, this software tool provides information
+      that may be useful in detecting likely ische
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K231335.pdf
+    notes: >-
+      Cleerly ISCHEMIA: detects likely ischemia (diagnostic aid), not death/MACE risk stratification.
+      (Cleerly's plaque-quantification product, in scope, is a separate submission.)
+  - submission_number: K232035
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Impala is intended to record, store, and transfer a 12 - lead resting electrocardiogram (ECG).
+      Impala acquires four standard diagnostic - bandwidth leads (Leads I, II, V2, V4, or Leads I, II,
+      V1, V4). The device derives four standard diagnostic - bandwidth, Lead - III and unipolar limb
+      leads aVR, aVF and aVL. The device also sy
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K232035.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K232616
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Volta AF-Xplorer assists operators in the real-time manual or automatic annotation of 3D
+      anatomical and electrical maps of human atria for the presence of multipolar intra-cardiac
+      atrial electrograms exhibiting spatiotem
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K232616.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K232686
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The CorVista® System analyzes sensor-acquired physiological signals of patients presenting with
+      cardiovascular symptoms (such as chest pain, dyspnea, fatigue) to indicate the likelihood of
+      significant coronary artery disease. The analysis is presented for interpretation by healthcare
+      providers in conjunction with their clinical judgment
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K232686.pdf
+    notes: >-
+      Indicates likelihood of significant coronary artery disease — diagnostic likelihood of a
+      condition, not death/MACE risk stratification.
+  - submission_number: K232699
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Anumana Low Ejection Fraction AI-ECG Algorithm is software intended to aid in screening for
+      Left Ventricular Ejection Fraction (LVEF) less than or equal to 40% in adults at risk for heart
+      failure. This population includes, but is not limited to: • patients with cardiomyopathies •
+      patients who a
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K232699.pdf
+    notes: >-
+      Screens for/detects low LVEF (<=40%), a mortality-associated finding, but the stated intended
+      use is condition detection, not death/MACE risk stratification.
+  - submission_number: K233409
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Eko Low Ejection Fraction Tool (ELEFT) is a software intended to aid clinicians in identifying
+      individuals with Left Ventricular Ejection Fraction (LVEF) less than or equal to 40%. ELEFT
+      takes as input ECG and heart sounds and is intended for use on patients at risk for heart
+      failure This population includes, but is not limited to, patients with: coronary artery disease;
+      diabetes mellitus; cardiomyopathy; hypertensio
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233409.pdf
+    notes: >-
+      Screens for/detects low LVEF (<=40%), a mortality-associated finding, but the stated intended
+      use is condition detection, not death/MACE risk stratification.
+  - submission_number: K233549
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Tempus ECG-AF is intended for use to analyze recordings of 12-lead ECG devices and detect signs
+      associated with a patient experiencing atrial fibrillation and/or atrial flutter (collectively
+      referred to as AF) within the next 12 months. It is for use on resting 12-lead ECG recordings
+      collected at a healthcare facility from
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233549.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K233666
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The CorVista® System analyzes sensor-acquired physiological signals of patients presenting with
+      cardiovascular symptoms (such as chest pain, dyspnea, fatigue) to provide a binary output
+      indicating the likelihood of elevated mean pulmonary
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233666.pdf
+    notes: >-
+      Indicates likelihood of elevated mean pulmonary arterial pressure (pulmonary hypertension) —
+      diagnostic likelihood, not death/MACE risk stratification.
+  - submission_number: K233755
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      HeartKey Rhythm is intended for use by qualified healthcare professionals for analysing ECG data
+      from adults. HeartKey Rhythm analyses a single ECG lead recorded from compatible devices used
+      for arrhythmia diagnostics such as Holters, Extended Holters, ECG Patches, Event Recorders, or
+      other similar devices when assessme
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233755.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K233864
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The ASSURE Wearable ECG is indicated for adult patients who have been prescribed this device by
+      a medical professional, who were previously prescribed the ASSURE WCD system, and who may be
+      asymptomatic or who may suffer from transient symptoms such as palpitations, shortness of
+      breath, dizziness, light- headedness, presyncope, syncope, fatigue, or anxiety. The signal
+      acquired by the ASSURE Wearabl
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233864.pdf
+    notes: >-
+      ASSURE Wearable ECG: ECG component of a wearable-defibrillator system, explicitly not for
+      automated analysis — monitoring, not risk stratification.
+  - submission_number: K233984
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Edwards Lifesciences Acumen Assisted Fluid Management (AFM) Software Feature provides a
+      patient's estimated response to fluid therapy and the the clinician with physiological i nsight
+      i nto associated hemodynamics. The Acumen AFM Software Feature is intended for use in surg
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf23/K233984.pdf
+    notes: >-
+      Acumen Assisted Fluid Management: estimates fluid-therapy response/hemodynamics (fluid
+      management), not instability/death-risk prediction.
+  - submission_number: K240013
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      EchoGo Heart Failure 2.0 is an automated machine learning-based decision support system,
+      indicated as a diagnostic aid for patients undergoing routine functional cardiovascular
+      assessment using echocardiography. When utilised by an interpreting clinician, this device
+      provides information that may be useful
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K240013.pdf
+    notes: >-
+      EchoGo Heart Failure: echocardiographic functional diagnostic aid, not death/MACE risk
+      stratification.
+  - submission_number: K240795
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Withings ECG App is a software-only device intended for use with the ScanWatch to create,
+      record, store, transfer and display a single channel electrocardiogram (ECG) similar to a Lead I
+      ECG. The Withings ECG App determines the presence of atrial fibrillation (AFib), sinus rhythm
+      and high heart rate (no signs of AFi
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K240795.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K240860
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      EchoGo Amyloidosis 1.0 is an automated machine learning-based decision support system, indicated
+      as a screening tool for adult patients aged 65 years and over with heart failure undergoing
+      cardiovascular assessment using echocardiography. When utilised by a
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K240860.pdf
+    notes: >-
+      Screens for cardiac amyloidosis — disease detection, not death/MACE risk stratification.
+  - submission_number: K241197
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      DeepRhythmAl is a cloud-based software for the assessment of cardiac arrhythmias using two lead
+      ECG data in adult patients. It is intended for use by a healthcare solution integrator to build
+      web, mobile or another types of applications to let qualified healthcare professionals review
+      and confirm the analytic result. The product supports downloading and analyzing data recorded in
+      the compatible formats from dedicated
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K241197.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K241633
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Informed Vital Core Application (IVC App) is intended for non-invasive spot measurement of
+      pulse rate of adult patients in home use, hospitals, clinics, and long-term care settings. The
+      Informed Vital Core Application is indicated for use
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K241633.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K242129
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      VitalRhythm is a cloud-based software application for continuous and automatic analysis of
+      cardiac arrhythmias. VitalRhythm is compatible with the “Vista Solution” platform, which
+      includes the VitalPatch biosensor and VistaCenter web application. VitalRhythm is intended to be
+      used for outpatient cardiac telemetry and patient
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K242129.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K242583
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The device is intended to measure, analyze, edit and report continuous electrocardiogram (ECG)
+      information for long- term recording (ATP-C130: up to 14 days, ATP-C70: up to 7 days) by
+      attaching to the patient’s torso. ECG records are saved in the device during use and are not
+      intended for real-time monitorin
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K242583.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K242737
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Empatica Health Monitoring Platform is a wearable device and paired mobile and cloud-based
+      software platform intended to be used by trained healthcare professionals or researchers for
+      retrospective remote monitoring of physiologic parameters in ambula
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K242737.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K243349
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The BodyGuardian™ Remote Monitoring System detects and monitors cardiac arrhythmias in
+      ambulatory patients, when prescribed by a physician or other qualified healthcare professional.
+      The BodyGuardian Remote Monitoring System is intended for use with adult and pediatric patients
+      who are at least 29 days old in clinical and non-clinical settings to collect and transmit
+      electrocardiogram (ECG) and other health parameter
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K243349.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K243687
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Vital Signs device is intended for noninvasive spot measurement of pulse rate and breathing
+      rate when the subject is still. It is software assessing video footage from a fixed-installation
+      solution for use within single occupancy rooms
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K243687.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K243812
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Volta AF - Xplorer assists operators in the real - time manual or automatic annotation of 3D
+      anatomical and electrical maps of human atria for the presence of multipolar intra - cardiac
+      atrial electrograms exhibiting spatiotemporal dispersion during atrial fibrillation or atrial
+      tachycardia. Type of Use (Select one or both, as applicable) Prescription Use (Part 21 CFR 801
+      Subpart D) Over - The - Counter Use (21 C
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K243812.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K243866
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      InVision Precision Cardiac Amyloid is an automated machine learning-based decision support
+      system, indicated as a screening tool for adult patients aged 65 years and over undergoing
+      cardiovascular assessment using echocardiography. When utilized b
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf24/K243866.pdf
+    notes: >-
+      Screens for cardiac amyloidosis — disease detection, not death/MACE risk stratification.
+  - submission_number: K250119
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Tempus ECG-Low EF is software intended to analyze resting, non-ambulatory 12-lead ECG recordings
+      and detect signs associated with having a low left ventricular ejection fraction (LVEF less than
+      or equal to 40%). It is for use on clinical diagnostic ECG recordings collected at a healthcare
+      facility from patients 40 year
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250119.pdf
+    notes: >-
+      Screens for/detects low LVEF (<=40%), a mortality-associated finding, but the stated intended
+      use is condition detection, not death/MACE risk stratification.
+  - submission_number: K250151
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Us2.ca processes acquired transthoracic cardiac ultrasound images to support qualified
+      cardiologists, sonographers, or other licensed professional healthcare practitioners in their
+      diagnosis of cardiac amyloidosis. Us2.ca is intended for use only in adult patients with
+      increased left ventricular wall thickness, defined as an interventricular septal thickness
+      (IVSd) or left ventricular posterior wall thickness (LVPWd)
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250151.pdf
+    notes: >-
+      Screens for cardiac amyloidosis — disease detection, not death/MACE risk stratification.
+  - submission_number: K250507
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Hypertension Notification Feature (HTNF) is a software-only mobile medical application that
+      analyzes photoplethysmography (PPG) data opportunistically collected by Apple Watch to identify
+      patterns that are sugg
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250507.pdf
+    notes: >-
+      Hypertension Notification Feature: flags possible chronic hypertension (a risk factor), not
+      death/MACE risk stratification.
+  - submission_number: K250569
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Cardiologs Holter Platform is intended for use by qualified healthcare professionals for the
+      assessment of arrhythmias using ECG data in the adult and pediatric population. The product
+      supports downloading and analyzing data recorded in compatible formats from any device used for
+      the arrhythmia diagnostics such as Holter, event recorder, 12 lead ambulatory ECG devices, or
+      other similar devices indicated for recor
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250569.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K250635
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      FEops HEARTguide™ Simulation Application is indicated for patient-specific simulation of
+      transcatheter left atrial appendage occlusion (LAAO) device implantation during procedural
+      planning. The software performs computer simulation to predict implant frame deformation to
+      support the evaluation fo
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250635.pdf
+    notes: >-
+      Procedural implant (LAAO) simulation/planning — not risk stratification.
+  - submission_number: K250649
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Bunkerhill ECG-EF is software intended to aid in screening for Left Ventricular Ejection
+      Fraction (LVEF) less than or equal to 40% in adults at risk for, but not already diagnosed with
+      low LVEF. Bunkerhill ECG-EF is not intended to be a stand-alone diagnostic device for cardiac
+      conditions, should not be used for monito
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250649.pdf
+    notes: >-
+      Screens for/detects low LVEF (<=40%), a mortality-associated finding, but the stated intended
+      use is condition detection, not death/MACE risk stratification.
+  - submission_number: K250652
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The ECG-Al LEF 12-Lead algorithm is software intended to aid in earlier detection of Left
+      Ventricular Ejection Fraction (LVEF) less than or equal to 40% in adults at risk for heart
+      failure. This pop
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250652.pdf
+    notes: >-
+      Screens for/detects low LVEF (<=40%), a mortality-associated finding, but the stated intended
+      use is condition detection, not death/MACE risk stratification.
+  - submission_number: K250749
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The PhysCade System is intended for the analysis, display, and storage of cardiac
+      electrophysiological data and maps for analysis by a physician. The clinical significance of
+      utilizing the PhysCade System to help identify areas with intra-cardiac atrial electrograms
+      exhibiting local early activated potentials and o
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250749.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K250932
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      DeepRhythmAI is a cloud-based software that utilizes AI algorithms to assess cardiac arrhythmias
+      using a single- or two- lead ECG data from adult patients. It is intended for use by a
+      healthcare solution integrator to build web, mobile or another types of applications to let
+      qualified healthcare professionals review and con
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250932.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K251200
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Oxehealth Vital Signs device is intended for noninvasive spot measurement of pulse rate and
+      estimated breathing rate (chest wall movements) when the subject is still. It is software
+      assessing video footage from a fixed-installation solution for use within single occupancy rooms
+      within hospitals, general care and secured environments with professional healthcare oversight
+      and where a framework exists which mandate
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251200.pdf
+    notes: >-
+      Non-invasive vital-signs spot measurement/monitoring — not death/MACE risk stratification.
+  - submission_number: K251218
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The SafeBeat Rx App analyzes ECG data recorded in compatible formats. This ECG signal may
+      originate from a full 12-lead ECG or a reduced lead set ECG. The device provides ECG signal
+      processing and provisional analysis, including inter
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251218.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K251221
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Assert-lQ TM ICM is indicated for the monitoring and diagnostic evaluation of patients who
+      experience unexplained symptoms that may be cardiac-related such as: dizziness,
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251221.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K251293
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The iCardio.ai CardioVision™ AI is an automated machine learning–based decision support system,
+      indicated as a diagnostic aid for patients undergoing an echocardiographic exam consisting of a
+      single PLAX view in an outpatient environment, such as a primary care setting. When utilized by
+      an interpreting clinician, this devi
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251293.pdf
+    notes: >-
+      Detects structural-heart-disease signs (echo/ECG diagnostic aid) — disease detection, not
+      death/MACE risk stratification.
+  - submission_number: K251494
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Eko Foundation Analysis Software with Transformers (EFAST) is intended to support healthcare
+      professionals in the evaluation of patients’ heart sounds and electrocardiograms (ECGs). The
+      software calculates heart rate, detects the presence of murmurs associated with Structural Heart
+      Disease, and determines murmur timing, including the timing of S1, S2 heart sounds. When ECG is
+      available, the so
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251494.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K251518
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Volta AF - Xplorer II assists operators in the real - time manual or automatic annotation of
+      3D anatomical and electrical maps of human atria for the presence of multipolar intra - cardiac
+      atrial electrograms exhibiting spatiotemporal dispersion during atrial fibrillation or atrial
+      tachyc ardia. The Volta AF - Xplorer assists operators in the real - time manual or automatic
+      annotation of 3D an
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K251518.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K252076
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The KneeVoice Cartilage Evaluation System is intended to be used as a part of physical
+      assessment of a patient by healthcare professional for diagnostic decision support in clinical
+      settings. It is in
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252076.pdf
+    notes: >-
+      Knee cartilage evaluation (device sits in the cardiovascular specialty bucket but is not
+      cardiac) — not mortality-relevant.
+  - submission_number: K252089
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Tyto Stethoscope is an electronic stethoscope that enables transmission of auscultation
+      sound data, whereby a clinician at one location on an IP network can listen to the auscultation
+      sounds of a patient at a different location on the IP network
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252089.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K252204
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The prolaio eVO2peak Module (Version 1.0) is an all-software medical device intended to be used
+      for estimating peak oxygen consumption (eVO2peak (mL/kg/min)) in adult patients for whom such
+      VO2 Peak cardiopulmonary functional testing is desired. The prolaio eVO2peak Module uses as
+      inputs: demographic
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252204.pdf
+    notes: >-
+      Estimates VO2peak (functional capacity) — not death/MACE risk stratification.
+  - submission_number: K252284
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The eMurmur Heart AI software is a decision support system for the automated evaluation of
+      recorded patient heart sounds. It identifies the first (S1) and second (S2) heart sounds, the
+      presence of abnormal heart murmurs, and the absence of abnormal heart murmurs, with the latter
+      including cases of no murmurs and i
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252284.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K252360
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The ECG-AI PH 12-Lead algorithm is software intended to aid in earlier detection of elevated
+      mean pulmonary arterial pressure (mPAP), an indicator of pulmonary hypertension, in adults
+      presenting with dyspnea. ECG-AI PH 12-Lead algorithm is not intended to be a stand-alone
+      diagnostic device
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252360.pdf
+    notes: >-
+      ECG-AI PH: detects elevated mean pulmonary arterial pressure (pulmonary hypertension) from the
+      ECG — disease detection, not death/MACE risk stratification.
+  - submission_number: K252589
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Both Corvair Monza and the K231010 predicate have identical intended uses, i.e., intended for
+      measuring and interpreting resting a diagnostic, resting ECG. For both devices, the ECG analysis
+      outputs represent potential findings for review and interpretation by a qualified healthcare
+      professional and do not represent complete diagnoses
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252589.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K252595
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      Stethophone Pro is an electronic stethoscope that enables detection, amplification, filtering,
+      and transmission of auscultation sound data (heart and lungs), whereby a clinician at one
+      location can listen to the auscultation sounds of a patient acquired on site or at a different
+      location
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252595.pdf
+    notes: >-
+      Heart-sound/murmur auscultation decision support or electronic stethoscope — not death/MACE risk
+      stratification.
+  - submission_number: K252859
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Zio ECG Utilization Software (ZEUS) Platform is intended to process, store, and analyze
+      electrocardiogram (ECG) recordings captured from a compatible ECG monitor, including
+      automatically detected arrhythmia events and patient-triggered events
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252859.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K252945
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Novasight Hybrid System is intended for intravascular imaging of coronary arteries and is
+      indicated in patients who are candidates for transluminal interventional procedures
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252945.pdf
+    notes: >-
+      Intravascular coronary imaging — not death/MACE risk stratification.
+  - submission_number: K252972
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The intended use of the CARTO TM 3 System catheter-based cardiac electrophysiological (EP)
+      procedures. The CARTO T M 3 System provides information about the electrical activity of the
+      heart and about catheter location
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252972.pdf
+    notes: >-
+      Intracardiac electrophysiology mapping/navigation for ablation — procedural, not risk
+      stratification.
+  - submission_number: K252984
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Perin Health Platform is a wireless remote monitoring system intended for use by healthcare
+      professionals for spot check collection of physiological data in healthcare and home settings
+      for long-term monitoring. The Perin Health Patch can monitor auscultation data of heart and lung
+      sounds, photoplethysmography waveforms (PPG), o
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K252984.pdf
+    notes: >-
+      Remote physiological monitoring (multi-parameter) — not death/MACE risk stratification.
+  - submission_number: K253141
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      DeepRhythmAI is a cloud-based software that utilizes Al algorithms to assess cardiac arrhythmias
+      using a single- or tw o-lead ECG data from adult patients. It is intended for use by a
+      healthcare solution integrator to build w eb, mobile or anoth
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K253141.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K253516
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      There are no changes to the Indications for Use for the Assert-IQ Insertable Cardiac Monitor
+      (ICM) system as a result of this submission. The Assert-IQ™ ICM is indicated for the monitoring
+      and diagnostic evaluation of patients who experience unexplained symptoms that may be cardiac-
+      related such as: dizziness, palpitations, chest pain, syncope, and shortn
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K253516.pdf
+    notes: >-
+      Arrhythmia/AF detection and/or ECG recording and monitoring — rhythm assessment, not death/MACE
+      risk stratification.
+  - submission_number: K253801
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The ECG-AI Cardiac Amyloidosis 12-Lead Algorithm is software as a medical device intended to aid
+      in earlier detection of Cardiac Amyloidosis in adults being evaluated for signs or symptoms
+      consistent with cardiac amyloidosis. This population includes patients that have at least one
+      condi
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf25/K253801.pdf
+    notes: >-
+      Screens for cardiac amyloidosis — disease detection, not death/MACE risk stratification.
+  - submission_number: K260332
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      EchoNext is intended to be used in parallel to the standard of care to analyze recordings of
+      12-lead ECG (electrocardiogram) made on compatible ECG devices. EchoNext is capable of analyzing
+      the ECG, detecting signs associated with structural heart disease (SHD), and allowing the user
+      to view the ECG and analysis results. When evidence of SHD is detected, the device additionally
+      may detect six sub-
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/pdf26/K260332.pdf
+    notes: >-
+      Detects structural-heart-disease signs (echo/ECG diagnostic aid) — disease detection, not
+      death/MACE risk stratification.
+  - submission_number: DEN230003
+    mortality_confirmed: false
+    review_method: llm_assisted
+    intended_use_text: >-
+      The Viz HCM is indicated as follows: Viz HCM is intended to be used in parallel to the standard
+      of care to analyze recordings of 12-lead ECG made on compatible ECG devices. Viz HCM is capable
+      of analyzing the ECG, detecting signs associated with hypertrophic cardiomyopathy (HCM), and
+      allowing the user to view the ECG and analysis results. Viz HCM is indicated for use on 12-lead
+      ECG recordings collected from patients 18 years of age or older.
+    intended_use_source: https://www.accessdata.fda.gov/cdrh_docs/reviews/DEN230003.pdf
+    notes: >-
+      Viz HCM: detects signs of hypertrophic cardiomyopathy — disease detection (HCM is a sudden-death
+      substrate), not death/MACE risk stratification.

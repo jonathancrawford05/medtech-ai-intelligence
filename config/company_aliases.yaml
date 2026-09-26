@@ -13,8 +13,22 @@
 # ag, nv, bv, plc, kk, oy, ab, as, pty, srl, spa) removed. So one entry covers
 # "Aidoc Medical Ltd", "Aidoc Medical, Ltd." and "AIDOC MEDICAL LTD".
 #
+# Because matching is EXACT on that normalised form (not fuzzy — see
+# findings/0009 and ADR rationale: fuzzy matching silently swallows genuinely new
+# values), spellings whose normalised form differs must be listed explicitly. The
+# clearest case is the GE ultrasound division: "...Ultrasound and Primary Care
+# Diagnostics" and "...Ultrasound & Primary Care Diagnostics" normalise
+# differently (the "&" is dropped, "and" is not), so both appear below.
+#
 # `parent` is optional and records the current owner where it differs from the
 # resolved name — the acquisition history the report cares about.
+#
+# Curation sweeps:
+#   2026-09-06  initial ~20 applicants by volume.
+#   2026-09-20  GE divisions merged; missed spellings of curated multinationals
+#               added; long tail of single-company AI applicants consolidated.
+#               Rationale, confidence and left-separate cases:
+#               findings/0013-company-alias-sweep.md.
 
 version: 1
 
@@ -24,15 +38,35 @@ companies:
     aliases:
       - Siemens Healthineers
       - Siemens Medical Solutions USA
+      - Siemens Medical Solutions
+      - Siemens Medical Solution USA
       - Siemens Healthcare
       - Siemens Shenzhen Magnetic Resonance
 
+  # One legal parent (GE HealthCare, spun out of General Electric in 2023) filed
+  # under many divisional names — Ultrasound/Primary Care Diagnostics (US),
+  # SCS (France), Tianjin/Hualun/Hangwei (China), Israel/Functional Imaging.
+  # findings/0009 recorded three of these resolving separately (76 authorisations
+  # split three ways). All are unambiguously GE; merged here.
   - resolved_name: GE HealthCare
     aliases:
       - GE HealthCare
       - GE Medical Systems
       - General Electric Company
       - GE Healthcare Japan
+      - GE Medical Systems Ultrasound and Primary Care Diagnostics
+      - GE Medical Systems Ultrasound & Primary Care Diagnostics
+      - GE Medical Systems Ultrasound and Primary Care Diagnostic
+      - GE Medical Systems Ultrasound & Primary Care Diagnostic
+      - GE Medical Systems Ultrasound and
+      - GE Medical Systems SCS
+      - GE Healthcare (Tianjin) Company Limited
+      - GE Medical Systems Israel
+      - GE Medical Systems Israel, Functional Imaging
+      - GE Hualun Medical Systems
+      - GE Hangwei Medical Systems
+      - GE Medical Systems, LLC (GE Healthcare)
+      - GE Healthcare (GE Medical Systems, LLC)
 
   - resolved_name: Philips
     parent: Koninklijke Philips N.V.
@@ -41,12 +75,21 @@ companies:
       - Koninklijke Philips
       - Philips Healthcare
       - Philips Ultrasound
+      - Philips Medical Systems Nederland
+      - Philips Medical Systems Nederlands
+      - Philips Healthcare (Suzhou)
+      - Philips Medical Systems Technologies
+      - Philips Medical Systems DMC
+      - Philips Medical Systems MR Finland
+      - Philips France Commercial
 
   - resolved_name: Canon Medical Systems
     parent: Canon Inc.
     aliases:
       - Canon Medical Systems
       - Toshiba Medical Systems
+      - Canon Medical Informatics
+      - Canon Inc
 
   - resolved_name: Aidoc
     aliases:
@@ -64,17 +107,22 @@ companies:
     aliases:
       - Medtronic
       - Medtronic Navigation
+      - Medtronic Cardiac Rhythm Disease Management
       - Covidien
+      - Medicrea International S.A.S. (Medtronic)
 
   - resolved_name: Boston Scientific
     aliases:
       - Boston Scientific
       - Boston Scientific Scimed
+      - Boston Scientific Cardiac Diagnostic Technologies
 
   - resolved_name: United Imaging
     aliases:
       - Shanghai United Imaging Healthcare
       - United Imaging Healthcare
+      - Shanghai United Imaging Intelligence
+      - Wuhan United Imaging Healthcare
 
   - resolved_name: Coreline Soft
     aliases:
@@ -88,6 +136,7 @@ companies:
     parent: Nano-X Imaging Ltd
     aliases:
       - Nanox AI
+      - NanoxAI
       - Zebra Medical Vision
 
   - resolved_name: HeartFlow
@@ -122,8 +171,110 @@ companies:
     aliases:
       - Fujifilm Corporation
       - Fujifilm Healthcare
+      - Fujifilm Healthcare Americas
+      - Fujifilm Sonosite
       - Hitachi Healthcare
 
   - resolved_name: Hologic
     aliases:
       - Hologic
+
+  # --- 2026-09-20 tail sweep: single-company AI/imaging applicants. Each entry
+  # consolidates spelling/case/suffix variants of ONE company (not a merge of
+  # distinct names). Left uncurated where identity was uncertain — see
+  # findings/0013.
+  - resolved_name: iSchemaView
+    aliases:
+      - iSchemaView
+  - resolved_name: Clarius Mobile Health
+    aliases:
+      - Clarius Mobile Health
+  - resolved_name: Hyperfine
+    aliases:
+      - Hyperfine
+  - resolved_name: Ever Fortune.AI
+    aliases:
+      - Ever Fortune.AI
+  - resolved_name: Overjet
+    aliases:
+      - Overjet
+  - resolved_name: Brainlab
+    aliases:
+      - Brainlab
+  - resolved_name: Subtle Medical
+    aliases:
+      - Subtle Medical
+  - resolved_name: Quantib
+    aliases:
+      - Quantib
+  - resolved_name: DiA Imaging Analysis
+    aliases:
+      - DiA Imaging Analysis
+  - resolved_name: Qure.ai
+    aliases:
+      - Qure.ai Technologies
+      - Qure.ai
+  - resolved_name: DeepHealth
+    aliases:
+      - DeepHealth
+  - resolved_name: Circle Cardiovascular Imaging
+    aliases:
+      - Circle Cardiovascular Imaging
+  - resolved_name: Brainomix
+    aliases:
+      - Brainomix
+  - resolved_name: BunkerHill Health
+    aliases:
+      - BunkerHill Health
+  - resolved_name: RaySearch Laboratories
+    aliases:
+      - RaySearch Laboratories AB (publ)
+      - RaySearch Laboratories
+  - resolved_name: Pearl
+    aliases:
+      - Pearl
+  - resolved_name: MIM Software
+    aliases:
+      - MIM Software
+  - resolved_name: Avicenna.AI
+    aliases:
+      - Avicenna.AI
+  - resolved_name: ScreenPoint Medical
+    aliases:
+      - ScreenPoint Medical
+  - resolved_name: Tyto Care
+    aliases:
+      - Tyto Care
+  - resolved_name: iCAD
+    aliases:
+      - iCAD
+  - resolved_name: TheraPanacea
+    aliases:
+      - TheraPanacea
+  - resolved_name: Esaote
+    aliases:
+      - Esaote
+  - resolved_name: AliveCor
+    aliases:
+      - AliveCor
+  - resolved_name: Oxehealth
+    aliases:
+      - Oxehealth
+  - resolved_name: iRhythm Technologies
+    aliases:
+      - iRhythm Technologies
+  - resolved_name: Surgical Information Sciences
+    aliases:
+      - Surgical Information Sciences
+  - resolved_name: Therapixel
+    aliases:
+      - Therapixel
+  - resolved_name: Anumana
+    aliases:
+      - Anumana
+  - resolved_name: Radformation
+    aliases:
+      - Radformation
+  - resolved_name: Volta Medical
+    aliases:
+      - Volta Medical
