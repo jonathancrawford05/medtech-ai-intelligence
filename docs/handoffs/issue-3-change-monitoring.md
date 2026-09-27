@@ -109,14 +109,18 @@ optimise for **recall + triage**: "here is what changed that a curator should lo
 not "here is confirmed truth." Record this precision-vs-recall split in the ADR — it is
 the thing a future contributor is most likely to get wrong by copying the gold mart.
 
-**Second open question — what are "the two most recent silver builds"?** Silver is
-currently a single current table, rebuilt from the latest bronze pull; it is not
-retained per snapshot. Bronze *is* per-snapshot (append-only, `source_snapshot_id`). So
-decide, in an ADR: do you (a) build silver per bronze snapshot and diff two silver
-builds, or (b) diff at bronze on `source_snapshot_id` then enrich only the delta? (b) is
-cheaper and respects append-only; (a) reuses existing transforms. Either way the diff
-key is `submission_number` and the snapshot key is `source_snapshot_id` — never a
-filesystem path or an `ingested_at` timestamp equality.
+**Second question — what are "the two most recent silver builds"? Drafted:**
+[ADR 0015](../adr/0015-silver-snapshot-pairing.md) (Proposed) and
+[finding 0015](../../findings/0015-silver-snapshot-pairing.md). The recommendation, in
+brief: pair by **content snapshot** (`source_snapshot_id`), never by build event; read the
+previous build through Delta **time travel** (`tables.read_table(..., version=)` — already
+plumbed at `tables.py:46`), not a temporary copy; **stamp** silver with the snapshot id it
+consumed (`DeviceRecord` does not carry it today); **gate** the rebuild on snapshot change
+(makes empty-on-identical structural); and set Delta **retention** to outlive the cadence
+(none is configured today — the one real footgun). The differ keys on `submission_number`;
+the snapshot key is `source_snapshot_id` — never a path or an `ingested_at` equality. The
+bronze-diff and MERGE+CDF alternatives are weighed and deferred in the ADR. Accept ADR 0015
+when this issue lands with the differ and its tests.
 
 **Two known data-availability gaps** (VALIDATE — do not silently emit empty columns):
 
