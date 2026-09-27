@@ -273,6 +273,11 @@ def _enrichment_section(report: Report, enrichment: DataFrame) -> None:
         )
 
 
+# How many leads `inspect` lists. The section prints the total first, and the
+# header says when the list is clipped, so a long mart is never silently truncated.
+GOLD_LEADS_SHOWN = 15
+
+
 def _gold_section(report: Report, mart: DataFrame) -> None:
     rows = mart.count()
     report.rule("GOLD  gold_mortality_relevant  (the mortality-relevant leads, ADR 0007/0014)")
@@ -307,7 +312,10 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
     _render(report, _counts(mart, "mortality_review_method"), "mortality_review_method")
 
     report.say()
-    report.say("  the leads, newest first (* = stage-1 keyword_disagrees):")
+    shown = (
+        f" (showing the newest {GOLD_LEADS_SHOWN:,} of {rows:,})" if rows > GOLD_LEADS_SHOWN else ""
+    )
+    report.say(f"  the leads, newest first{shown} (* = stage-1 keyword_disagrees):")
     for row in (
         mart.orderBy(F.col("decision_date").desc_nulls_last(), F.col("submission_number"))
         .select(
@@ -317,7 +325,7 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
             "applicant_resolved",
             "keyword_disagrees",
         )
-        .limit(15)
+        .limit(GOLD_LEADS_SHOWN)
         .collect()
     ):
         star = " *" if row["keyword_disagrees"] else ""

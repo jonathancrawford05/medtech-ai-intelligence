@@ -410,3 +410,27 @@ class TestGoldSection:
         disagree_line = next(line for line in report.lines if "keyword_disagrees (curator" in line)
         assert "1 / 1" in disagree_line, disagree_line
         assert report.ok is True
+        assert not any("showing the newest" in line for line in report.lines), (
+            "one row fits the list, so it must not claim to be truncated"
+        )
+
+    def test_says_when_the_leads_list_is_clipped(self, spark, bronze_two_pulls, monkeypatch):
+        """The list is capped; the header must say so rather than silently drop rows
+        (PR #12 review nit). The cap is patched down so two rows exercise it."""
+        monkeypatch.setattr(lakehouse_report, "GOLD_LEADS_SHOWN", 1)
+        self._reach_gold(spark, bronze_two_pulls)
+        self._write_evidence(
+            spark,
+            bronze_two_pulls,
+            [
+                self._evidence("K1", confirmed=True, keyword=True),
+                self._evidence("K2", confirmed=True, keyword=True),
+            ],
+        )
+        assert mortality_relevant.run(spark, bronze_two_pulls) == 2
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        header = next(line for line in report.lines if "the leads, newest first" in line)
+        assert "(showing the newest 1 of 2)" in header, header
+        gold = "\n".join(report.lines).split("the leads, newest first", 1)[1]
+        listed = [s for s in ("K1", "K2") if f"    {s} " in gold]
+        assert len(listed) == 1, gold
