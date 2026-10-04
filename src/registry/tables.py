@@ -18,6 +18,8 @@ touch a single transformation module.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
+from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -28,6 +30,25 @@ logger = logging.getLogger(__name__)
 # Bronze is append-only by contract: we keep the history of what each source
 # looked like at every pull, so a source changing shape is auditable after the fact.
 BRONZE_PREFIX = "bronze_"
+
+# Delta operations that write rows. An allowlist, not a denylist of the
+# metadata-only ones: OPTIMIZE (which Databricks auto-compaction commits
+# unprompted), column comments, protocol upgrades and whatever Delta adds next
+# all leave the rows alone and must not be mistaken for a build. RESTORE is kept
+# deliberately: it rewrites rows without a build stamp, so it reads as
+# "unstamped" and forces the next silver build to write (ADR 0015).
+DATA_WRITE_OPERATIONS = frozenset(
+    {
+        "WRITE",
+        "CREATE TABLE AS SELECT",
+        "CREATE OR REPLACE TABLE AS SELECT",
+        "REPLACE TABLE AS SELECT",
+        "MERGE",
+        "UPDATE",
+        "DELETE",
+        "RESTORE",
+    }
+)
 
 
 def read_table(
@@ -59,12 +80,15 @@ def write_table(
     mode: str = "append",
     merge_schema: bool = False,
     partition_by: list[str] | None = None,
+    user_metadata: str | None = None,
 ) -> None:
     """Write a DataFrame to a logical table.
 
     Defaults to ``append`` because bronze tables must never lose history.
     ``merge_schema`` allows additive source changes (a new FDA column) to land
-    without a manual migration.
+    without a manual migration. ``user_metadata`` is recorded on the Delta commit
+    and read back through `table_history` -- how a version says what it was
+    built from (ADR 0015).
     """
     settings = settings or get_settings()
     ref = settings.table_ref(name)
@@ -81,6 +105,8 @@ def write_table(
         writer = writer.option("mergeSchema", "true")
     if partition_by:
         writer = writer.partitionBy(*partition_by)
+    if user_metadata is not None:
+        writer = writer.option("userMetadata", user_metadata)
 
     if settings.is_catalog_mode:
         writer.saveAsTable(ref)
@@ -99,3 +125,81 @@ def table_exists(spark: SparkSession, settings: Settings | None = None, name: st
     from delta.tables import DeltaTable
 
     return DeltaTable.isDeltaTable(spark, ref)
+
+
+def _delta_table(spark: SparkSession, settings: Settings, name: str):
+    from delta.tables import DeltaTable
+
+    ref = settings.table_ref(name)
+    if settings.is_catalog_mode:
+        return DeltaTable.forName(spark, ref)
+    return DeltaTable.forPath(spark, ref)
+
+
+def table_history(
+    spark: SparkSession, settings: Settings | None = None, name: str = ""
+) -> list[dict[str, Any]]:
+    """The table's Delta commit log, newest first.
+
+    Each entry carries ``version``, ``operation`` and ``userMetadata`` -- enough to
+    find a version by what it was built from rather than by its number.
+    """
+    settings = settings or get_settings()
+    history = _delta_table(spark, settings, name).history()
+    rows = history.select("version", "operation", "userMetadata").orderBy(history["version"].desc())
+    return [r.asDict() for r in rows.collect()]
+
+
+def data_writes(history: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only the history entries whose operation wrote rows, order preserved."""
+    return [entry for entry in history if entry["operation"] in DATA_WRITE_OPERATIONS]
+
+
+def data_write_history(
+    spark: SparkSession, settings: Settings | None = None, name: str = ""
+) -> list[dict[str, Any]]:
+    """`table_history` narrowed to the commits that wrote rows, newest first.
+
+    The walk the silver rebuild gate and the change monitor share: each entry is
+    one version of the table's *contents*, with the stamp it was written with.
+    """
+    return data_writes(table_history(spark, settings, name))
+
+
+def table_properties(
+    spark: SparkSession, settings: Settings | None = None, name: str = ""
+) -> dict[str, str]:
+    """The table's current ``TBLPROPERTIES``."""
+    settings = settings or get_settings()
+    return dict(_delta_table(spark, settings, name).detail().first()["properties"] or {})
+
+
+def set_table_properties(
+    spark: SparkSession,
+    settings: Settings | None = None,
+    name: str = "",
+    properties: dict[str, str] | None = None,
+) -> bool:
+    """Set ``properties`` on a table, only where they differ. True when it wrote.
+
+    Each ``SET TBLPROPERTIES`` is its own Delta commit, so an unconditional set on
+    every build would bury the data versions under metadata-only ones.
+    """
+    settings = settings or get_settings()
+    wanted = properties or {}
+    detail = _delta_table(spark, settings, name).detail().first()
+    current = dict(detail["properties"] or {})
+    changed = {k: v for k, v in wanted.items() if current.get(k) != v}
+    if not changed:
+        return False
+
+    if settings.is_catalog_mode:
+        target = settings.table_ref(name)
+    else:
+        # Delta's delta.`path` SQL identifier resolves only absolute paths, and the
+        # default lakehouse_root is "./lakehouse". DESCRIBE DETAIL's `location` is
+        # the absolute, scheme-qualified path the table actually lives at.
+        target = f"delta.`{detail['location']}`"
+    assignments = ", ".join(f"'{k}' = '{v}'" for k, v in sorted(changed.items()))
+    spark.sql(f"ALTER TABLE {target} SET TBLPROPERTIES ({assignments})")
+    return True

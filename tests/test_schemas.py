@@ -104,6 +104,7 @@ class TestDeviceRecord:
             "has_pccp": False,
             "cybersecurity_statement_present": True,
             "source_url": "https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/pmn.cfm?ID=K243456",
+            "source_snapshot_id": "b1efeb680371f44c",
         }
         base.update(overrides)
         return DeviceRecord(**base)
@@ -129,6 +130,44 @@ class TestDeviceRecord:
             self._valid(submission_number="   ")
 
 
+class TestSnapshotStamp:
+    """ADR 0015 Decision 3: every silver row names the bronze snapshot it came from."""
+
+    def _row(self, **overrides):
+        base = {
+            "submission_number": "K243456",
+            "device_name": "CaRi-Heart",
+            "decision_date": dt.date(2024, 11, 1),
+            "pathway": "510k",
+            "specialty_panel": "Radiology",
+            "specialty_category": "cardiovascular",
+            "product_code": "QIH",
+            "source_url": "https://example.org/K243456",
+            "source_snapshot_id": "b1efeb680371f44c",
+        }
+        base.update(overrides)
+        return base
+
+    def test_the_stamp_is_kept(self):
+        assert DeviceRecord(**self._row()).source_snapshot_id == "b1efeb680371f44c"
+
+    def test_the_stamp_is_required(self):
+        """A silver row with no lineage cannot be paired back to bronze."""
+        row = self._row()
+        del row["source_snapshot_id"]
+        with pytest.raises(ValueError, match="source_snapshot_id"):
+            DeviceRecord(**row)
+
+    def test_a_blank_stamp_is_rejected(self):
+        with pytest.raises(ValueError):
+            DeviceRecord(**self._row(source_snapshot_id="  "))
+
+    def test_the_spark_mirror_is_a_non_null_string(self):
+        fields = {f.name: f for f in spark_schema_for(DeviceRecord).fields}
+        assert isinstance(fields["source_snapshot_id"].dataType, StringType)
+        assert fields["source_snapshot_id"].nullable is False
+
+
 class TestOptionalUntilEnriched:
     """ADR 0012: openFDA-dependent fields are None until enrichment runs."""
 
@@ -144,6 +183,7 @@ class TestOptionalUntilEnriched:
             "specialty_category": "cardiovascular",
             "product_code": "QIH",
             "source_url": "https://example.org/K243456",
+            "source_snapshot_id": "b1efeb680371f44c",
         }
         base.update(overrides)
         return DeviceRecord(**base)
@@ -291,6 +331,7 @@ class TestSparkInterop:
             has_pccp=False,
             cybersecurity_statement_present=True,
             source_url="https://example.org/K243456",
+            source_snapshot_id="b1efeb680371f44c",
         )
         df = spark.createDataFrame([rec.model_dump()], schema=spark_schema_for(DeviceRecord))
         tables.write_table(df, lakehouse, "silver_devices", mode="overwrite")

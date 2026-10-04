@@ -66,14 +66,24 @@ def ingest_fda_list(
 
 @app.command("build-silver")
 def build_silver(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
-    """Rebuild `silver_devices` from the newest bronze pull."""
+    """Rebuild `silver_devices` from the newest bronze pull.
+
+    Writes nothing when silver is already built from the same bronze snapshot with
+    identical rows (ADR 0015), so a re-run never mints a version to diff.
+    """
     _setup_logging(verbose)
     from registry.spark_session import get_spark
     from registry.transform import bronze_to_silver
 
     settings = get_settings()
     written = bronze_to_silver.run(get_spark(settings), settings)
-    typer.echo(f"Wrote {written} rows to {settings.table_ref('silver_devices')}")
+    if written:
+        typer.echo(f"Wrote {written} rows to {settings.table_ref('silver_devices')}")
+    else:
+        typer.echo(
+            f"{settings.table_ref('silver_devices')} is already current "
+            "(same bronze snapshot, identical rows); nothing written"
+        )
 
 
 @app.command("enrich-openfda")
