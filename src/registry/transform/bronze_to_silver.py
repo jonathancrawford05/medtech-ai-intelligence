@@ -315,6 +315,14 @@ def current_stamp_version(spark, settings: Settings | None = None) -> int | None
     return entry["version"] if entry else None
 
 
+def _ensure_retention(spark, settings: Settings) -> None:
+    """Apply `SILVER_RETENTION` if silver does not already carry it (writes no commit when it does)."""
+    from registry import tables
+
+    if tables.set_table_properties(spark, settings, SILVER_TABLE, SILVER_RETENTION):
+        logger.info("Set time-travel retention on %s: %s", SILVER_TABLE, SILVER_RETENTION)
+
+
 def run(spark=None, settings: Settings | None = None) -> int:
     """Rebuild `silver_devices` from the newest bronze pull.
 
@@ -361,6 +369,9 @@ def run(spark=None, settings: Settings | None = None) -> int:
             SILVER_TABLE,
             stamp.source_snapshot_id,
         )
+        # Still check retention: a build that wrote its rows and died before the
+        # property step would otherwise leave silver unguarded behind the gate.
+        _ensure_retention(spark, settings)
         return 0
 
     df = spark.createDataFrame(
@@ -375,8 +386,7 @@ def run(spark=None, settings: Settings | None = None) -> int:
         merge_schema=True,
         user_metadata=stamp.to_metadata(),
     )
-    if tables.set_table_properties(spark, settings, SILVER_TABLE, SILVER_RETENTION):
-        logger.info("Set time-travel retention on %s: %s", SILVER_TABLE, SILVER_RETENTION)
+    _ensure_retention(spark, settings)
     logger.info(
         "Wrote %d rows to %s from snapshot %s",
         len(records),

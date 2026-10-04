@@ -509,6 +509,28 @@ class TestSnapshotGate:
         ops = [h["operation"] for h in tables.table_history(spark, lakehouse, "silver_devices")]
         assert ops.count("SET TBLPROPERTIES") == 1
 
+    def test_a_gated_build_still_restores_missing_retention(self, spark, lakehouse):
+        """A build that wrote its rows but died before setting retention must not
+        leave silver unguarded forever just because every later build is gated."""
+        from registry import tables
+
+        self._pull(spark, lakehouse, [self._bronze_row("K1", "snapA", dt.datetime(2026, 9, 1))])
+        bts.run(spark, lakehouse)
+        ref = lakehouse.table_ref("silver_devices")
+        spark.sql(
+            f"ALTER TABLE delta.`{ref}` UNSET TBLPROPERTIES "
+            "('delta.logRetentionDuration', 'delta.deletedFileRetentionDuration')"
+        )
+        assert "delta.logRetentionDuration" not in tables.table_properties(
+            spark, lakehouse, "silver_devices"
+        )
+
+        assert bts.run(spark, lakehouse) == 0
+
+        props = tables.table_properties(spark, lakehouse, "silver_devices")
+        assert props["delta.logRetentionDuration"] == "interval 90 days"
+        assert props["delta.deletedFileRetentionDuration"] == "interval 90 days"
+
     def test_the_previous_build_is_readable_by_time_travel(self, spark, lakehouse):
         """Decision 2's read path, end to end: no temporary copy needed."""
         from registry import tables

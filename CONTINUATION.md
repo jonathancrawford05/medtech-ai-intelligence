@@ -5,7 +5,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 it is the only thing that survives a context window.
 
 **Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` — Issue 3 **PR A** (ADR 0015 plumbing: silver snapshot stamp, rebuild gate, retention). PR B (the differ + leads mart, `monitor/` + `mart/`) starts on a fresh branch off `main` **after PR A merges**.
-**Suite:** 326 passing on the PR A branch (host JDK 21; the JDK-17 image could not be built in the agent container, CI is authoritative), ruff clean; `live_network`
+**Suite:** 327 passing on the PR A branch (host JDK 21; the JDK-17 image could not be built in the agent container, CI is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —

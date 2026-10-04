@@ -27,7 +27,9 @@ three assumptions below as unproven.
   both no-new-version tests. Restored before commit.
 - **Retention is set, once.** `delta.logRetentionDuration` and
   `delta.deletedFileRetentionDuration` are `interval 90 days` after the first build, and
-  a second build does not add a second `SET TBLPROPERTIES` commit.
+  a second build does not add a second `SET TBLPROPERTIES` commit. A gated (skipped) build
+  still restores retention if it is missing (a build that died between the write and the
+  property step cannot leave silver unguarded behind the gate).
 - **Time travel returns the previous build** with its own row and commit stamps, through
   the existing `tables.read_table(..., version=)`, with no temporary copy.
 - **An unstamped silver is upgraded, not skipped.** A silver table written without the
