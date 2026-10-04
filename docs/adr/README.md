@@ -20,7 +20,7 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0012](0012-silver-schema-and-supplement-handling.md) | Optional-until-enriched silver fields; PMA supplements stay whole keys | Accepted |
 | [0013](0013-openfda-enrichment-architecture.md) | openFDA enrichment: a separate two-tier table; what the API cannot give | Accepted |
 | [0014](0014-gold-mortality-mart.md) | The gold mortality mart filters on the confirmed flag alone | Accepted |
-| [0015](0015-silver-snapshot-pairing.md) | Pair adjacent silver builds by content snapshot, via Delta time travel | Proposed |
+| [0015](0015-silver-snapshot-pairing.md) | Pair adjacent silver builds by content snapshot, via Delta time travel | Accepted in part (3–5, amended); 1, 2, 6 Proposed |
 
 ## Writing a new one
 

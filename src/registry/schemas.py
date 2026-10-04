@@ -155,12 +155,19 @@ class DeviceRecord(BaseModel):
 
     source_url: str  # link back to the FDA record, for auditability
 
+    # The bronze `source_snapshot_id` of the pull this row was read from, so every
+    # silver version is self-identifying (ADR 0015 Decision 3). Row lineage, not
+    # the build's snapshot: a device that has left the list keeps the id of the
+    # last pull that carried it. The build-level snapshot is stamped on the Delta
+    # commit instead (`bronze_to_silver.BuildStamp`).
+    source_snapshot_id: str
+
     @field_validator("submission_number", "product_code", mode="before")
     @classmethod
     def _upper_strip(cls, v: t.Any) -> t.Any:
         return _non_blank(v).upper() if isinstance(v, str) else v
 
-    @field_validator("device_name", "applicant_raw", mode="before")
+    @field_validator("device_name", "applicant_raw", "source_snapshot_id", mode="before")
     @classmethod
     def _strip(cls, v: t.Any) -> t.Any:
         return _non_blank(v) if isinstance(v, str) else v

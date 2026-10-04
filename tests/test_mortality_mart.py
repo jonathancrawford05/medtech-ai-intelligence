@@ -32,6 +32,7 @@ def _device(submission: str, *, category: str = "cardiovascular", device_class: 
         product_code="QIH",
         device_class=device_class,
         source_url="https://example.test/list",
+        source_snapshot_id="snapA",
     ).model_dump()
 
 

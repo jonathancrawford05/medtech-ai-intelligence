@@ -64,6 +64,7 @@ def _silver_row(
         None,  # pccp_summary
         None,  # cybersecurity_statement_present
         "https://example.test/list",
+        "snap-a",  # source_snapshot_id (ADR 0015)
     )
 
 
