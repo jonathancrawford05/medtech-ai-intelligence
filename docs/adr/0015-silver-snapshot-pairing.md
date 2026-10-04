@@ -1,6 +1,6 @@
 # 0015 — Pair adjacent silver builds by content snapshot, via Delta time travel
 
-**Status:** Proposed · **Date:** 2026-09-26
+**Status:** Accepted in part — Decisions 3, 4 (as amended below) and 5, 2026-10-04 · Decisions 1, 2 and 6 still Proposed, to be accepted with the differ · **Date:** 2026-09-26
 **Relates to:** [ADR 0001](0001-local-spark-delta-substrate.md), [ADR 0004](0004-config-driven-table-resolution.md), [ADR 0007](0007-two-stage-mortality-flag.md), [ADR 0014](0014-gold-mortality-mart.md) · roadmap Issue 3
 
 ## Context
@@ -103,9 +103,51 @@ retained beyond what time travel needs for the current diff.
   future path if per-row change provenance (which field changed, when) is ever needed; not
   worth the complexity for a weekly full-refresh of 1,614 rows now.
 
+## Amendment — 2026-10-04, on implementing Decisions 3–5
+
+Recorded while implementing, before acceptance, so the accepted text matches the code.
+Decisions 1, 2 and 6 are untouched.
+
+**Decision 3, refined — two stamps, because silver rows come from different pulls.**
+Silver keeps the newest bronze row *per submission*, so a device that has left the list
+keeps the row (and the snapshot id) of the last pull that carried it. "The
+`source_snapshot_id` silver consumed" is therefore two different facts, and each is
+stamped where it is true:
+
+- **Row:** `DeviceRecord.source_snapshot_id` (required, non-null) is the snapshot of the
+  bronze row that row was read from — honest lineage.
+- **Commit:** the overwrite records a `BuildStamp` as Delta `userMetadata` —
+  `{"source_snapshot_id": <newest pull's id>, "content_hash": <sha256 of the rows>}`. This
+  is what makes a *version* self-identifying, and it is what `DESCRIBE HISTORY` exposes,
+  which is where Decision 3 already said the differ pairs. Read via
+  `tables.table_history`.
+
+A consequence the differ (Decision 6) should use: a row whose stamp differs from its
+version's commit stamp is a device **no longer on the list**. Diffing silver alone could
+never show a removal otherwise, because the row is never dropped.
+
+**Decision 4, amended — gate on snapshot *and* content, not snapshot alone.** Silver is
+not a function of bronze alone: `build-silver` also reads `silver_device_enrichment`
+(`device_class`, ADR 0013) and the curated taxonomy and company configs. The documented
+workflow is `ingest → enrich-openfda → build-silver`, so a gate keyed on the bronze
+snapshot alone would skip the post-enrichment build and `device_class` would never land
+(likewise any taxonomy or alias edit). The gate therefore builds the rows in memory
+(trivial at ~1,614) and **skips the write only when both the newest bronze snapshot id
+and the content hash equal the current version's stamp**. "No new version when nothing
+changed" stays structural — the property Decision 4 was for — without a manual `--force`
+to remember. Pairing (Decision 1) is still by bronze snapshot id: two versions with the
+same snapshot id but different content (re-enrichment) are the same world, and the
+differ compares the newest version of each distinct snapshot.
+
+**Decision 5, as implemented.** `delta.logRetentionDuration` and
+`delta.deletedFileRetentionDuration` are both `interval 90 days` on `silver_devices`,
+set after the write only when they differ from the table's current properties (each
+`SET TBLPROPERTIES` is its own commit; the gate looks past such metadata-only commits).
+
 ## Status note
 
-`Proposed`. To be accepted by the Issue 3 session when it lands with the differ, the
-silver `source_snapshot_id` stamp, the rebuild gate, the retention config, and their
-tests ([handoff §4](../handoffs/issue-3-change-monitoring.md)). Do not mark `Accepted`
-until code implements it.
+Decisions 3–5 are implemented and tested (`tests/test_bronze_to_silver.py::TestSnapshotGate`,
+`TestBuildStamp`; `tests/test_schemas.py::TestSnapshotStamp`) and accepted as amended above.
+Decisions 1, 2 and 6 are accepted when the Issue 3 differ lands with its tests
+([handoff §4](../handoffs/issue-3-change-monitoring.md)); the time-travel read path they rely
+on is already exercised by `test_the_previous_build_is_readable_by_time_travel`.

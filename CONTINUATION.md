@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-09-22 · **Branch:** `cowork-spike-and-curation` — PR #11 (approve-with-nits; review nits addressed). Run `make lint` + `registry build-mart` on a JDK-17 / Py-3.11 host.
-**Suite:** 282 passing, 88% coverage (CI floor 70%), ruff + markdownlint clean; `live_network`
+**Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` — Issue 3 **PR A** (ADR 0015 plumbing: silver snapshot stamp, rebuild gate, retention). PR B (the differ + leads mart, `monitor/` + `mart/`) starts on a fresh branch off `main` **after PR A merges**.
+**Suite:** 326 passing on the PR A branch (host JDK 21; the JDK-17 image could not be built in the agent container, CI is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -21,7 +21,7 @@ target `main` unless a stack is deliberate.
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
 | **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). openFDA-dependent fields (`device_class`, predicate lineage, PCCP, cybersecurity) are **`None` until an enrichment pass exists** — coverage is currently 0% ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). |
 | **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
-| **4 — Monitoring** | 🔲 Not started | |
+| **4 — Monitoring** | 🟡 Plumbing | Issue 3 PR A: silver is now self-identifying (ADR 0015 Decisions 3–5, amended). Rows carry `source_snapshot_id`; each overwrite stamps `{source_snapshot_id, content_hash}` as Delta `userMetadata`; `build-silver` writes nothing when both match (empty-on-identical is structural); retention 90 days ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). The differ + leads mart is PR B. |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
 
 Scope was deliberately kept narrow (one source, bronze only) per the brief:
@@ -179,7 +179,21 @@ findings/                        what was actually verified, and what was not
     committed seed drops **8 → 0** with **zero** new hits on the 122 curated negatives. Stage 1
     stays a lead flag, never the mart filter (ADR 0014). Covered by
     `test_mortality_seed.py::TestStage1KeywordCoverage`.
-12. Phases 3–5 per the development plan (monitoring, Databricks dry run).
+12. **Issue 3 — change monitoring** ([handoff](docs/handoffs/issue-3-change-monitoring.md)).
+    **PR A (this branch): ADR 0015 plumbing — done, in review.** `DeviceRecord.source_snapshot_id`
+    (row lineage), a `BuildStamp` on each silver commit, a gate on snapshot **and** content hash
+    (snapshot-only would have skipped the post-`enrich-openfda` build — ADR 0015 amendment), and
+    90-day Delta retention on silver. `tables.py` gained `table_history`, `table_properties`,
+    `set_table_properties` and a `user_metadata` write option. **First thing to do on a real
+    lakehouse:** `registry build-silver -v` once (adds the column, sets retention), then confirm a
+    second run prints "already current".
+    **PR B (next, fresh branch off `main` after PR A merges):** the differ (`monitor/`) pairing the
+    newest silver version of each distinct commit-stamp `source_snapshot_id`, and the leads mart
+    (`mart/`) on **pre-curation signals, never `mortality_confirmed_flag`** (handoff §4). Defer PCCP
+    (no source until Issue 4) and foundation-model (no defined heuristic) explicitly. New ADRs for
+    the lead-filter set and the output surface; accept ADR 0015 Decisions 1, 2, 6. Use the
+    row-vs-commit stamp mismatch to detect devices that **left the list** (ADR 0015 amendment).
+13. Phase 5 per the development plan (Databricks dry run).
 
 ---
 
@@ -192,6 +206,11 @@ findings/                        what was actually verified, and what was not
   normalised and a test reads panel labels straight out of the real-export
   fixture ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). The same
   hole is still open for `company_aliases.yaml`.
+- **The JDK-17 image cannot be built from the Claude Code cloud container.** Its egress
+  policy denies `deb.debian.org` (HTTP 403 at `apt-get install openjdk-17-jdk-headless`),
+  and `dockerd` is not started by default there (`dockerd &` first). The host has JDK 21,
+  which Spark 4.0 supports, so `uv run pytest -m "not live_network"` runs the Spark tests
+  there; treat CI's image run as the JDK-17 result. Do not change the JDK 17 pin (ADR 0002).
 - **`make test` locally will show 3 failures without network.** They are the
   `live_network` tests; CI deselects them. Use `uv run pytest -m "not live_network"`
   on a blocked host.

@@ -13,13 +13,21 @@ list alone and enrichment coverage is measurable rather than a precondition.
 
 Silver is **derived state**, so a rebuild overwrites it. That is the one place
 the append-only rule does not apply: bronze is the history, silver is a view of
-its newest rows.
+its newest rows. Every overwrite is a retained Delta version, and each version
+says what it was built from (ADR 0015): rows carry the `source_snapshot_id` they
+were read from, and the commit carries a `BuildStamp` -- the latest bronze
+snapshot plus a hash of the rows written. A build whose stamp matches the current
+version's writes nothing, so an unchanged world never produces a new version for
+the change monitor to diff.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -40,6 +48,21 @@ _DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y", "%d-%b-%Y")
 # Submission-number prefixes -> pathway. Longest first so DEN is matched before
 # any shorter prefix could claim it.
 _PATHWAY_PREFIXES = (("DEN", "de_novo"), ("K", "510k"), ("P", "pma"))
+
+# Time travel reaches back only as far as Delta keeps the log and the files
+# (ADR 0015 Decision 5). The defaults are 30 days / 7 days, and 7 days is exactly
+# one weekly build: a routine VACUUM could take the version the change monitor
+# needs to diff against. 90 days outlives a weekly cadence many times over.
+SILVER_RETENTION = {
+    "delta.logRetentionDuration": "interval 90 days",
+    "delta.deletedFileRetentionDuration": "interval 90 days",
+}
+
+# Commits that change table metadata or housekeeping but not silver's rows. The
+# gate looks past them to the last commit that actually wrote data.
+_METADATA_ONLY_OPERATIONS = frozenset(
+    {"SET TBLPROPERTIES", "UNSET TBLPROPERTIES", "VACUUM START", "VACUUM END"}
+)
 
 
 def derive_pathway(submission_number: str | None) -> str | None:
@@ -137,6 +160,13 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
         logger.debug("Dropping %s: no pathway derivable from the prefix", submission)
         return None
 
+    snapshot = (row.get("source_snapshot_id") or "").strip()
+    if not snapshot:
+        # Bronze requires it, so this is a hand-written or corrupt row; a silver
+        # row with no lineage could not be paired back to its pull.
+        logger.debug("Dropping %s: no source_snapshot_id", submission)
+        return None
+
     panel = (row.get("panel_raw") or "").strip()
     resolution = ctx.companies.resolve(row.get("applicant_raw"))
     base, supplement = split_supplement(submission)
@@ -160,10 +190,76 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
         # says -- never a default class (ADR 0012).
         device_class=ctx.device_classes.get(submission),
         source_url=(row.get("source_url") or "").strip() or "",
+        source_snapshot_id=snapshot,
         # has_pccp, pccp_summary, cybersecurity_statement_present and predicate
         # lineage stay None: no openFDA endpoint carries them, they are in the
         # 510(k) summary PDF (ADR 0013 Decision 4).
     )
+
+
+def content_hash(records: Iterable[DeviceRecord]) -> str:
+    """An order-independent SHA-256 over the rows a build would write.
+
+    This, not the bronze snapshot alone, is what tells the gate whether a rebuild
+    changes anything: enrichment and the curated taxonomy/company configs change
+    silver without a new bronze pull.
+    """
+    lines = sorted(
+        json.dumps(r.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        for r in records
+    )
+    digest = hashlib.sha256()
+    for line in lines:
+        digest.update(line.encode("utf-8"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+@dataclass(frozen=True)
+class BuildStamp:
+    """What one silver version was built from, recorded on its Delta commit.
+
+    ``source_snapshot_id`` is the newest bronze pull's content hash -- the key the
+    change monitor pairs versions on (ADR 0015 Decision 1). ``content_hash`` is
+    `content_hash` of the rows written -- what the rebuild gate compares.
+    """
+
+    source_snapshot_id: str
+    content_hash: str
+
+    def to_metadata(self) -> str:
+        return json.dumps(
+            {"source_snapshot_id": self.source_snapshot_id, "content_hash": self.content_hash},
+            sort_keys=True,
+        )
+
+    @classmethod
+    def from_metadata(cls, raw: str | None) -> BuildStamp | None:
+        """Parse a commit's userMetadata; None for anything that is not a stamp.
+
+        None makes the gate rebuild, which is the safe answer for a version
+        written before stamps existed.
+        """
+        try:
+            data = json.loads(raw or "")
+        except ValueError:
+            return None
+        if not isinstance(data, dict):
+            return None
+        snapshot, digest = data.get("source_snapshot_id"), data.get("content_hash")
+        if not (isinstance(snapshot, str) and snapshot and isinstance(digest, str) and digest):
+            return None
+        return cls(source_snapshot_id=snapshot, content_hash=digest)
+
+
+def _latest_snapshot(rows: list[dict[str, Any]]) -> str:
+    """The newest pull's snapshot id among the latest-per-submission rows.
+
+    The globally newest bronze row always ranks first in its own partition, so it
+    is among these rows; ties break on snapshot id exactly as the ranking does.
+    """
+    newest = max(rows, key=lambda r: (r["ingested_at"], r["source_snapshot_id"]))
+    return newest["source_snapshot_id"]
 
 
 def latest_bronze_rows(spark, settings: Settings | None = None) -> list[dict[str, Any]]:
@@ -190,8 +286,41 @@ def latest_bronze_rows(spark, settings: Settings | None = None) -> list[dict[str
     return [r.asDict() for r in latest.collect()]
 
 
+def latest_bronze_snapshot(spark, settings: Settings | None = None) -> str:
+    """The `source_snapshot_id` of the newest bronze pull."""
+    return _latest_snapshot(latest_bronze_rows(spark, settings))
+
+
+def _current_write(spark, settings: Settings) -> dict[str, Any] | None:
+    """The newest commit on silver that wrote rows, or None when there is none."""
+    from registry import tables
+
+    if not tables.table_exists(spark, settings, SILVER_TABLE):
+        return None
+    for entry in tables.table_history(spark, settings, SILVER_TABLE):
+        if entry["operation"] not in _METADATA_ONLY_OPERATIONS:
+            return entry
+    return None
+
+
+def current_stamp(spark, settings: Settings | None = None) -> BuildStamp | None:
+    """The `BuildStamp` on silver's current version; None if absent or unstamped."""
+    entry = _current_write(spark, settings or get_settings())
+    return BuildStamp.from_metadata(entry["userMetadata"]) if entry else None
+
+
+def current_stamp_version(spark, settings: Settings | None = None) -> int | None:
+    """The Delta version number of silver's current data write."""
+    entry = _current_write(spark, settings or get_settings())
+    return entry["version"] if entry else None
+
+
 def run(spark=None, settings: Settings | None = None) -> int:
-    """Rebuild `silver_devices` from the newest bronze pull. Returns rows written."""
+    """Rebuild `silver_devices` from the newest bronze pull.
+
+    Returns rows written, or 0 when the gate found silver already current. 0 is
+    unambiguous: a build with no usable rows raises rather than writing.
+    """
     from registry import tables
     from registry.spark_session import get_spark
 
@@ -223,10 +352,35 @@ def run(spark=None, settings: Settings | None = None) -> int:
     if not records:
         raise ValueError("bronze produced no usable silver rows; refusing to write an empty table")
 
+    stamp = BuildStamp(
+        source_snapshot_id=_latest_snapshot(rows), content_hash=content_hash(records)
+    )
+    if current_stamp(spark, settings) == stamp:
+        logger.info(
+            "%s is already built from snapshot %s with identical rows; nothing written",
+            SILVER_TABLE,
+            stamp.source_snapshot_id,
+        )
+        return 0
+
     df = spark.createDataFrame(
         [r.model_dump() for r in records], schema=spark_schema_for(DeviceRecord)
     )
     # Silver is derived state: rebuild replaces it rather than appending.
-    tables.write_table(df, settings, SILVER_TABLE, mode="overwrite", merge_schema=True)
-    logger.info("Wrote %d rows to %s", len(records), SILVER_TABLE)
+    tables.write_table(
+        df,
+        settings,
+        SILVER_TABLE,
+        mode="overwrite",
+        merge_schema=True,
+        user_metadata=stamp.to_metadata(),
+    )
+    if tables.set_table_properties(spark, settings, SILVER_TABLE, SILVER_RETENTION):
+        logger.info("Set time-travel retention on %s: %s", SILVER_TABLE, SILVER_RETENTION)
+    logger.info(
+        "Wrote %d rows to %s from snapshot %s",
+        len(records),
+        SILVER_TABLE,
+        stamp.source_snapshot_id,
+    )
     return len(records)
