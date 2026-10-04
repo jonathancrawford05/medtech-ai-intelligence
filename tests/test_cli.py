@@ -38,3 +38,67 @@ class TestBuildSilver:
         assert "already current" in result.output
         assert "nothing written" in result.output
         assert "Wrote" not in result.output
+
+
+class TestMonitor:
+    """What `registry monitor` tells the operator for each run outcome."""
+
+    def _invoke(self, monkeypatch, result):
+        import registry.mart.leads
+        import registry.spark_session
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(registry.mart.leads, "run", lambda spark, settings: result)
+        return CliRunner().invoke(cli.app, ["monitor"])
+
+    def test_reports_counts_per_category_and_the_deferred_ones(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch, LeadRun(status="recorded", prev_snapshot_id="a", curr_snapshot_id="b")
+        )
+        assert result.exit_code == 0
+        assert "Recorded 0 lead(s) for a -> b" in result.output
+        assert "new_submission" in result.output
+        assert "deferred: pccp" in result.output
+        assert "deferred: foundation_model" in result.output
+
+    def test_says_when_there_is_nothing_to_diff(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(monkeypatch, LeadRun(status="no_pair"))
+        assert result.exit_code == 0
+        assert "Fewer than two distinct snapshots" in result.output
+
+    def test_a_rerun_says_nothing_was_appended(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch,
+            LeadRun(status="already_recorded", prev_snapshot_id="a", curr_snapshot_id="b"),
+        )
+        assert "already in" in result.output
+        assert "nothing appended" in result.output
+
+    def test_a_history_barrier_fails_loudly(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch, LeadRun(status="history_barrier", barrier_operation="REORG")
+        )
+        assert result.exit_code == 1
+        assert "'REORG'" in result.output
+
+    def test_suppressed_removals_are_a_warning(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch,
+            LeadRun(
+                status="recorded",
+                prev_snapshot_id="a",
+                curr_snapshot_id="b",
+                removals_suppressed=15,
+            ),
+        )
+        assert "15 removal lead(s) not recorded" in result.output

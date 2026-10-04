@@ -573,6 +573,30 @@ class TestSnapshotGate:
         assert bts.run(spark, lakehouse) == 0
         assert self._versions(spark, lakehouse) == before
 
+    def test_an_unknown_operation_makes_silver_unstamped_and_forces_a_write(
+        self, spark, lakehouse, monkeypatch
+    ):
+        """Fail safe on Delta operations nobody listed. A real commit stands in for a
+        future operation: the column-comment commit, with its operation removed from
+        the metadata-only list so neither list recognises it."""
+        from registry import tables
+
+        self._pull(spark, lakehouse, [self._bronze_row("K1", "snapA", dt.datetime(2026, 9, 1))])
+        bts.run(spark, lakehouse)
+        ref = lakehouse.table_ref("silver_devices")
+        spark.sql(f"ALTER TABLE delta.`{ref}` ALTER COLUMN device_name COMMENT 'display name'")
+        op = tables.table_history(spark, lakehouse, "silver_devices")[0]["operation"]
+        assert op in tables.METADATA_ONLY_OPERATIONS
+        monkeypatch.setattr(
+            tables, "METADATA_ONLY_OPERATIONS", tables.METADATA_ONLY_OPERATIONS - {op}
+        )
+        before = self._versions(spark, lakehouse)
+
+        assert bts.current_stamp(spark, lakehouse) is None
+        assert bts.run(spark, lakehouse) == 1
+        assert len(self._versions(spark, lakehouse)) == len(before) + 1
+        assert bts.current_stamp(spark, lakehouse).source_snapshot_id == "snapA"
+
     def test_a_restore_forces_a_rebuild(self, spark, lakehouse):
         """RESTORE rewrites rows without a stamp, so silver is no longer known to
         match bronze: the next build must write, and land on the newest snapshot."""

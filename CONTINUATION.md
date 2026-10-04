@@ -4,8 +4,8 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` — Issue 3 **PR A** (ADR 0015 plumbing: silver snapshot stamp, rebuild gate, retention). PR B (the differ + leads mart, `monitor/` + `mart/`) starts on a fresh branch off `main` **after PR A merges**.
-**Suite:** 355 passing on the PR A branch (host JDK 21 locally; CI runs #50/#51 green in the JDK-17 image), ruff clean; `live_network`
+**Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` (restarted from `main` after PR #13 merged) — Issue 3 **PR B**: the snapshot differ (`monitor/differ.py`), the leads mart (`mart/leads.py`, `gold_device_leads`), `registry monitor`, and the fail-safe history walk. PR A (ADR 0015 plumbing) merged as #13.
+**Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -21,7 +21,7 @@ target `main` unless a stack is deliberate.
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
 | **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). openFDA-dependent fields (`device_class`, predicate lineage, PCCP, cybersecurity) are **`None` until an enrichment pass exists** — coverage is currently 0% ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). |
 | **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
-| **4 — Monitoring** | 🟡 Plumbing | Issue 3 PR A: silver is now self-identifying (ADR 0015 Decisions 3–5, amended). Rows carry `source_snapshot_id`; each overwrite stamps `{source_snapshot_id, content_hash}` as Delta `userMetadata`; `build-silver` writes nothing when both match (empty-on-identical is structural); retention 90 days ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). The differ + leads mart is PR B. |
+| **4 — Monitoring** | 🟡 Built, awaiting real movement | PR A (#13, merged): silver self-identifying, rebuild gate, 90-day retention ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). PR B: `registry monitor` diffs the two newest distinct snapshots and appends leads to `gold_device_leads` on pre-curation signals — new submission, cardiometabolic, mortality language, life-sustaining; PCCP and foundation-model **deferred** ([ADR 0016](docs/adr/0016-leads-filter-pre-curation-signals.md), [ADR 0017](docs/adr/0017-leads-output-surface.md), [finding 0017](findings/0017-first-diff-run-and-lead-categories.md)). Live today: one distinct snapshot, so "nothing to diff" is the correct answer. |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
 
 Scope was deliberately kept narrow (one source, bronze only) per the brief:
@@ -76,7 +76,9 @@ src/registry/
   cli.py                 `registry config | smoke | ingest-fda-list`
   ingest/fda_ai_list.py  CSV-export-first, HTML-fallback bronze ingester
   ingest/openfda_client.py  typed api.fda.gov client (510k/pma/classification), cache + backoff
-  transform/ mart/ monitor/   empty packages, Phases 2-4
+  transform/             bronze_to_silver, enrichment, taxonomy, company resolution, mortality seed
+  mart/                  mortality_relevant (gold mart), leads (gold_device_leads)
+  monitor/differ.py      snapshot pairing + movement classification (Issue 3)
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
 scripts/check_bronze_rowcount.py Phase-1 acceptance gate (>= INGEST_MIN_ROWS)
@@ -180,25 +182,26 @@ findings/                        what was actually verified, and what was not
     stays a lead flag, never the mart filter (ADR 0014). Covered by
     `test_mortality_seed.py::TestStage1KeywordCoverage`.
 12. **Issue 3 — change monitoring** ([handoff](docs/handoffs/issue-3-change-monitoring.md)).
-    **PR A (this branch): ADR 0015 plumbing — done, in review.** `DeviceRecord.source_snapshot_id`
-    (row lineage), a `BuildStamp` on each silver commit, a gate on snapshot **and** content hash
-    (snapshot-only would have skipped the post-`enrich-openfda` build — ADR 0015 amendment), and
-    90-day Delta retention on silver. `tables.py` gained `table_history`, `data_write_history`
-    (history over the `DATA_WRITE_OPERATIONS` allowlist — **the differ must reuse it**),
-    `table_properties`, `set_table_properties` and a `user_metadata` write option. **First thing to do on a real
-    lakehouse:** `registry build-silver -v` once (adds the column, sets retention), then confirm a
-    second run prints "already current".
-    **PR B (next, fresh branch off `main` after PR A merges):** the differ (`monitor/`) pairing the
-    newest silver version of each distinct commit-stamp `source_snapshot_id`, and the leads mart
-    (`mart/`) on **pre-curation signals, never `mortality_confirmed_flag`** (handoff §4). Defer PCCP
-    (no source until Issue 4) and foundation-model (no defined heuristic) explicitly. New ADRs for
-    the lead-filter set and the output surface; accept ADR 0015 Decisions 1, 2, 6. Use the
-    row-vs-commit stamp mismatch to detect devices that **left the list** (ADR 0015 amendment),
-    but **guard removal leads on pull completeness**: the mismatch flags every device missing
-    from the newest pull, so a truncated local ingest (the ≥1,500-row check runs only in the
-    scheduled workflow) would flood leads with false removals. Silver still keeps withdrawn
-    devices as current rows (pre-existing), so the gold mart shows them; PR B can now label them.
-    (Both from the independent review of PR #13.)
+    ~~**PR A**~~ — **merged (#13).** ADR 0015 plumbing: row + commit stamps, the snapshot+content
+    rebuild gate, 90-day retention, `tables` history helpers; relative-root `ALTER` fix.
+    **PR B (this branch) — in review.** `monitor/differ.py` pairs the newest silver version of
+    each of the two most recent distinct commit-stamp snapshots (time travel) and classifies one
+    movement per submission: `added` / `changed` / `removed` (`on_list` from the row-vs-commit
+    stamp; the row stamp itself is never compared). `mart/leads.py` turns movements into leads on
+    **pre-curation signals only** (ADR 0016 — never `mortality_confirmed_flag`), records them
+    append-only once per snapshot pair (ADR 0017), suppresses removals from a pull < 95% of the
+    previous one, and `lead_counts` gives the time series. `tables.walk_history` now **fails safe**:
+    an operation in neither `DATA_WRITE_OPERATIONS` nor `METADATA_ONLY_OPERATIONS` stops the walk as
+    an unstamped write (gate rebuilds; differ refuses to pair across it and `monitor` exits 1).
+    **Run order on a real lakehouse:** `ingest-fda-list` → `build-silver` → (`enrich-openfda` →
+    `build-silver`) → `monitor`. Until the FDA list changes, `monitor` says "nothing to diff".
+    **Open follow-ups:** (a) `mortality_language` is weak — no device-level intended-use text
+    exists for uncurated devices until Issue 4; (b) foundation-model needs a curated keyword set
+    and an ADR before it can be a category; PCCP waits on Issue 4; (c) withdrawn devices are still
+    current rows in silver and so in the gold mart — the `removed` lead now labels them, but the
+    mart does not filter them (decide separately); (d) wire `registry monitor` into the
+    scheduled-ingest workflow when a consumer wants a notification (ADR 0017 Decision 2);
+    (e) a `registry inspect` LEADS section.
 13. Phase 5 per the development plan (Databricks dry run).
 
 ---

@@ -29,6 +29,13 @@ from pyspark.sql.types import (
 Pathway = t.Literal["510k", "de_novo", "pma"]
 DeviceClass = t.Literal["I", "II", "III", "unclassified"]
 ReviewMethod = t.Literal["human", "llm_assisted"]
+Movement = t.Literal["added", "changed", "removed"]
+
+# The live lead categories (ADR 0016). PCCP and foundation-model clearances are
+# deliberately absent: no current source populates them (see
+# `registry.mart.leads.DEFERRED_CATEGORIES`), and a category nothing can fill
+# would read as "none found" rather than "not measured".
+LEAD_CATEGORIES = ("new_submission", "cardiometabolic", "mortality_language", "life_sustaining")
 
 _SCALARS: dict[type, DataType] = {
     str: StringType(),
@@ -299,10 +306,78 @@ class CompanyRecord(BaseModel):
         return _non_blank(v) if isinstance(v, str) else v
 
 
+# ---------------------------------------------------------------------------
+# Gold
+# ---------------------------------------------------------------------------
+
+
+class LeadRecord(BaseModel):
+    """One movement between two silver snapshots worth a curator's look.
+
+    Rows of the append-only `gold_device_leads` (ADR 0017). Built from signals
+    available **before** curation (ADR 0016) -- never `mortality_confirmed_flag`,
+    which a brand-new device cannot have yet. A lead is "look at this", not
+    "this is mortality-relevant"; that judgement stays with the gold mart.
+    """
+
+    # When, and between which two content snapshots, the movement was seen.
+    detected_at: dt.datetime
+    prev_snapshot_id: str
+    curr_snapshot_id: str
+    prev_version: int
+    curr_version: int
+
+    submission_number: str
+    movement: Movement
+    changed_fields: list[str] = Field(default_factory=list)
+    categories: list[str]
+
+    # The device as it stands in the current snapshot (its last row, if removed).
+    device_name: str
+    applicant_resolved: str | None = None
+    decision_date: dt.date  # the clearance date: the time-series axis
+    pathway: Pathway
+    specialty_category: str
+    specialty_panel: str
+    product_code: str
+    device_class: DeviceClass | None = None
+
+    # The pre-curation signals behind `categories`, kept as columns so a consumer
+    # can filter without parsing the array.
+    signal_new_submission: bool
+    signal_cardiometabolic: bool
+    signal_mortality_language: bool
+    # Which text the stage-1 keyword pass hit: device_name, classification_definition
+    # (product-code level) or intended_use_text (only where curation captured it).
+    mortality_language_source: str | None = None
+    # openFDA's life-sustain/support flag; None = not enriched, not "no".
+    signal_life_sustaining: bool | None = None
+
+    source_url: str
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @field_validator("categories")
+    @classmethod
+    def _known_categories(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("a lead needs at least one category; otherwise it is not a lead")
+        unknown = [c for c in v if c not in LEAD_CATEGORIES]
+        if unknown:
+            raise ValueError(
+                f"unknown lead categories {unknown}; live categories are {list(LEAD_CATEGORIES)}"
+            )
+        return v
+
+
 # Convenience: logical table name -> model, so callers do not hardcode schemas.
 TABLE_MODELS: dict[str, type[BaseModel]] = {
     "bronze_fda_ai_list": BronzeFdaAiListRecord,
     "silver_devices": DeviceRecord,
     "silver_evidence": EvidenceRecord,
     "silver_companies": CompanyRecord,
+    "gold_device_leads": LeadRecord,
 }
