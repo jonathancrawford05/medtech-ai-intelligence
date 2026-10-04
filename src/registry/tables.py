@@ -187,13 +187,19 @@ def set_table_properties(
     """
     settings = settings or get_settings()
     wanted = properties or {}
-    current = table_properties(spark, settings, name)
+    detail = _delta_table(spark, settings, name).detail().first()
+    current = dict(detail["properties"] or {})
     changed = {k: v for k, v in wanted.items() if current.get(k) != v}
     if not changed:
         return False
 
-    ref = settings.table_ref(name)
-    target = ref if settings.is_catalog_mode else f"delta.`{ref}`"
+    if settings.is_catalog_mode:
+        target = settings.table_ref(name)
+    else:
+        # Delta's delta.`path` SQL identifier resolves only absolute paths, and the
+        # default lakehouse_root is "./lakehouse". DESCRIBE DETAIL's `location` is
+        # the absolute, scheme-qualified path the table actually lives at.
+        target = f"delta.`{detail['location']}`"
     assignments = ", ".join(f"'{k}' = '{v}'" for k, v in sorted(changed.items()))
     spark.sql(f"ALTER TABLE {target} SET TBLPROPERTIES ({assignments})")
     return True

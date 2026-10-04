@@ -5,7 +5,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 it is the only thing that survives a context window.
 
 **Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` — Issue 3 **PR A** (ADR 0015 plumbing: silver snapshot stamp, rebuild gate, retention). PR B (the differ + leads mart, `monitor/` + `mart/`) starts on a fresh branch off `main` **after PR A merges**.
-**Suite:** 354 passing on the PR A branch (host JDK 21 locally; CI runs #50/#51 green in the JDK-17 image), ruff clean; `live_network`
+**Suite:** 355 passing on the PR A branch (host JDK 21 locally; CI runs #50/#51 green in the JDK-17 image), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -217,6 +217,12 @@ findings/                        what was actually verified, and what was not
   and `dockerd` is not started by default there (`dockerd &` first). The host has JDK 21,
   which Spark 4.0 supports, so `uv run pytest -m "not live_network"` runs the Spark tests
   there; treat CI's image run as the JDK-17 result. Do not change the JDK 17 pin (ADR 0002).
+- **Relative lakehouse roots.** The default `lakehouse_root` is `./lakehouse`, but Delta's
+  SQL path identifier (`delta.` + back-quoted path) resolves only absolute paths. Any
+  `spark.sql` against a path table must use `DeltaTable.detail().location`, as
+  `tables.set_table_properties` does ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)).
+  In tests, Spark resolves relative paths against the JVM's `user.dir`, not Python's cwd:
+  `monkeypatch.chdir` does not isolate a relative root.
 - **`make test` locally will show 3 failures without network.** They are the
   `live_network` tests; CI deselects them. Use `uv run pytest -m "not live_network"`
   on a blocked host.

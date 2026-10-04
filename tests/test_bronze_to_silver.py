@@ -598,6 +598,36 @@ class TestSnapshotGate:
         assert self._silver(spark, lakehouse)["K1"]["device_name"] == "New"
         assert bts.current_stamp(spark, lakehouse).source_snapshot_id == "snapB"
 
+    def test_a_relative_lakehouse_root_builds_and_gates(self, spark, tmp_path, monkeypatch):
+        """Regression: the default root is "./lakehouse", and Delta's delta.`path`
+        SQL identifier resolves only absolute paths. Every other fixture uses an
+        absolute tmp_path, so the retention ALTER failed only on a real lakehouse
+        (TABLE_OR_VIEW_NOT_FOUND `delta`.`./lakehouse/silver_devices`)."""
+        import os
+
+        from registry import tables
+        from registry.config.settings import Settings, StorageMode
+
+        # Spark resolves a relative path against the *JVM's* working directory,
+        # fixed when the session-scoped JVM started; monkeypatch.chdir moves only
+        # Python's, so a bare "./lakehouse" here would land in the repo's real
+        # ./lakehouse. A root relative to the JVM's cwd but pointing into tmp_path
+        # reproduces the bug (a non-absolute delta.`path`) and stays isolated.
+        jvm_cwd = spark.sparkContext._jvm.java.lang.System.getProperty("user.dir")
+        root = os.path.relpath(tmp_path / "lakehouse", jvm_cwd)
+        monkeypatch.chdir(jvm_cwd)  # Python and the JVM agree, as in the CLI
+        relative = Settings(lakehouse_root=root, storage_mode=StorageMode.PATH)
+        assert not os.path.isabs(relative.table_ref("silver_devices"))
+        self._pull(spark, relative, [self._bronze_row("K1", "snapA", dt.datetime(2026, 9, 1))])
+
+        assert bts.run(spark, relative) == 1
+        props = tables.table_properties(spark, relative, "silver_devices")
+        assert props["delta.logRetentionDuration"] == "interval 90 days"
+        assert props["delta.deletedFileRetentionDuration"] == "interval 90 days"
+
+        assert bts.run(spark, relative) == 0
+        assert bts.current_stamp(spark, relative).source_snapshot_id == "snapA"
+
     def test_the_previous_build_is_readable_by_time_travel(self, spark, lakehouse):
         """Decision 2's read path, end to end: no temporary copy needed."""
         from registry import tables

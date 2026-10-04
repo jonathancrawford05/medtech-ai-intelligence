@@ -50,13 +50,29 @@ three assumptions below as unproven.
 - **Catalog mode.** `table_history` / `table_properties` use `DeltaTable.forName` and the
   `ALTER TABLE <ref> SET TBLPROPERTIES` form there; neither is exercised against a real
   Unity Catalog workspace (finding 0015's third assumption stays open for catalog mode).
-- **The JDK-17 image.** All Spark tests ran on JDK 21. `deb.debian.org` is denied by the
+- **The JDK-17 image.** Local Spark runs used JDK 21: `deb.debian.org` is denied by the
   agent environment's egress policy, so `docker compose build` fails at the
   `apt-get install openjdk-17-jdk-headless` step (HTTP 403). CI's image run is the
-  authoritative JDK-17 result.
-- **The real lakehouse's first stamped build.** Not run here (no lakehouse in the agent
-  container). Expected: one rebuild that adds the column and sets retention, then
-  0-row "already current" on every re-run until the FDA list changes.
+  authoritative JDK-17 result (runs #50/#51 green at `f4a08ea`).
+- **A relative `lakehouse_root` — was assumed, now verified (2026-10-04).** Every test
+  fixture used an absolute `tmp_path`, so nothing checked the default root
+  `"./lakehouse"`. The first run on the real lakehouse failed in `_ensure_retention` with
+  `TABLE_OR_VIEW_NOT_FOUND`, naming the table `delta`.`./lakehouse/silver_devices`. The
+  Delta SQL path identifier (`delta.` followed by a back-quoted path) resolves only
+  absolute paths; the DataFrame reader/writer and `DeltaTable.forPath` accept relative
+  ones, which is why the write succeeded and only the `ALTER TABLE` failed. Fixed by
+  targeting
+  `DeltaTable.detail().location` (absolute, scheme-qualified).
+  `test_a_relative_lakehouse_root_builds_and_gates` reproduces the exact error without the
+  fix and passes with it. Test trap: Spark resolves relative paths against the **JVM's**
+  `user.dir`, fixed when the session-scoped JVM starts — `monkeypatch.chdir` moves only
+  Python's cwd, so a bare `"./lakehouse"` in a test writes into the repo's real
+  `./lakehouse`. The test uses a root relative to the JVM's cwd that points into
+  `tmp_path`.
+- **The real lakehouse's first stamped build.** The first attempt surfaced the
+  relative-root bug above, after the write (so silver gained the column and stamp, but
+  not retention). Expected on re-run with the fix: the gate finds silver current, still
+  sets retention, and every later run says "already current" until the FDA list changes.
 
 ## How to re-check
 
