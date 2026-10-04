@@ -426,6 +426,12 @@ class TestLeadCounts:
             (dt.date(2026, 10, 1), "new_submission", 1),
         ]
 
+    def test_no_leads_table_is_an_empty_series_not_an_error(self, spark, lakehouse):
+        """The live state until the FDA list first moves."""
+        df = leads.lead_counts(spark, lakehouse)
+        assert df.columns == ["period", "category", "leads"]
+        assert df.count() == 0
+
     def test_an_unknown_grain_is_rejected(self, spark, lakehouse):
         with pytest.raises(ValueError, match="grain"):
             leads.lead_counts(spark, lakehouse, grain="weekly")

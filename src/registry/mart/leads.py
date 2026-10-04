@@ -329,9 +329,13 @@ def lead_counts(spark, settings: Settings | None = None, *, grain: str = "detect
     if grain not in _GRAINS:
         raise ValueError(f"unknown grain {grain!r}; expected one of {sorted(_GRAINS)}")
     settings = settings or get_settings()
+    if tables.table_exists(spark, settings, LEADS_TABLE):
+        source = tables.read_table(spark, settings, LEADS_TABLE)
+    else:
+        # Nothing has moved yet: an empty series with the right columns.
+        source = spark.createDataFrame([], spark_schema_for(LeadRecord))
     return (
-        tables.read_table(spark, settings, LEADS_TABLE)
-        .select(_GRAINS[grain]().alias("period"), F.explode("categories").alias("category"))
+        source.select(_GRAINS[grain]().alias("period"), F.explode("categories").alias("category"))
         .groupBy("period", "category")
         .agg(F.count(F.lit(1)).alias("leads"))
         .orderBy("period", "category")

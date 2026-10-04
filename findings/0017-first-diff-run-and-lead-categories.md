@@ -46,7 +46,10 @@ The fixture's ten submissions each have one job. The leads written to
   are suppressed and reported rather than recorded.
 - **Append-only, first detection.** A re-run on the same pair appends nothing; a
   third snapshot appends only its own leads and keeps the earlier ones.
-- **Time series.** `lead_counts` buckets by detection day and by clearance month.
+- **Time series.** `lead_counts` buckets by detection day and by clearance month, and
+  returns an empty series (not an error) before any leads table exists.
+- **Schema evolution does not invent changes.** A field only one version carries (added
+  to `DeviceRecord` after the older version was written) is not compared.
 - **Fail-safe walk.** An operation in neither list stops the history walk:
   `current_stamp()` is `None` and the next build writes; the differ refuses to pair
   across it and `registry monitor` exits 1 naming it.

@@ -110,7 +110,11 @@ def classify(
             continue
 
         old, new = _tracked(before, prev_snapshot), _tracked(after, curr_snapshot)
-        changed = tuple(f for f in TRACKED_FIELDS if old[f] != new[f])
+        # Only fields both versions actually carry: an old version read by time
+        # travel predates any field added since, and comparing a missing column
+        # would mark every row changed.
+        shared = {"on_list"} | (before.keys() & after.keys())
+        changed = tuple(f for f in TRACKED_FIELDS if f in shared and old[f] != new[f])
         if not changed:
             continue
         movement = "removed" if old["on_list"] and not new["on_list"] else "changed"

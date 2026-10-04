@@ -92,6 +92,18 @@ class TestClassify:
         assert [(m.submission_number, m.movement) for m in moves] == [("K1", "removed")]
         assert moves[0].curr is None
 
+    def test_a_field_one_version_lacks_is_not_compared(self):
+        """Schema evolution: an old version read by time travel has no column for
+        a field added later. Comparing it would mark every row changed."""
+        old = {k: v for k, v in device("K1", PREV).items() if k != "device_class"}
+        assert differ.classify([old], [device("K1", CURR)], PREV, CURR) == []
+
+    def test_a_shared_field_still_counts_when_another_is_missing(self):
+        old = {k: v for k, v in device("K1", PREV).items() if k != "device_class"}
+        new = device("K1", CURR, name="Renamed")
+        moves = differ.classify([old], [new], PREV, CURR)
+        assert [(m.movement, m.changed_fields) for m in moves] == [("changed", ("device_name",))]
+
     def test_movements_carry_both_sides(self):
         moves = _by_key(differ.classify(prev_rows(), curr_rows(), PREV, CURR))
         assert moves["K700"].prev is None
