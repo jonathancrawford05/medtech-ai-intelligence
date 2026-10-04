@@ -162,6 +162,16 @@ class TestRowBuild:
     def test_a_missing_device_name_is_skipped(self, silver_ctx):
         assert bts.build_device_record(self._bronze(device_name=None), silver_ctx) is None
 
+    @pytest.mark.parametrize("snapshot", ["", "   ", None, "<missing>"])
+    def test_a_row_without_a_snapshot_id_is_skipped(self, silver_ctx, snapshot):
+        """ADR 0015 Decision 3: a silver row with no lineage cannot be paired back
+        to its pull, so it is dropped (and counted by `run`) rather than raising
+        mid-build or landing unstamped."""
+        row = self._bronze(source_snapshot_id=snapshot)
+        if snapshot == "<missing>":
+            del row["source_snapshot_id"]
+        assert bts.build_device_record(row, silver_ctx) is None
+
     def test_an_unmapped_panel_falls_back_and_is_recorded(self, silver_ctx):
         """A panel we have not curated defaults, and is surfaced for curation.
 
@@ -211,6 +221,19 @@ class TestBuildStamp:
         digest = bts.content_hash([self._record(silver_ctx)])
         assert len(digest) == 64
         assert set(digest) <= set("0123456789abcdef")
+
+    def test_the_latest_snapshot_of_no_rows_is_a_clear_error(self):
+        """Not a bare `max() arg is an empty sequence` from deep inside."""
+        with pytest.raises(ValueError, match="bronze has no rows"):
+            bts._latest_snapshot([])
+
+    def test_the_latest_snapshot_is_the_newest_pull_with_ties_on_snapshot_id(self):
+        rows = [
+            {"ingested_at": dt.datetime(2026, 9, 1), "source_snapshot_id": "zzz"},
+            {"ingested_at": dt.datetime(2026, 9, 8), "source_snapshot_id": "aaa"},
+            {"ingested_at": dt.datetime(2026, 9, 8), "source_snapshot_id": "bbb"},
+        ]
+        assert bts._latest_snapshot(rows) == "bbb"
 
     def test_stamp_round_trips_through_commit_metadata(self):
         stamp = bts.BuildStamp(source_snapshot_id="snapA", content_hash="ab" * 32)
@@ -530,6 +553,50 @@ class TestSnapshotGate:
         props = tables.table_properties(spark, lakehouse, "silver_devices")
         assert props["delta.logRetentionDuration"] == "interval 90 days"
         assert props["delta.deletedFileRetentionDuration"] == "interval 90 days"
+
+    def test_latest_bronze_snapshot_on_an_empty_bronze_is_a_clear_error(self, spark, lakehouse):
+        self._pull(spark, lakehouse, [])
+        with pytest.raises(ValueError, match="bronze has no rows"):
+            bts.latest_bronze_snapshot(spark, lakehouse)
+
+    def test_a_metadata_only_commit_does_not_hide_the_stamp(self, spark, lakehouse):
+        """The gate reads the last *data* write. A column comment (or, on
+        Databricks, an auto-compaction OPTIMIZE) commits without touching rows and
+        without a stamp; it must not make identical silver look unstamped."""
+        self._pull(spark, lakehouse, [self._bronze_row("K1", "snapA", dt.datetime(2026, 9, 1))])
+        bts.run(spark, lakehouse)
+        ref = lakehouse.table_ref("silver_devices")
+        spark.sql(f"ALTER TABLE delta.`{ref}` ALTER COLUMN device_name COMMENT 'display name'")
+        before = self._versions(spark, lakehouse)
+
+        assert bts.current_stamp(spark, lakehouse).source_snapshot_id == "snapA"
+        assert bts.run(spark, lakehouse) == 0
+        assert self._versions(spark, lakehouse) == before
+
+    def test_a_restore_forces_a_rebuild(self, spark, lakehouse):
+        """RESTORE rewrites rows without a stamp, so silver is no longer known to
+        match bronze: the next build must write, and land on the newest snapshot."""
+        self._pull(
+            spark,
+            lakehouse,
+            [self._bronze_row("K1", "snapA", dt.datetime(2026, 9, 1), device_name="Old")],
+        )
+        bts.run(spark, lakehouse)
+        first_write = bts.current_stamp_version(spark, lakehouse)
+        self._pull(
+            spark,
+            lakehouse,
+            [self._bronze_row("K1", "snapB", dt.datetime(2026, 9, 8), device_name="New")],
+        )
+        bts.run(spark, lakehouse)
+
+        ref = lakehouse.table_ref("silver_devices")
+        spark.sql(f"RESTORE TABLE delta.`{ref}` TO VERSION AS OF {first_write}")
+        assert bts.current_stamp(spark, lakehouse) is None
+
+        assert bts.run(spark, lakehouse) == 1
+        assert self._silver(spark, lakehouse)["K1"]["device_name"] == "New"
+        assert bts.current_stamp(spark, lakehouse).source_snapshot_id == "snapB"
 
     def test_the_previous_build_is_readable_by_time_travel(self, spark, lakehouse):
         """Decision 2's read path, end to end: no temporary copy needed."""

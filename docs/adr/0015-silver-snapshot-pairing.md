@@ -142,7 +142,15 @@ differ compares the newest version of each distinct snapshot.
 **Decision 5, as implemented.** `delta.logRetentionDuration` and
 `delta.deletedFileRetentionDuration` are both `interval 90 days` on `silver_devices`,
 set after the write only when they differ from the table's current properties (each
-`SET TBLPROPERTIES` is its own commit; the gate looks past such metadata-only commits).
+`SET TBLPROPERTIES` is its own commit).
+
+**Reading history.** The gate, and the differ after it, walk only the commits that
+wrote rows: an *allowlist* of data-writing operations (`tables.DATA_WRITE_OPERATIONS`:
+`WRITE`, the three `… TABLE AS SELECT` forms, `MERGE`, `UPDATE`, `DELETE`, `RESTORE`),
+exposed as `tables.data_write_history`. Not a denylist of metadata-only operations:
+`OPTIMIZE` (which Databricks auto-compaction commits unprompted), column comments and
+protocol upgrades would otherwise hide the stamp and defeat the gate. `RESTORE` is kept
+on purpose: it rewrites rows unstamped, so the next build writes.
 
 ## Status note
 

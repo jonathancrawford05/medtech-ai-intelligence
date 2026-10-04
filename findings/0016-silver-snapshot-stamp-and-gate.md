@@ -30,6 +30,15 @@ three assumptions below as unproven.
   a second build does not add a second `SET TBLPROPERTIES` commit. A gated (skipped) build
   still restores retention if it is missing (a build that died between the write and the
   property step cannot leave silver unguarded behind the gate).
+- **Only data writes count.** A metadata-only commit (a column comment) after a build
+  does not hide the stamp, so the next identical build is still gated; a `RESTORE`
+  (unstamped) forces the next build to write and land on the newest snapshot. Mutation
+  check: the earlier denylist walk fails the column-comment test, and dropping `RESTORE`
+  from the allowlist fails the restore test.
+- **A bronze row with a blank or missing `source_snapshot_id` is dropped**, not raised on
+  or written unstamped (`""`, `"   "`, `None`, key absent); removing the drop branch fails
+  all four cases. `latest_bronze_snapshot()` on an empty bronze raises a `ValueError`
+  naming the cause rather than `max()`'s bare one.
 - **Time travel returns the previous build** with its own row and commit stamps, through
   the existing `tables.read_table(..., version=)`, with no temporary copy.
 - **An unstamped silver is upgraded, not skipped.** A silver table written without the

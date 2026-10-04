@@ -18,6 +18,7 @@ touch a single transformation module.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
@@ -29,6 +30,25 @@ logger = logging.getLogger(__name__)
 # Bronze is append-only by contract: we keep the history of what each source
 # looked like at every pull, so a source changing shape is auditable after the fact.
 BRONZE_PREFIX = "bronze_"
+
+# Delta operations that write rows. An allowlist, not a denylist of the
+# metadata-only ones: OPTIMIZE (which Databricks auto-compaction commits
+# unprompted), column comments, protocol upgrades and whatever Delta adds next
+# all leave the rows alone and must not be mistaken for a build. RESTORE is kept
+# deliberately: it rewrites rows without a build stamp, so it reads as
+# "unstamped" and forces the next silver build to write (ADR 0015).
+DATA_WRITE_OPERATIONS = frozenset(
+    {
+        "WRITE",
+        "CREATE TABLE AS SELECT",
+        "CREATE OR REPLACE TABLE AS SELECT",
+        "REPLACE TABLE AS SELECT",
+        "MERGE",
+        "UPDATE",
+        "DELETE",
+        "RESTORE",
+    }
+)
 
 
 def read_table(
@@ -128,6 +148,22 @@ def table_history(
     history = _delta_table(spark, settings, name).history()
     rows = history.select("version", "operation", "userMetadata").orderBy(history["version"].desc())
     return [r.asDict() for r in rows.collect()]
+
+
+def data_writes(history: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only the history entries whose operation wrote rows, order preserved."""
+    return [entry for entry in history if entry["operation"] in DATA_WRITE_OPERATIONS]
+
+
+def data_write_history(
+    spark: SparkSession, settings: Settings | None = None, name: str = ""
+) -> list[dict[str, Any]]:
+    """`table_history` narrowed to the commits that wrote rows, newest first.
+
+    The walk the silver rebuild gate and the change monitor share: each entry is
+    one version of the table's *contents*, with the stamp it was written with.
+    """
+    return data_writes(table_history(spark, settings, name))
 
 
 def table_properties(

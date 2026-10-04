@@ -5,7 +5,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 it is the only thing that survives a context window.
 
 **Last updated:** 2026-10-04 · **Branch:** `claude/magical-newton-qoq7hk` — Issue 3 **PR A** (ADR 0015 plumbing: silver snapshot stamp, rebuild gate, retention). PR B (the differ + leads mart, `monitor/` + `mart/`) starts on a fresh branch off `main` **after PR A merges**.
-**Suite:** 327 passing on the PR A branch (host JDK 21; the JDK-17 image could not be built in the agent container, CI is authoritative), ruff clean; `live_network`
+**Suite:** 354 passing on the PR A branch (host JDK 21 locally; CI runs #50/#51 green in the JDK-17 image), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
 branches rather than `main` and did not land until #6 brought them across —
@@ -183,8 +183,9 @@ findings/                        what was actually verified, and what was not
     **PR A (this branch): ADR 0015 plumbing — done, in review.** `DeviceRecord.source_snapshot_id`
     (row lineage), a `BuildStamp` on each silver commit, a gate on snapshot **and** content hash
     (snapshot-only would have skipped the post-`enrich-openfda` build — ADR 0015 amendment), and
-    90-day Delta retention on silver. `tables.py` gained `table_history`, `table_properties`,
-    `set_table_properties` and a `user_metadata` write option. **First thing to do on a real
+    90-day Delta retention on silver. `tables.py` gained `table_history`, `data_write_history`
+    (history over the `DATA_WRITE_OPERATIONS` allowlist — **the differ must reuse it**),
+    `table_properties`, `set_table_properties` and a `user_metadata` write option. **First thing to do on a real
     lakehouse:** `registry build-silver -v` once (adds the column, sets retention), then confirm a
     second run prints "already current".
     **PR B (next, fresh branch off `main` after PR A merges):** the differ (`monitor/`) pairing the
@@ -192,7 +193,12 @@ findings/                        what was actually verified, and what was not
     (`mart/`) on **pre-curation signals, never `mortality_confirmed_flag`** (handoff §4). Defer PCCP
     (no source until Issue 4) and foundation-model (no defined heuristic) explicitly. New ADRs for
     the lead-filter set and the output surface; accept ADR 0015 Decisions 1, 2, 6. Use the
-    row-vs-commit stamp mismatch to detect devices that **left the list** (ADR 0015 amendment).
+    row-vs-commit stamp mismatch to detect devices that **left the list** (ADR 0015 amendment),
+    but **guard removal leads on pull completeness**: the mismatch flags every device missing
+    from the newest pull, so a truncated local ingest (the ≥1,500-row check runs only in the
+    scheduled workflow) would flood leads with false removals. Silver still keeps withdrawn
+    devices as current rows (pre-existing), so the gold mart shows them; PR B can now label them.
+    (Both from the independent review of PR #13.)
 13. Phase 5 per the development plan (Databricks dry run).
 
 ---

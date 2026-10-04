@@ -58,12 +58,6 @@ SILVER_RETENTION = {
     "delta.deletedFileRetentionDuration": "interval 90 days",
 }
 
-# Commits that change table metadata or housekeeping but not silver's rows. The
-# gate looks past them to the last commit that actually wrote data.
-_METADATA_ONLY_OPERATIONS = frozenset(
-    {"SET TBLPROPERTIES", "UNSET TBLPROPERTIES", "VACUUM START", "VACUUM END"}
-)
-
 
 def derive_pathway(submission_number: str | None) -> str | None:
     """Derive the regulatory pathway from the submission-number prefix.
@@ -258,6 +252,8 @@ def _latest_snapshot(rows: list[dict[str, Any]]) -> str:
     The globally newest bronze row always ranks first in its own partition, so it
     is among these rows; ties break on snapshot id exactly as the ranking does.
     """
+    if not rows:
+        raise ValueError("bronze has no rows; there is no snapshot to build or compare against")
     newest = max(rows, key=lambda r: (r["ingested_at"], r["source_snapshot_id"]))
     return newest["source_snapshot_id"]
 
@@ -287,7 +283,11 @@ def latest_bronze_rows(spark, settings: Settings | None = None) -> list[dict[str
 
 
 def latest_bronze_snapshot(spark, settings: Settings | None = None) -> str:
-    """The `source_snapshot_id` of the newest bronze pull."""
+    """The `source_snapshot_id` of the newest bronze pull.
+
+    Raises ValueError when bronze is empty: there is no snapshot, and inventing
+    one would let a caller pair or gate against nothing.
+    """
     return _latest_snapshot(latest_bronze_rows(spark, settings))
 
 
@@ -297,10 +297,8 @@ def _current_write(spark, settings: Settings) -> dict[str, Any] | None:
 
     if not tables.table_exists(spark, settings, SILVER_TABLE):
         return None
-    for entry in tables.table_history(spark, settings, SILVER_TABLE):
-        if entry["operation"] not in _METADATA_ONLY_OPERATIONS:
-            return entry
-    return None
+    writes = tables.data_write_history(spark, settings, SILVER_TABLE)
+    return writes[0] if writes else None
 
 
 def current_stamp(spark, settings: Settings | None = None) -> BuildStamp | None:
