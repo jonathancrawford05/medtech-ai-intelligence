@@ -26,8 +26,9 @@ panel is as worth a look as one joining it.
 
 Removals are recorded only from a full-sized pull: the stamp mismatch that
 identifies a removal fires for every device missing from the newest pull, so a
-truncated pull would flood the leads with false removals. Additions and changes
-are still recorded.
+truncated pull would flood the leads with false removals. The mirror holds too:
+after a short *previous* pull, devices that merely come back on the list (no
+FDA-list field changed) are not recorded. Additions and other changes are.
 
 The table is append-only and recorded once per snapshot pair (first detection),
 so it is the rate-of-change time series the roadmap asks for; `lead_counts`
@@ -228,6 +229,7 @@ class LeadRun:
     curr_snapshot_id: str | None = None
     leads: list[LeadRecord] = field(default_factory=list)
     removals_suppressed: int = 0
+    relistings_suppressed: int = 0
     barrier_operation: str | None = None
 
     @property
@@ -293,6 +295,23 @@ def run(spark, settings: Settings | None = None, *, now: dt.datetime | None = No
             prev.source_snapshot_id,
             MIN_PULL_FRACTION * 100,
             result.removals_suppressed,
+        )
+    if not pull_complete(curr_size, prev_size):
+        # The mirror image: a short *previous* pull makes the next full pull bring
+        # every device it missed back on the list (independent review of PR #14).
+        relisted = {m.submission_number for m in moves if differ.is_relisting_only(m)}
+        kept = [r for r in records if r.submission_number not in relisted]
+        result.relistings_suppressed = len(records) - len(kept)
+        records = kept
+        logger.warning(
+            "Snapshot %s carried %d rows against %d in %s (< %.0f%%); not recording "
+            "%d relisting lead(s) that only undo a pull that may have been truncated",
+            prev.source_snapshot_id,
+            prev_size,
+            curr_size,
+            curr.source_snapshot_id,
+            MIN_PULL_FRACTION * 100,
+            result.relistings_suppressed,
         )
     result.leads = records
 

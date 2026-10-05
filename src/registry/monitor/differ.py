@@ -21,8 +21,10 @@ is refused and reported (`Pairing.barrier`) rather than diffed silently.
   read off the stamps: a row whose `source_snapshot_id` differs from its version's
   commit stamp was not in that pull (ADR 0015 amendment). A row gone from silver
   entirely also counts.
-- ``changed`` -- any other tracked field differs, including coming back on the
-  list.
+- ``changed`` -- a field from the FDA list differs, or the device came back on
+  the list. Derived fields (alias resolution, taxonomy category, enrichment) are
+  reported alongside such a change but never trigger one: on their own they are
+  curation drift, not movement.
 
 `source_snapshot_id` itself is not compared: every row is restamped by every
 pull, which is lineage, not movement. `on_list` is compared in its place.
@@ -40,10 +42,28 @@ from registry.transform.bronze_to_silver import SILVER_TABLE, BuildStamp
 
 logger = logging.getLogger(__name__)
 
-# Every silver field except the row stamp, plus the derived on_list flag.
+# Every silver field except the row stamp, plus the derived on_list flag. All of
+# them are reported in `changed_fields` when a submission moves...
 TRACKED_FIELDS = tuple(
     sorted([f for f in DeviceRecord.model_fields if f != "source_snapshot_id"] + ["on_list"])
 )
+
+# ...but only these decide *whether* it moved: the fields that come from the FDA
+# list itself. Everything else silver carries is derived -- `applicant_resolved`
+# from the alias config, `specialty_category` from the taxonomy, `device_class`
+# from enrichment, `pathway` / the PMA split from the key -- and changes when we
+# edit config or re-enrich, not when the FDA does. A derived-only difference is
+# curation drift, never movement (independent review of PR #14, P1). A real panel
+# change is still caught through `specialty_panel`.
+SOURCE_FIELDS = (
+    "applicant_raw",
+    "decision_date",
+    "device_name",
+    "product_code",
+    "source_url",
+    "specialty_panel",
+)
+_TRIGGER_FIELDS = frozenset(SOURCE_FIELDS) | {"on_list"}
 
 
 @dataclass(frozen=True)
@@ -115,12 +135,24 @@ def classify(
         # would mark every row changed.
         shared = {"on_list"} | (before.keys() & after.keys())
         changed = tuple(f for f in TRACKED_FIELDS if f in shared and old[f] != new[f])
-        if not changed:
-            continue
+        if not _TRIGGER_FIELDS.intersection(changed):
+            continue  # nothing the FDA list carries moved (derived-only or nothing)
         movement = "removed" if old["on_list"] and not new["on_list"] else "changed"
         moves.append(Movement(key, movement, changed, before, after))
 
     return moves
+
+
+def is_relisting_only(move: Movement) -> bool:
+    """A device back on the list with no FDA-list field changed.
+
+    After a truncated pull, the next full pull brings every device the short pull
+    missed back like this; `leads.run` suppresses them then, as it suppresses
+    removals from a short pull.
+    """
+    if move.movement != "changed" or "on_list" not in move.changed_fields:
+        return False
+    return not set(SOURCE_FIELDS).intersection(move.changed_fields)
 
 
 def pull_size(rows: list[dict[str, Any]], snapshot: str) -> int:

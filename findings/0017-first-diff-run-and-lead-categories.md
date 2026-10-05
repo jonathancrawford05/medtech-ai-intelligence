@@ -42,8 +42,15 @@ The fixture's ten submissions each have one job. The leads written to
 - **No curation needed.** K900 has no evidence row and is still a lead. A curator's
   `mortality_confirmed_flag=False` on K800 does not hide it. The leads module
   never names the confirmed flag (asserted).
-- **Truncated pull.** When the newest pull carries 5 of 20 rows, 15 removal leads
-  are suppressed and reported rather than recorded.
+- **Truncated pull, both directions.** When the newest pull carries 5 of 20 rows,
+  15 removal leads are suppressed and reported. When the *previous* pull was the
+  short one, the 15 devices that merely come back are suppressed too, while a
+  genuinely new device in the same diff is still recorded. A relisting after a
+  full pull is kept.
+- **Only FDA-list fields decide movement.** An alias edit, an enrichment change or
+  a taxonomy re-mapping on its own produces no movement and no lead. Derived
+  differences ride along in `changed_fields` when a source field moves. This was
+  confirmed by the independent review of PR #14 running `classify` before the fix.
 - **Append-only, first detection.** A re-run on the same pair appends nothing; a
   third snapshot appends only its own leads and keeps the earlier ones.
 - **Time series.** `lead_counts` buckets by detection day and by clearance month, and

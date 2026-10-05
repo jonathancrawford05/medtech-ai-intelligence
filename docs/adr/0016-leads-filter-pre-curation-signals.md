@@ -56,6 +56,18 @@ Each is its own column and category; none collapses to a count.
   `None` when the device is not enriched, which is not the same as `False`
   (ADR 0012's distinction).
 
+**What counts as movement.** Only fields that come from the FDA list decide
+whether a submission moved: `device_name`, `applicant_raw`, `decision_date`,
+`specialty_panel`, `product_code` and `source_url` (`differ.SOURCE_FIELDS`), plus
+whether it is on the list. Fields we derive change when we edit config or
+re-enrich, not when the FDA moves: `applicant_resolved` (aliases),
+`specialty_category` (taxonomy), `device_class` (enrichment), `pathway` and the
+PMA split (the key). A difference in those alone is curation drift and records
+no lead; written to an append-only table, it would be a false movement nobody
+could revise. When a source field does move, derived differences are reported
+alongside it in `changed_fields`. A genuine panel change is still caught through
+`specialty_panel`. (Raised by the independent review of PR #14.)
+
 **Which movements are leads.** Every `added` device. A `changed` or `removed`
 device only when a signal holds on *either* side of the change: a device leaving
 the cardiovascular panel deserves the same look as one joining it. A movement with
@@ -78,15 +90,21 @@ Both are listed with their reasons in `leads.DEFERRED_CATEGORIES`, printed by
 `registry monitor`, and rejected by `LeadRecord`'s category validator, so neither
 can enter the table by accident.
 
-## Decision 4 — removals only from a full-sized pull
+## Decision 4 — removals and relistings only around a full-sized pull
 
 A removal is read off the row stamp (ADR 0015 amendment), so it fires for every
 device missing from the newest pull. A truncated local ingest would flood the
 leads with false removals; the ≥1,500-row check runs only in the scheduled
 workflow. Removal leads are therefore recorded only when the newest pull carried
 at least 95% of the previous pull's rows (`MIN_PULL_FRACTION`, about the
-scheduled ingest's 1,500 / 1,614 floor). Additions and changes are still recorded,
-and the suppressed count is reported.
+scheduled ingest's 1,500 / 1,614 floor).
+
+The same flood arrives mirrored one pull later: once a short pull has been built
+into silver, the next full pull brings every device it missed back on the list.
+So when the *previous* pull carried under 95% of the current one, a device that
+only came back on the list (no FDA-list field changed, `differ.is_relisting_only`)
+is not recorded either. Additions and other changes are always recorded, and both
+suppressed counts are reported.
 
 ## Consequences
 

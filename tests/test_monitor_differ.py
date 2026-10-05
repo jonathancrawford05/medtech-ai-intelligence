@@ -111,6 +111,66 @@ class TestClassify:
         assert moves["K300"].prev["specialty_category"] == "radiology"
 
 
+class TestOnlyFdaListFieldsDecideMovement:
+    """Independent review of PR #14 (P1): fields we derive -- alias resolution,
+    the taxonomy, enrichment -- change without the FDA list moving. On their own
+    they must never count as movement, or a config edit becomes a permanent lead."""
+
+    def test_an_alias_edit_alone_is_not_movement(self):
+        prev = [device("K1", PREV)]
+        curr = [{**device("K1", CURR), "applicant_resolved": "Acme Holdings"}]
+        assert differ.classify(prev, curr, PREV, CURR) == []
+
+    def test_enrichment_alone_is_not_movement(self):
+        prev = [device("K1", PREV, device_class=None)]
+        curr = [device("K1", CURR, device_class="II")]
+        assert differ.classify(prev, curr, PREV, CURR) == []
+
+    def test_a_taxonomy_edit_alone_is_not_movement(self):
+        """Same FDA panel, re-mapped category: a curation change, not FDA movement."""
+        prev = [device("K1", PREV, category="radiology", panel="Radiology")]
+        curr = [device("K1", CURR, category="cardiovascular", panel="Radiology")]
+        assert differ.classify(prev, curr, PREV, CURR) == []
+
+    def test_derived_changes_ride_along_with_a_source_change(self):
+        prev = [device("K1", PREV, device_class=None)]
+        curr = [device("K1", CURR, device_class="II", name="Renamed")]
+        moves = differ.classify(prev, curr, PREV, CURR)
+        assert [(m.movement, m.changed_fields) for m in moves] == [
+            ("changed", ("device_class", "device_name"))
+        ]
+
+    def test_the_source_field_set(self):
+        assert differ.SOURCE_FIELDS == (
+            "applicant_raw",
+            "decision_date",
+            "device_name",
+            "product_code",
+            "source_url",
+            "specialty_panel",
+        )
+
+
+class TestRelisting:
+    def test_a_relisting_with_nothing_else_changed_is_relisting_only(self):
+        moves = differ.classify([device("K1", "snapOld")], [device("K1", CURR)], PREV, CURR)
+        assert differ.is_relisting_only(moves[0]) is True
+
+    def test_a_relisting_with_a_source_change_is_not_relisting_only(self):
+        moves = differ.classify(
+            [device("K1", "snapOld")], [device("K1", CURR, name="Renamed")], PREV, CURR
+        )
+        assert differ.is_relisting_only(moves[0]) is False
+
+    def test_a_plain_change_or_removal_is_not_a_relisting(self):
+        moves = {
+            m.submission_number: m for m in differ.classify(prev_rows(), curr_rows(), PREV, CURR)
+        }
+        assert differ.is_relisting_only(moves["K400"]) is False
+        assert differ.is_relisting_only(moves["K500"]) is False
+        assert differ.is_relisting_only(moves["K700"]) is False
+
+
 class TestPullSize:
     def test_counts_rows_carried_by_that_pull(self):
         assert differ.pull_size(prev_rows(), PREV) == 6

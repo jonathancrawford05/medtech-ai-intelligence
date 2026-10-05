@@ -27,7 +27,12 @@ the second consumer of that walk.
   snapshot pair, a re-run appends nothing (`already_recorded`). Re-running the
   monitor is always safe. Leads are not revised later: re-enrichment on the same
   snapshot does not rewrite them, and the next snapshot's diff sees whatever
-  changed.
+  changed. Two known limitations of keying on the pair of snapshot ids:
+  - A list that oscillates A→B→A→B records the second A→B as `already_recorded`.
+    That is rare enough to accept; the first A→B's leads stand.
+  - A pair that yields no leads leaves no row, so a re-run diffs it again and
+    reports 0 leads. This has no data effect. A run-log table would fix both and
+    is a deliberate follow-up.
 - **Empty but present.** The first run creates the table even with zero leads,
   so consumers can query it before anything moves (ADR 0014's convention).
 - **Time series.** `leads.lead_counts(grain=...)` returns `(period, category,
@@ -69,6 +74,14 @@ Consequences of the stop:
   stamped snapshots sit above it, `differ.pairing()` returns no pair together
   with the barrier. `registry monitor` then reports it and exits 1 rather than
   diffing silently. Two snapshots built after the stop pair normally.
+- **Recovery (runbook).** In the weekly `ingest → build-silver → monitor`
+  sequence, only one stamped snapshot sits above a fresh stop, so an FDA change in
+  that same cycle would never be diffed. On a barrier exit, run `registry
+  build-silver` against the *current* bronze before the next ingest. That sets a
+  new baseline above the stop, and the next pull diffs against it. If the
+  operation is known never to change rows, add it to `METADATA_ONLY_OPERATIONS`
+  instead. Expect Databricks maintenance operations (e.g. `REORG`) to show up as
+  unknowns in the Phase 5 dry run.
 
 Adding an operation to either list is a reviewed decision. Leaving one out costs
 a rebuild.

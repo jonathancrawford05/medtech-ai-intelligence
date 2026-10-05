@@ -151,8 +151,10 @@ def monitor(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
     elif result.status == "history_barrier":
         typer.echo(
             f"Not diffing: unrecognised Delta operation {result.barrier_operation!r} sits "
-            "between the snapshots in silver's history. Rebuild silver from two fresh "
-            "snapshots, or classify the operation in registry/tables.py.",
+            "between the snapshots in silver's history, so the pair cannot be trusted. "
+            "To set a new baseline, run `registry build-silver` against the current "
+            "bronze now, before the next ingest; the following pull then diffs against "
+            "it. If the operation never changes rows, classify it in registry/tables.py.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -172,6 +174,12 @@ def monitor(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
             typer.echo(
                 f"Warning: {result.removals_suppressed} removal lead(s) not recorded; the "
                 "newest pull looks truncated.",
+                err=True,
+            )
+        if result.relistings_suppressed:
+            typer.echo(
+                f"Warning: {result.relistings_suppressed} relisting lead(s) not recorded; "
+                "the previous pull looks truncated.",
                 err=True,
             )
     for category, reason in leads.DEFERRED_CATEGORIES.items():

@@ -329,6 +329,39 @@ class TestRun:
         assert result.removals_suppressed == 15
         assert [r for r in result.leads if r.movement == "removed"] == []
 
+    def test_a_full_pull_after_a_truncated_one_suppresses_relistings(self, spark, lakehouse):
+        """Independent review of PR #14 (P2): the mirror of the removal guard. A
+        short pull built into silver, then a full one, would bring every missing
+        device back as changed(on_list) -- the same flood the other way."""
+        full = [device(f"K{i}", "snapOld", category="cardiovascular") for i in range(1, 21)]
+        short = [{**r, "source_snapshot_id": PREV} for r in full[:5]] + full[5:]
+        self._silver(spark, lakehouse, short, PREV)
+        restored = [{**r, "source_snapshot_id": CURR} for r in full]
+        restored.append(device("K99", CURR, category="cardiovascular", decided=dt.date(2026, 9, 1)))
+        self._silver(spark, lakehouse, restored, CURR)
+
+        result = leads.run(spark, lakehouse, now=DETECTED)
+
+        assert result.status == "recorded"
+        assert result.relistings_suppressed == 15
+        assert result.removals_suppressed == 0
+        assert [(r.submission_number, r.movement) for r in result.leads] == [("K99", "added")]
+
+    def test_relistings_after_a_full_pull_are_kept(self, spark, lakehouse):
+        """The guard is about truncation, not about relisting as such."""
+        prev = [device(f"K{i}", PREV, category="cardiovascular") for i in range(1, 21)]
+        prev.append(device("K50", "snapOld", category="cardiovascular"))
+        self._silver(spark, lakehouse, prev, PREV)
+        curr = [{**r, "source_snapshot_id": CURR} for r in prev]
+        self._silver(spark, lakehouse, curr, CURR)
+
+        result = leads.run(spark, lakehouse, now=DETECTED)
+
+        assert result.relistings_suppressed == 0
+        assert [(r.submission_number, r.movement, r.changed_fields) for r in result.leads] == [
+            ("K50", "changed", ["on_list"])
+        ]
+
     def test_an_unknown_operation_blocks_the_diff_and_says_so(self, spark, lakehouse, monkeypatch):
         from registry import tables
 

@@ -201,7 +201,8 @@ findings/                        what was actually verified, and what was not
     current rows in silver and so in the gold mart — the `removed` lead now labels them, but the
     mart does not filter them (decide separately); (d) wire `registry monitor` into the
     scheduled-ingest workflow when a consumer wants a notification (ADR 0017 Decision 2);
-    (e) a `registry inspect` LEADS section.
+    (e) a `registry inspect` LEADS section; (f) a run-log table so pairs with zero leads
+    (and A→B→A→B) are recognised as done (ADR 0017 limitations).
 13. Phase 5 per the development plan (Databricks dry run).
 
 ---
@@ -220,6 +221,11 @@ findings/                        what was actually verified, and what was not
   and `dockerd` is not started by default there (`dockerd &` first). The host has JDK 21,
   which Spark 4.0 supports, so `uv run pytest -m "not live_network"` runs the Spark tests
   there; treat CI's image run as the JDK-17 result. Do not change the JDK 17 pin (ADR 0002).
+- **`registry monitor` exits 1 on a history barrier** (an unclassified Delta operation in
+  silver's history, ADR 0017 Decision 3). Recovery: run `registry build-silver` against
+  the current bronze **before the next ingest**, to put a new baseline above the stop.
+  Otherwise that cycle's FDA change is never diffed. Expect Databricks maintenance
+  operations (e.g. `REORG`) to appear as unknowns in Phase 5.
 - **Relative lakehouse roots.** The default `lakehouse_root` is `./lakehouse`, but Delta's
   SQL path identifier (`delta.` + back-quoted path) resolves only absolute paths. Any
   `spark.sql` against a path table must use `DeltaTable.detail().location`, as

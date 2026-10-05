@@ -102,3 +102,26 @@ class TestMonitor:
             ),
         )
         assert "15 removal lead(s) not recorded" in result.output
+
+    def test_suppressed_relistings_are_a_warning(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch,
+            LeadRun(
+                status="recorded",
+                prev_snapshot_id="a",
+                curr_snapshot_id="b",
+                relistings_suppressed=12,
+            ),
+        )
+        assert "12 relisting lead(s) not recorded" in result.output
+
+    def test_a_history_barrier_says_how_to_recover(self, monkeypatch):
+        from registry.mart.leads import LeadRun
+
+        result = self._invoke(
+            monkeypatch, LeadRun(status="history_barrier", barrier_operation="REORG")
+        )
+        assert "registry build-silver" in result.output
+        assert "before the next ingest" in result.output
