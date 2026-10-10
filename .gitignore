@@ -35,3 +35,6 @@ derby.log
 
 # Desktop app output folder (Claude delivers file copies here)
 Claude outputs/
+
+# local weekly-run logs (scripts/local_weekly_run.sh)
+logs/

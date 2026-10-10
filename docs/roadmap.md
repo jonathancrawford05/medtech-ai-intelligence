@@ -5,7 +5,7 @@ order**. Before starting any of them the agent must read `CLAUDE.md` and
 `docs/validation-playbook.md`, and follow `docs/pr-review-routine.md` on the
 resulting PR. Each brief inherits the **Definition of Done** at the bottom.
 
-Sequence: **1. openFDA client → 2. bronze→silver → 3. change monitoring.** Each
+Sequence: **1. openFDA client → 2. bronze→silver → 3. change monitoring → 4. document pass.** Each
 unlocks the next: silver needs the openFDA join; monitoring needs silver to reason
 about specialty/intended-use.
 
@@ -128,7 +128,11 @@ fixtures.
 
 ## Issue 4 — document-derived fields (`ingest/summaries/…`)
 
-> **Status 2026-09-15 — deferred pending business buy-in.** Scoped, not started.
+> **Status 2026-10-05 — started.** The spike is done and measured
+> ([finding 0011](../findings/0011-pdf-spike.md): 59/60 text layer, 57/60 predicates by regex,
+> 0/60 PCCP). The execution brief, split into PRs 4A–4D with session prompts, is
+> [docs/handoffs/issue-4-document-pass.md](handoffs/issue-4-document-pass.md); it supersedes
+> the scope below where they differ. *(Was: deferred pending business buy-in, 2026-09-15.)*
 
 **Why.** `predicate_submission_number`, `predicate_age_days`, `has_pccp`,
 `pccp_summary` and `cybersecurity_statement_present` are `None` in silver and no
@@ -151,8 +155,9 @@ work are therefore a query, not an estimate.
 - **Predicate extraction first.** 510(k) summaries state the predicate in a
   formulaic sentence; this is pattern extraction, not document understanding, and
   it unlocks the lineage graph.
-- PCCP and cybersecurity presence next — likewise closer to a section-heading
-  search than to NLP.
+- Cybersecurity presence next — a section-heading search, not NLP. **PCCP is not in
+  the public Summary** (finding 0011, 0/60): it stays `None`, recorded by a new ADR
+  amending ADR 0013 Decision 4.
 - Only then consider anything model-assisted, and if so, under ADR 0007's
   two-stage rule: a logged, reviewable pass, never a silent judgement.
 
