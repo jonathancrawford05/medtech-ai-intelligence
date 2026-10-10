@@ -125,3 +125,78 @@ class TestMonitor:
         )
         assert "registry build-silver" in result.output
         assert "before the next ingest" in result.output
+
+
+class TestFetchSummaries:
+    """What `registry fetch-summaries` tells the operator (ADR 0018)."""
+
+    def _invoke(self, monkeypatch, result, args=()):
+        import registry.ingest.summary_documents
+        import registry.spark_session
+
+        calls = {}
+
+        def fake_run(spark, settings, *, limit=None, only=None):
+            calls.update(limit=limit, only=only)
+            return result
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(registry.ingest.summary_documents, "run", fake_run)
+        return CliRunner().invoke(cli.app, ["fetch-summaries", *args]), calls
+
+    def test_reports_the_pass(self, monkeypatch):
+        from registry.ingest.summary_documents import FetchResult
+
+        out, calls = self._invoke(
+            monkeypatch,
+            FetchResult(
+                attempted=3,
+                written=3,
+                found=2,
+                not_found=1,
+                text_classes={"text": 1, "mixed": 1},
+                deferred=["DEN250057"],
+                already_fetched=7,
+            ),
+        )
+        assert out.exit_code == 0
+        assert calls == {"limit": None, "only": None}
+        assert "Fetched 3 document(s): 2 found, 1 not found" in out.output
+        assert "Appended 3 row(s) to" in out.output
+        assert "mixed" in out.output and "text" in out.output
+        assert "7 already in bronze" in out.output
+        assert "deferred: 1 De Novo/PMA Summary filing(s)" in out.output
+
+    def test_passes_limit_and_only_through(self, monkeypatch):
+        from registry.ingest.summary_documents import FetchResult
+
+        _, calls = self._invoke(
+            monkeypatch,
+            FetchResult(),
+            ["--limit", "5", "--only", "K181892", "--only", "k003301,K250177"],
+        )
+        assert calls == {"limit": 5, "only": ["K181892", "K003301", "K250177"]}
+
+    def test_a_halt_exits_non_zero_and_says_how_to_resume(self, monkeypatch):
+        from registry.ingest.summary_documents import FetchResult
+
+        out, _ = self._invoke(
+            monkeypatch,
+            FetchResult(attempted=2, written=1, found=1, halted="returned 429 for u"),
+        )
+        assert out.exit_code == 1
+        assert "429" in out.output
+        assert "re-run" in out.output
+
+    def test_a_missing_enrichment_table_is_a_clean_error(self, monkeypatch):
+        import registry.ingest.summary_documents as mod
+        import registry.spark_session
+
+        def boom(spark, settings, *, limit=None, only=None):
+            raise mod.SummaryFetchError("Run `registry enrich-openfda` first")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(mod, "run", boom)
+        out = CliRunner().invoke(cli.app, ["fetch-summaries"])
+        assert out.exit_code == 1
+        assert "enrich-openfda" in out.output

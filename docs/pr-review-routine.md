@@ -222,6 +222,18 @@ checkable in the PR itself.
 > | ADR present for any decision a future contributor could re-litigate |
 > | `CONTINUATION.md` / `findings/` updated where state or validation changed |
 >
+> When the diff touches the 510(k) document pass (Issue 4, ADR 0018), add these rows:
+>
+> | Gate (document pass) |
+> |---|
+> | No `fda.gov` / `accessdata.fda.gov` request outside a `live_network`-marked test or `registry fetch-summaries` |
+> | `bronze_summary_documents` append-only, stamped with `content_sha256` and `fetched_at`; PDF bytes never in git or Delta |
+> | Matching runs on normalised text, with a test that fails on the raw layer (finding 0011's glyph splitting) |
+> | Every extracted value has page + method (+ a verbatim quote for LLM output) (ADR 0007) |
+> | LLM values pass the verbatim-substring check, with a test that a fabricated quote is rejected |
+> | PCCP never populated from the Summary (finding 0011: 0/60) |
+> | Extraction never writes `mortality_confirmed_flag` (ADR 0014) |
+>
 > **3. DOMAIN LENSES** — apply only those the diff touches:
 >
 > - *Ingestion*: parsing validated against a real payload, not only synthetic fixtures.

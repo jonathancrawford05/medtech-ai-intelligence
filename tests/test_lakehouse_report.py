@@ -322,6 +322,98 @@ class TestEnrichmentSection:
         assert "Summary" in text
 
 
+class TestDocumentsSection:
+    """`registry inspect` reports the Summary fetch (ADR 0018): how many Summary
+    filings have a document, and the text-layer split -- the numbers finding 0011's
+    spike measured on 60 and the full-scale run must be compared against."""
+
+    def _setup(self, spark, settings, documents):
+        from registry.schemas import BronzeSummaryDocumentRecord, DeviceEnrichmentRecord
+
+        _write_silver(spark, settings, [_silver_row("K1")])
+        enrichment = [
+            DeviceEnrichmentRecord(
+                submission_number=n,
+                enriched_at=dt.datetime(2026, 9, 15, 9, 0),
+                submission_found=True,
+                classification_found=True,
+                statement_or_summary=kind,
+            ).model_dump()
+            for n, kind in (
+                ("K100001", "Summary"),
+                ("K100002", "Summary"),
+                ("K100003", "Summary"),
+                ("K100004", "Statement"),
+            )
+        ]
+        tables.write_table(
+            spark.createDataFrame(enrichment, spark_schema_for(DeviceEnrichmentRecord)),
+            settings,
+            "silver_device_enrichment",
+            mode="overwrite",
+        )
+        if documents is not None:
+            tables.write_table(
+                spark.createDataFrame(
+                    [BronzeSummaryDocumentRecord(**d).model_dump() for d in documents],
+                    spark_schema_for(BronzeSummaryDocumentRecord),
+                ),
+                settings,
+                "bronze_summary_documents",
+                mode="append",
+            )
+
+    @staticmethod
+    def _doc(number, *, found=True, text_class="text", fetched=dt.datetime(2026, 10, 10, 9)):
+        pages = ["x" * 200] if text_class == "text" else [""]
+        return {
+            "submission_number": number,
+            "url": f"https://example.test/{number}.pdf",
+            "urls_tried": [f"https://example.test/{number}.pdf"],
+            "http_status": 200 if found else 404,
+            "content_sha256": (number + "0" * 64)[:64] if found else None,
+            "page_count": len(pages) if found else 0,
+            "page_texts": pages if found else [],
+            "page_char_counts": [len(p) for p in pages] if found else [],
+            "text_class": text_class if found else None,
+            "fetched_at": fetched,
+            "ingested_at": fetched,
+        }
+
+    def test_says_what_to_run_when_nothing_is_fetched(self, spark, bronze_two_pulls):
+        self._setup(spark, bronze_two_pulls, None)
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("fetch-summaries" in line for line in report.lines), report.lines
+        assert report.ok is True
+
+    def test_reports_coverage_and_text_classes_from_the_latest_fetch(self, spark, bronze_two_pulls):
+        self._setup(
+            spark,
+            bronze_two_pulls,
+            [
+                # K100001 missed once, then found: the latest fetch is what counts.
+                self._doc("K100001", found=False, fetched=dt.datetime(2026, 10, 9)),
+                self._doc("K100001"),
+                self._doc("K100002", text_class="image"),
+                self._doc("K100003", found=False),
+            ],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "bronze_summary_documents" in text
+        assert "fetches across all runs        :       4" in text, text
+        assert "Summary filings with a PDF     : 2 / 3  (66.7%)" in text, text
+        assert "latest fetch found nothing     : 1" in text, text
+        assert "image" in text and "text" in text
+        assert report.ok is True
+
+    def test_a_pass_that_found_nothing_is_a_problem(self, spark, bronze_two_pulls):
+        self._setup(spark, bronze_two_pulls, [self._doc("K100001", found=False)])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert report.ok is False
+        assert any("accessdata" in line for line in report.lines)
+
+
 class TestGoldSection:
     """`registry inspect` must surface the gold mart -- the registry's actual
     deliverable. Before this the verdict tool was blind to it: a full mart and an

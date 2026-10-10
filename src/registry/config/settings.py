@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     # cache in memory only (per client instance). Not a Delta table: the client is
     # decoupled from Spark; the bronze/silver join is a separate concern (Issue 2).
     openfda_cache_dir: str | None = None
+    # 510(k) Summary PDFs (Issue 4, ADR 0018). The year directory and file name are
+    # appended per submission (`pdf{int(yy)}/<K>.pdf`, falling back to `pdf/<K>.pdf`).
+    summary_documents_base_url: str = "https://www.accessdata.fda.gov/cdrh_docs"
+    # Seconds between *every* request to accessdata.fda.gov, fallbacks and retries
+    # included -- the ~1 request/second citizenship rule finding 0011 measured under.
+    summary_request_interval_seconds: float = Field(default=1.0, ge=0.0)
+    # Documents appended to bronze per write, so a halt or crash loses at most one batch.
+    summary_write_batch_size: int = Field(default=50, ge=1)
+    # Optional archive of the raw PDF bytes, one `<sha256>.pdf` per document, so a
+    # different text extractor can be re-run without refetching (ADR 0018). Never
+    # in git and never in Delta; None (the default) keeps no bytes at all.
+    summary_pdf_archive_dir: str | None = None
 
     # ---- HTTP behaviour --------------------------------------------------
     http_timeout_seconds: float = 30.0
