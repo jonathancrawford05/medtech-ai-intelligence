@@ -1,0 +1,37 @@
+{
+  "submission_number": "K003301",
+  "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf/K003301.pdf",
+  "urls_tried": [
+    "https://www.accessdata.fda.gov/cdrh_docs/pdf0/K003301.pdf",
+    "https://www.accessdata.fda.gov/cdrh_docs/pdf/K003301.pdf"
+  ],
+  "http_status": 200,
+  "content_type": "application/pdf",
+  "content_sha256": "6a036420eb334cbdd793a983762aea5c4028c65864ab8d4a9d244c9a55169835",
+  "byte_count": 328859,
+  "page_count": 7,
+  "page_texts": [
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "page_char_counts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "text_class": "image",
+  "extractor": "pypdf==6.20.0",
+  "extraction_error": null,
+  "fetched_at": "2026-10-10T21:57:10.694999",
+  "ingested_at": "2026-10-10T21:57:09",
+  "source_snapshot_id": "6a036420eb334cbd"
+}

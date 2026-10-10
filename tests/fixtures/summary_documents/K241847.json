@@ -1,0 +1,36 @@
+{
+  "submission_number": "K241847",
+  "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf24/K241847.pdf",
+  "urls_tried": [
+    "https://www.accessdata.fda.gov/cdrh_docs/pdf24/K241847.pdf"
+  ],
+  "http_status": 200,
+  "content_type": "application/pdf",
+  "content_sha256": "ff70743d1b17a98c0b24a1c96c0ab3f221abadc4d0b35863b0f0ed0c02ab78b3",
+  "byte_count": 588949,
+  "page_count": 7,
+  "page_texts": [
+    "U.S. Food & Drug Administration \n10903 New Hampshire Avenue  D o c  I D #  0 4 0 1 7 . 07 . 0 2  \nSilver Spring, MD 20993  \nwww.fda.gov \nImbio, Inc \nLauren Keith \nDirector of Engineering \n1015 Glenwood Ave \nFloor 4 \nMinneapolis, Minnesota 55405 \nRe:  K241847 \nTrade/Device Name: Imbio PHA (4.0.0) \nRegulation Number:  21 CFR 892.2050 \nRegulation Name:  Medical Image Management And Processing System \nRegulatory Class:  Class II \nProduct Code:  QIH \nDated:  August 6, 2024 \nReceived:  August 6, 2024 \nDear Lauren Keith: \nWe have reviewed your section 510(k) premarket notification of intent to market the device referenced above \nand have determined the device is substantially equivalent (for the indications for use stated in the enclosure) \nto legally marketed predicate devices marketed in interstate commerce prior to May 28, 1976, the enactment \ndate of the Medical Device Amendments, or to devices that have been reclassified in accordance with the \nprovisions of the Federal Food, Drug, and Cosmetic Act (the Act) that do not require approval of a premarket \napproval application (PMA). You may, therefore, market the device, subject to the general controls \nprovisions of the Act. Although this letter refers to your product as a device, please be aware that some \ncleared products may instead be combination products. The 510(k) Premarket Notification Database \navailable at https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/pmn.cfm identifies combination \nproduct submissions. The general controls provisions of the Act include requirements for annual registration, \nlisting of devices, good manufacturing practice, labeling, and prohibitions against misbranding and \nadulteration. Please note:  CDRH does not evaluate information related to contract liability warranties. We \nremind you, however, that device labeling must be truthful and not misleading. \nIf your device is classified (see above) into either class II (Special Controls) or class III (PMA), it may be \nsubject to additional controls. Existing major regulations affecting your device can be found in the Code of \nFederal Regulations, Title 21, Parts 800 to 898. In addition, FDA may publish further announcements \nconcerning your device in the Federal Register. \nAdditional information about changes that may require a new premarket notification are provided in the FDA \nguidance documents entitled \"Deciding When to Submit a 510(k) for a Change to an Existing Device\" \n(https://www.fda.gov/media/99812/download) and \"Deciding When to Submit a 510(k) for a Software \nChange to an Existing Device\" (https://www.fda.gov/media/99785/download).  \nAugust 30, 2024",
+    "K241847 - Lauren Keith Page \n \n2 \n \nYour device is also subject to, among other requirements, the Quality System (QS) regulation (21 CFR Part \n820), which includes, but is not limited to, 21 CFR 820.30, Design controls; 21 CFR 820.90, Nonconforming \nproduct; and 21 CFR 820.100, Corrective and preventive action. Please note that regardless of whether a \nchange requires premarket review, the QS regulation requires device manufacturers to review and approve \nchanges to device design and production (21 CFR 820.30 and 21 CFR 820.70) and document changes and \napprovals in the device master record (21 CFR 820.181).  \n \nPlease be advised that FDA's issuance of a substantial equivalence determination does not mean that FDA \nhas made a determination that your device complies with other requirements of the Act or any Federal \nstatutes and regulations administered by other Federal agencies. You must comply with all the Act's \nrequirements, including, but not limited to: registration and listing (21 CFR Part 807); labeling (21 CFR Part \n801); medical device reporting (reporting of medical device-related adverse events) (21 CFR Part 803) for \ndevices or postmarketing safety reporting (21 CFR Part 4, Subpart B) for combination products (see \nhttps://www.fda.gov/combination-products/guidance-regulatory-information/postmarketing-safety-reporting-\ncombination-products); good manufacturing practice requirements as set forth in the quality systems (QS) \nregulation (21 CFR Part 820) for devices or current good manufacturing practices (21 CFR Part 4, Subpart \nA) for combination products; and, if applicable, the electronic product radiation control provisions (Sections \n531-542 of the Act); 21 CFR Parts 1000-1050. \n \nAlso, please note the regulation entitled, \"Misbranding by reference to premarket notification\" (21 CFR \n807.97). For questions regarding the reporting of adverse events under the MDR regulation (21 CFR Part \n803), please go to https://www.fda.gov/medical-devices/medical-device-safety/medical-device-reporting-\nmdr-how-report-medical-device-problems. \n \nFor comprehensive regulatory information about medical devices and radiation-emitting products, including \ninformation about labeling regulations, please see Device Advice (https://www.fda.gov/medical-\ndevices/device-advice-comprehensive-regulatory-assistance) and CDRH Learn \n(https://www.fda.gov/training-and-continuing-education/cdrh-learn). Additionally, you may contact the \nDivision of Industry and Consumer Education (DICE) to ask a question about a specific regulatory topic. See \nthe DICE website (https://www.fda.gov/medical-devices/device-advice-comprehensive-regulatory-\nassistance/contact-us-division-industry-and-consumer-education-dice) for more information or contact DICE \nby email (DICE@fda.hhs.gov) or phone (1-800-638-2041 or 301-796-7100). \n \nSincerely, \n \n \nJessica Lamb, Ph.D.  \nAssistant Director \nImaging Software Team \nDHT 8B: Division of Radiological Imaging  \nDevices and Electronic Products  \nOHT 8: Office of Radiological Health  \nOffice of Product Evaluation and Quality  \nCenter for Devices and Radiological Health \nEnclosure  \n \n",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "page_char_counts": [
+    2208,
+    2695,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "text_class": "mixed",
+  "extractor": "pypdf==6.20.0",
+  "extraction_error": null,
+  "fetched_at": "2026-10-10T21:57:17.642966",
+  "ingested_at": "2026-10-10T21:57:09",
+  "source_snapshot_id": "ff70743d1b17a98c"
+}
