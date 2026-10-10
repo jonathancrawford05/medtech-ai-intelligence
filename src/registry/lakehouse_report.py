@@ -28,7 +28,8 @@ from pyspark.sql import functions as F
 
 from registry import tables
 from registry.config.settings import Settings, get_settings
-from registry.mart import mortality_relevant
+from registry.mart import leads, mortality_relevant
+from registry.schemas import LEAD_CATEGORIES
 from registry.transform import taxonomy
 
 # Raw columns bronze should have captured for every row. Emptiness here means the
@@ -273,14 +274,14 @@ def _enrichment_section(report: Report, enrichment: DataFrame) -> None:
         )
 
 
-# How many leads `inspect` lists. The section prints the total first, and the
-# header says when the list is clipped, so a long mart is never silently truncated.
-GOLD_LEADS_SHOWN = 15
+# How many confirmed devices `inspect` lists. The section prints the total first, and
+# the header says when the list is clipped, so a long mart is never silently truncated.
+GOLD_DEVICES_SHOWN = 15
 
 
 def _gold_section(report: Report, mart: DataFrame) -> None:
     rows = mart.count()
-    report.rule("GOLD  gold_mortality_relevant  (the mortality-relevant leads, ADR 0007/0014)")
+    report.rule("GOLD  gold_mortality_relevant  (confirmed devices, ADR 0007/0014)")
     report.say(f"  rows (devices with a confirmed mortality/MACE judgement) : {rows:,}")
 
     # An empty mart is the honest pre-curation state, not a defect: the mart gates
@@ -304,7 +305,7 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
     )
 
     report.say()
-    report.say("  specialty categories of the confirmed leads (the panel is not the filter):")
+    report.say("  specialty categories of the confirmed devices (the panel is not the filter):")
     _render(report, _counts(mart, "specialty_category"), "specialty_category")
 
     report.say()
@@ -313,9 +314,11 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
 
     report.say()
     shown = (
-        f" (showing the newest {GOLD_LEADS_SHOWN:,} of {rows:,})" if rows > GOLD_LEADS_SHOWN else ""
+        f" (showing the newest {GOLD_DEVICES_SHOWN:,} of {rows:,})"
+        if rows > GOLD_DEVICES_SHOWN
+        else ""
     )
-    report.say(f"  the leads, newest first{shown} (* = stage-1 keyword_disagrees):")
+    report.say(f"  the confirmed devices, newest first{shown} (* = stage-1 keyword_disagrees):")
     for row in (
         mart.orderBy(F.col("decision_date").desc_nulls_last(), F.col("submission_number"))
         .select(
@@ -325,7 +328,7 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
             "applicant_resolved",
             "keyword_disagrees",
         )
-        .limit(GOLD_LEADS_SHOWN)
+        .limit(GOLD_DEVICES_SHOWN)
         .collect()
     ):
         star = " *" if row["keyword_disagrees"] else ""
@@ -334,6 +337,83 @@ def _gold_section(report: Report, mart: DataFrame) -> None:
         report.say(
             f"    {row['submission_number']:<11} {row['decision_date']}  {name:<40}  {applicant}{star}"
         )
+
+
+# How many leads `inspect` lists, newest detection first; clipped like the gold list.
+LEADS_SHOWN = 15
+
+
+def _leads_section(report: Report, lead_rows: DataFrame) -> None:
+    rows = lead_rows.count()
+    report.rule("LEADS  gold_device_leads  (movement worth a curator's look, ADR 0016/0017)")
+    report.say(f"  rows (append-only, one per movement per snapshot pair) : {rows:,}")
+
+    # No movement between snapshots is the normal case -- the FDA list does not
+    # change every week -- and `registry monitor` creates the table on an empty
+    # first run (ADR 0017), so empty is reported, not flagged.
+    if rows == 0:
+        report.say("  empty -- no movement worth a look has been recorded yet.")
+        return
+
+    # Every live category, zeros included: a missing line would read as "not
+    # measured", a zero says "measured, nothing found". A lead carries one or more
+    # categories, so these do not sum to the row count.
+    report.say()
+    report.say("  leads per category (a lead can carry several):")
+    by_category = {
+        r["category"]: r["count"]
+        for r in lead_rows.select(F.explode("categories").alias("category"))
+        .groupBy("category")
+        .count()
+        .collect()
+    }
+    width = max(len(c) for c in LEAD_CATEGORIES)
+    for category in LEAD_CATEGORIES:
+        report.say(f"    {category:<{width}}  {by_category.get(category, 0):>7,}")
+
+    report.say()
+    shown = f" (showing the newest {LEADS_SHOWN:,} of {rows:,})" if rows > LEADS_SHOWN else ""
+    report.say(f"  the leads, newest detection first{shown}:")
+    for row in (
+        lead_rows.orderBy(F.col("detected_at").desc(), F.col("submission_number"))
+        .select(
+            "submission_number",
+            "detected_at",
+            "movement",
+            "changed_fields",
+            "categories",
+            "device_name",
+        )
+        .limit(LEADS_SHOWN)
+        .collect()
+    ):
+        changed = ",".join(row["changed_fields"] or []) or "-"
+        name = (row["device_name"] or "")[:40]
+        report.say(
+            f"    {row['submission_number']:<11} {row['detected_at']:%Y-%m-%d}  "
+            f"{row['movement']:<8} changed={changed}  [{','.join(row['categories'])}]  {name}"
+        )
+
+
+def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -> None:
+    """Enrichment, then the gold mart -- each depends on the one before it."""
+    if not tables.table_exists(spark, settings, "silver_device_enrichment"):
+        report.say()
+        report.say(
+            "No silver_device_enrichment table yet. Run: uv run registry enrich-openfda --verbose"
+        )
+        return
+
+    _enrichment_section(report, tables.read_table(spark, settings, "silver_device_enrichment"))
+
+    if not tables.table_exists(spark, settings, mortality_relevant.MART_TABLE):
+        report.say()
+        report.say(
+            "No gold_mortality_relevant table yet. Run: uv run registry build-mart --verbose"
+        )
+        return
+
+    _gold_section(report, tables.read_table(spark, settings, mortality_relevant.MART_TABLE))
 
 
 def build_report(spark: SparkSession, settings: Settings | None = None) -> Report:
@@ -358,22 +438,14 @@ def build_report(spark: SparkSession, settings: Settings | None = None) -> Repor
         return report
 
     _silver_section(report, tables.read_table(spark, settings, "silver_devices"), settings)
+    _curated_sections(report, spark, settings)
 
-    if not tables.table_exists(spark, settings, "silver_device_enrichment"):
+    # Leads are diffed from silver snapshots, not from enrichment or the mart, so
+    # the section follows silver regardless of how far the curated chain got.
+    if not tables.table_exists(spark, settings, leads.LEADS_TABLE):
         report.say()
-        report.say(
-            "No silver_device_enrichment table yet. Run: uv run registry enrich-openfda --verbose"
-        )
+        report.say("No gold_device_leads table yet. Run: uv run registry monitor")
         return report
 
-    _enrichment_section(report, tables.read_table(spark, settings, "silver_device_enrichment"))
-
-    if not tables.table_exists(spark, settings, mortality_relevant.MART_TABLE):
-        report.say()
-        report.say(
-            "No gold_mortality_relevant table yet. Run: uv run registry build-mart --verbose"
-        )
-        return report
-
-    _gold_section(report, tables.read_table(spark, settings, mortality_relevant.MART_TABLE))
+    _leads_section(report, tables.read_table(spark, settings, leads.LEADS_TABLE))
     return report

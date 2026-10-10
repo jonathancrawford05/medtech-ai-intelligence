@@ -391,7 +391,9 @@ class TestGoldSection:
         assert "GOLD" in text and "empty" in text, text
         assert report.ok is True
 
-    def test_reports_the_leads_and_the_keyword_disagreement(self, spark, bronze_two_pulls):
+    def test_reports_the_confirmed_devices_and_the_keyword_disagreement(
+        self, spark, bronze_two_pulls
+    ):
         self._reach_gold(spark, bronze_two_pulls)
         self._write_evidence(
             spark,
@@ -408,6 +410,11 @@ class TestGoldSection:
         text = "\n".join(report.lines)
         assert "GOLD" in text
         assert "K1" in text and "K2" not in text.split("GOLD", 1)[1]
+        # "leads" means gold_device_leads only (the LEADS section); the gold mart
+        # holds confirmed devices, so its section must not borrow the word.
+        gold_section = text.split("GOLD", 1)[1].split("gold_device_leads", 1)[0]
+        assert "lead" not in gold_section.lower(), gold_section
+        assert "confirmed devices" in gold_section
         disagree_line = next(line for line in report.lines if "keyword_disagrees (curator" in line)
         assert "1 / 1" in disagree_line, disagree_line
         assert report.ok is True
@@ -415,10 +422,10 @@ class TestGoldSection:
             "one row fits the list, so it must not claim to be truncated"
         )
 
-    def test_says_when_the_leads_list_is_clipped(self, spark, bronze_two_pulls, monkeypatch):
+    def test_says_when_the_confirmed_list_is_clipped(self, spark, bronze_two_pulls, monkeypatch):
         """The list is capped; the header must say so rather than silently drop rows
         (PR #12 review nit). The cap is patched down so two rows exercise it."""
-        monkeypatch.setattr(lakehouse_report, "GOLD_LEADS_SHOWN", 1)
+        monkeypatch.setattr(lakehouse_report, "GOLD_DEVICES_SHOWN", 1)
         self._reach_gold(spark, bronze_two_pulls)
         self._write_evidence(
             spark,
@@ -430,8 +437,146 @@ class TestGoldSection:
         )
         assert mortality_relevant.run(spark, bronze_two_pulls) == 2
         report = lakehouse_report.build_report(spark, bronze_two_pulls)
-        header = next(line for line in report.lines if "the leads, newest first" in line)
+        header = next(
+            line for line in report.lines if "the confirmed devices, newest first" in line
+        )
         assert "(showing the newest 1 of 2)" in header, header
-        gold = "\n".join(report.lines).split("the leads, newest first", 1)[1]
+        gold = "\n".join(report.lines).split("the confirmed devices, newest first", 1)[1]
         listed = [s for s in ("K1", "K2") if f"    {s} " in gold]
         assert len(listed) == 1, gold
+
+
+class TestLeadsSection:
+    """`registry inspect` must surface `gold_device_leads` (ADR 0017) -- otherwise
+    the only way to see what `registry monitor` recorded is ad-hoc PySpark.
+
+    Leads come from silver snapshots, not from enrichment or the gold mart, so the
+    section must appear whenever silver exists -- a lakehouse that has not run
+    `enrich-openfda` or `build-mart` can still have leads."""
+
+    def _lead(
+        self,
+        submission,
+        *,
+        detected_at=dt.datetime(2026, 10, 1, 9, 0),
+        movement="added",
+        changed_fields=(),
+        categories=("new_submission",),
+    ):
+        from registry.schemas import LeadRecord
+
+        return LeadRecord(
+            detected_at=detected_at,
+            prev_snapshot_id="snap-a",
+            curr_snapshot_id="snap-b",
+            prev_version=0,
+            curr_version=1,
+            submission_number=submission,
+            movement=movement,
+            changed_fields=list(changed_fields),
+            categories=list(categories),
+            device_name=f"Device {submission}",
+            applicant_resolved="acme medical",
+            decision_date=dt.date(2026, 9, 1),
+            pathway="510k",
+            specialty_category="cardiovascular",
+            specialty_panel="Cardiovascular",
+            product_code="QAS",
+            signal_new_submission=movement == "added",
+            signal_cardiometabolic="cardiometabolic" in categories,
+            signal_mortality_language="mortality_language" in categories,
+            source_url="https://example.test/list",
+        ).model_dump()
+
+    def _write_leads(self, spark, settings, rows):
+        from registry.mart.leads import LEADS_TABLE
+        from registry.schemas import LeadRecord
+
+        tables.write_table(
+            spark.createDataFrame(rows, spark_schema_for(LeadRecord)),
+            settings,
+            LEADS_TABLE,
+            mode="overwrite",
+        )
+
+    def _leads_text(self, report):
+        text = "\n".join(report.lines)
+        assert "LEADS  gold_device_leads" in text, text
+        return text.split("LEADS  gold_device_leads", 1)[1]
+
+    def test_says_to_run_monitor_when_the_table_is_missing(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("registry monitor" in line for line in report.lines), report.lines
+        assert report.ok is True, "never having run the monitor is not a failure"
+
+    def test_an_empty_table_is_reported_not_a_failure(self, spark, bronze_two_pulls):
+        """`registry monitor` creates the table on an empty first run (ADR 0017),
+        and no movement between snapshots is the normal case."""
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        self._write_leads(spark, bronze_two_pulls, [])
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        section = self._leads_text(report)
+        assert "rows" in section and "empty" in section, section
+        assert report.ok is True
+
+    def test_reports_totals_categories_and_the_newest_leads(self, spark, bronze_two_pulls):
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        self._write_leads(
+            spark,
+            bronze_two_pulls,
+            [
+                self._lead(
+                    "K9",
+                    detected_at=dt.datetime(2026, 10, 1, 9, 0),
+                    categories=("new_submission", "cardiometabolic"),
+                ),
+                self._lead(
+                    "K1",
+                    detected_at=dt.datetime(2026, 10, 8, 9, 0),
+                    movement="changed",
+                    changed_fields=("device_name", "specialty_panel"),
+                    categories=("cardiometabolic",),
+                ),
+            ],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        section = self._leads_text(report)
+        lines = section.splitlines()
+
+        total = next(line for line in lines if "rows" in line)
+        assert total.rstrip().endswith("2"), total
+
+        def count_for(category):
+            line = next(line for line in lines if line.strip().startswith(category))
+            return int(line.split()[-1])
+
+        assert count_for("cardiometabolic") == 2
+        assert count_for("new_submission") == 1
+        # Every live category is listed, so a zero is visible rather than absent.
+        assert count_for("mortality_language") == 0
+        assert count_for("life_sustaining") == 0
+
+        k1 = next(line for line in lines if "    K1 " in line)
+        assert "changed" in k1 and "device_name,specialty_panel" in k1, k1
+        k9 = next(line for line in lines if "    K9 " in line)
+        assert "added" in k9, k9
+        assert section.index("    K1 ") < section.index("    K9 "), "newest detection first"
+        assert not any("showing the newest" in line for line in lines)
+        assert report.ok is True
+
+    def test_says_when_the_leads_list_is_clipped(self, spark, bronze_two_pulls, monkeypatch):
+        monkeypatch.setattr(lakehouse_report, "LEADS_SHOWN", 1)
+        _write_silver(spark, bronze_two_pulls, [_silver_row("K1")])
+        self._write_leads(spark, bronze_two_pulls, [self._lead("K1"), self._lead("K2")])
+        section = self._leads_text(lakehouse_report.build_report(spark, bronze_two_pulls))
+        assert "(showing the newest 1 of 2)" in section, section
+        listed = [s for s in ("K1", "K2") if f"    {s} " in section]
+        assert len(listed) == 1, section
+
+    def test_appears_after_the_gold_section_when_the_mart_exists(self, spark, bronze_two_pulls):
+        TestGoldSection()._reach_gold(spark, bronze_two_pulls)
+        mortality_relevant.run(spark, bronze_two_pulls)
+        self._write_leads(spark, bronze_two_pulls, [self._lead("K1")])
+        text = "\n".join(lakehouse_report.build_report(spark, bronze_two_pulls).lines)
+        assert text.index("GOLD  gold_mortality_relevant") < text.index("LEADS  gold_device_leads")
