@@ -274,6 +274,40 @@ def _enrichment_section(report: Report, enrichment: DataFrame) -> None:
         )
 
 
+def _documents_section(report: Report, documents: DataFrame, enrichment: DataFrame) -> None:
+    """The 510(k) Summary fetch (ADR 0018), judged on each document's latest fetch."""
+    from pyspark.sql.window import Window
+
+    report.rule("DOCUMENTS  bronze_summary_documents  (510(k) Summaries, ADR 0018)")
+    report.say(f"  fetches across all runs        : {documents.count():>7,}")
+
+    newest = Window.partitionBy("submission_number").orderBy(F.desc("fetched_at"))
+    latest = (
+        documents.withColumn("_rank", F.row_number().over(newest))
+        .filter(F.col("_rank") == 1)
+        .drop("_rank")
+    )
+    found = latest.filter(F.col("content_sha256").isNotNull())
+    found_count = found.count()
+    missed = latest.count() - found_count
+
+    summaries = (
+        enrichment.filter(F.lower(F.trim(F.col("statement_or_summary"))) == "summary")
+        .select("submission_number")
+        .distinct()
+    )
+    eligible = summaries.count()
+    covered = found.join(summaries, "submission_number").count()
+    pct = 100 * covered / eligible if eligible else 0.0
+    report.say(f"  Summary filings with a PDF     : {covered:,} / {eligible:,}  ({pct:.1f}%)")
+    report.say(f"  latest fetch found nothing     : {missed:,}")
+    if found_count == 0:
+        report.problem("no Summary PDF was obtained -- check accessdata.fda.gov reachability")
+
+    report.say("  text layer (finding 0011: 51 text / 8 mixed / 1 image of 60):")
+    _render(report, _counts(found, "text_class"), "text_class")
+
+
 # How many confirmed devices `inspect` lists. The section prints the total first, and
 # the header says when the list is clipped, so a long mart is never silently truncated.
 GOLD_DEVICES_SHOWN = 15
@@ -396,7 +430,7 @@ def _leads_section(report: Report, lead_rows: DataFrame) -> None:
 
 
 def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -> None:
-    """Enrichment, then the gold mart -- each depends on the one before it."""
+    """Enrichment, the Summary fetch, then the gold mart -- each needs enrichment."""
     if not tables.table_exists(spark, settings, "silver_device_enrichment"):
         report.say()
         report.say(
@@ -404,7 +438,21 @@ def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -
         )
         return
 
-    _enrichment_section(report, tables.read_table(spark, settings, "silver_device_enrichment"))
+    enrichment = tables.read_table(spark, settings, "silver_device_enrichment")
+    _enrichment_section(report, enrichment)
+
+    # The Summary fetch targets what enrichment marks `Summary` (ADR 0018), so its
+    # section follows enrichment; it gates nothing downstream.
+    if tables.table_exists(spark, settings, "bronze_summary_documents"):
+        _documents_section(
+            report, tables.read_table(spark, settings, "bronze_summary_documents"), enrichment
+        )
+    else:
+        report.say()
+        report.say(
+            "No bronze_summary_documents table yet. Run, on a host that can reach "
+            "accessdata.fda.gov: uv run registry fetch-summaries --verbose"
+        )
 
     if not tables.table_exists(spark, settings, mortality_relevant.MART_TABLE):
         report.say()

@@ -1,0 +1,106 @@
+{
+  "recorded_at": "2026-10-10T21:57:09",
+  "extractor": "pypdf==6.20.0",
+  "documents": [
+    {
+      "submission_number": "K003301",
+      "why": "scanned, bare pdf/ (2000)",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf/K003301.pdf",
+      "content_sha256": "6a036420eb334cbdd793a983762aea5c4028c65864ab8d4a9d244c9a55169835",
+      "page_count": 7,
+      "text_class": "image",
+      "k_numbers_raw": 0,
+      "k_numbers_despaced": 0
+    },
+    {
+      "submission_number": "K092116",
+      "why": "ordinary 2010; pdf9 (no leading zero)",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf9/K092116.pdf",
+      "content_sha256": "4d7050e217579925b3fac494463470ecc0b406e44c8a6ab3d80f243f69e800cb",
+      "page_count": 7,
+      "text_class": "text",
+      "k_numbers_raw": 1,
+      "k_numbers_despaced": 2
+    },
+    {
+      "submission_number": "K141480",
+      "why": "predicate named without a parsable number",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf14/K141480.pdf",
+      "content_sha256": "15b04050a33c0dad63d22d527a9996018637cf48cc84ec03446187f0fed4a2e1",
+      "page_count": 8,
+      "text_class": "text",
+      "k_numbers_raw": 1,
+      "k_numbers_despaced": 1
+    },
+    {
+      "submission_number": "K141922",
+      "why": "ordinary 2015",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf14/K141922.pdf",
+      "content_sha256": "2b94c05fb9e562de06f08457589444bde08074f688957461e916cd62b09e69e9",
+      "page_count": 7,
+      "text_class": "text",
+      "k_numbers_raw": 3,
+      "k_numbers_despaced": 3
+    },
+    {
+      "submission_number": "K181892",
+      "why": "8-predicate table",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf18/K181892.pdf",
+      "content_sha256": "7e186b550a92f45055703c89c802cee7bf1f916ee02ca03054eeff41e0d8a638",
+      "page_count": 6,
+      "text_class": "text",
+      "k_numbers_raw": 9,
+      "k_numbers_despaced": 9
+    },
+    {
+      "submission_number": "K190013",
+      "why": "ordinary 2019; labelled predicate + reference device",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf19/K190013.pdf",
+      "content_sha256": "d8ddec547f8a41851bc850233665bdae29990d62dd381614dd97034d45549ec6",
+      "page_count": 12,
+      "text_class": "text",
+      "k_numbers_raw": 7,
+      "k_numbers_despaced": 7
+    },
+    {
+      "submission_number": "K203469",
+      "why": "ordinary 2021; mixed",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf20/K203469.pdf",
+      "content_sha256": "99114827d6ba98b2d6c44914a17aeaa1e36658d3ec47a39e917e40faabb5927f",
+      "page_count": 6,
+      "text_class": "mixed",
+      "k_numbers_raw": 2,
+      "k_numbers_despaced": 2
+    },
+    {
+      "submission_number": "K241847",
+      "why": "predicate named without a parsable number; scanned tail",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf24/K241847.pdf",
+      "content_sha256": "ff70743d1b17a98c0b24a1c96c0ab3f221abadc4d0b35863b0f0ed0c02ab78b3",
+      "page_count": 7,
+      "text_class": "mixed",
+      "k_numbers_raw": 1,
+      "k_numbers_despaced": 1
+    },
+    {
+      "submission_number": "K243239",
+      "why": "cybersecurity clause",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf24/K243239.pdf",
+      "content_sha256": "69d89473c0bf4793f84c268f9852189ddc9b23a4cc68e1b163154a4db5dbe9b6",
+      "page_count": 11,
+      "text_class": "text",
+      "k_numbers_raw": 2,
+      "k_numbers_despaced": 2
+    },
+    {
+      "submission_number": "K250177",
+      "why": "ordinary 2025; labelled field",
+      "url": "https://www.accessdata.fda.gov/cdrh_docs/pdf25/K250177.pdf",
+      "content_sha256": "19e1da508aa4f84749606baf6137fd976f98f0201fe06d81c7e8675119b7b506",
+      "page_count": 10,
+      "text_class": "text",
+      "k_numbers_raw": 2,
+      "k_numbers_despaced": 2
+    }
+  ]
+}

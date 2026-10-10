@@ -30,6 +30,8 @@ Pathway = t.Literal["510k", "de_novo", "pma"]
 DeviceClass = t.Literal["I", "II", "III", "unclassified"]
 ReviewMethod = t.Literal["human", "llm_assisted"]
 Movement = t.Literal["added", "changed", "removed"]
+# How much of a 510(k) Summary has a text layer (finding 0011's per-page rule).
+TextClass = t.Literal["text", "mixed", "image"]
 
 # The live lead categories (ADR 0016). PCCP and foundation-model clearances are
 # deliberately absent: no current source populates them (see
@@ -121,6 +123,53 @@ class BronzeFdaAiListRecord(BaseModel):
     # Provenance: which pull this row came from, and what the source looked like.
     ingested_at: dt.datetime
     source_snapshot_id: str
+
+
+class BronzeSummaryDocumentRecord(BaseModel):
+    """One fetch of one 510(k) Summary PDF, as text (ADR 0018).
+
+    Append-only like every bronze table: a re-fetch whose bytes changed is a new
+    row, never an update, and a miss is recorded too. One row per document; the
+    per-page text sits in parallel arrays (``page_texts[i]`` is page ``i + 1``) whose
+    lengths the validator ties to ``page_count``. Bronze stores the extracted text,
+    not the PDF bytes; parsing *meaning* out of that text is silver's job (4B).
+    """
+
+    submission_number: str
+    url: str  # the URL that served the PDF, or the last one tried on a miss
+    urls_tried: list[str]
+    http_status: int
+    content_type: str | None = None
+    # Of the PDF bytes. None exactly when no PDF was obtained.
+    content_sha256: str | None = None
+    byte_count: int | None = None
+    page_count: int = Field(ge=0)
+    page_texts: list[str]
+    page_char_counts: list[int]  # non-whitespace characters per page
+    text_class: TextClass | None = None  # None = no pages could be read
+    extractor: str | None = None  # library and version that produced page_texts
+    extraction_error: str | None = None
+    fetched_at: dt.datetime
+    # Provenance, stamped like bronze_fda_ai_list: when the row was written, and
+    # the content hash of what the source served (the PDF's sha256, first 16 hex).
+    ingested_at: dt.datetime
+    source_snapshot_id: str | None = None
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> BronzeSummaryDocumentRecord:
+        if not (len(self.page_texts) == len(self.page_char_counts) == self.page_count):
+            raise ValueError(
+                f"page arrays disagree with page_count={self.page_count}: "
+                f"{len(self.page_texts)} texts, {len(self.page_char_counts)} counts"
+            )
+        if self.text_class is not None and self.content_sha256 is None:
+            raise ValueError("text_class describes a document; it needs content_sha256")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +425,7 @@ class LeadRecord(BaseModel):
 # Convenience: logical table name -> model, so callers do not hardcode schemas.
 TABLE_MODELS: dict[str, type[BaseModel]] = {
     "bronze_fda_ai_list": BronzeFdaAiListRecord,
+    "bronze_summary_documents": BronzeSummaryDocumentRecord,
     "silver_devices": DeviceRecord,
     "silver_evidence": EvidenceRecord,
     "silver_companies": CompanyRecord,

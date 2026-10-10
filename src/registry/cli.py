@@ -8,6 +8,7 @@ without shelling out.
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 import typer
 
@@ -105,6 +106,62 @@ def enrich_openfda(
     settings = get_settings()
     written = enrichment.run(get_spark(settings), settings, limit=limit or None)
     typer.echo(f"Enriched {written} devices into {settings.table_ref('silver_device_enrichment')}")
+
+
+@app.command("fetch-summaries")
+def fetch_summaries(
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    limit: int = typer.Option(0, "--limit", help="Fetch at most N documents (a cheap trial)."),
+    only: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--only",
+            help="Fetch exactly these K-numbers (repeat, or comma-separate), even if fetched.",
+        ),
+    ] = None,
+) -> None:
+    """Fetch 510(k) Summary PDFs into `bronze_summary_documents` as per-page text.
+
+    Needs accessdata.fda.gov, so it runs on a network-permitted host only (ADR 0018).
+    Resumable: documents already in bronze are skipped, so re-run after a halt.
+    """
+    _setup_logging(verbose)
+    from registry.ingest import summary_documents
+    from registry.spark_session import get_spark
+
+    numbers = [n.strip().upper() for value in only or [] for n in value.split(",") if n.strip()]
+    settings = get_settings()
+    try:
+        result = summary_documents.run(
+            get_spark(settings), settings, limit=limit or None, only=numbers or None
+        )
+    except summary_documents.SummaryFetchError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(
+        f"Fetched {result.attempted} document(s): {result.found} found, "
+        f"{result.not_found} not found, {result.unchanged} unchanged since the last fetch"
+    )
+    typer.echo(
+        f"Appended {result.written} row(s) to {settings.table_ref(summary_documents.BRONZE_TABLE)}"
+    )
+    for text_class, count in sorted(result.text_classes.items()):
+        typer.echo(f"  {text_class:<12} {count}")
+    if result.already_fetched:
+        typer.echo(f"Skipped {result.already_fetched} already in bronze.")
+    if result.deferred:
+        typer.echo(
+            f"  deferred: {len(result.deferred)} De Novo/PMA Summary filing(s) -- "
+            "document URLs not verified (ADR 0018)"
+        )
+    if result.halted:
+        typer.echo(
+            f"Stopped early: {result.halted}. Everything fetched so far is in bronze; "
+            "wait, then re-run to resume.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("build-mart")

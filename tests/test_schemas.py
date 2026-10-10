@@ -78,6 +78,7 @@ class TestFieldParity:
             EvidenceRecord,
             CompanyRecord,
             schemas.BronzeFdaAiListRecord,
+            schemas.BronzeSummaryDocumentRecord,
             schemas.DeviceEnrichmentRecord,
             schemas.LeadRecord,
         ],
