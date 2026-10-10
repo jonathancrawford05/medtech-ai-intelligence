@@ -79,6 +79,7 @@ class TestFieldParity:
             CompanyRecord,
             schemas.BronzeFdaAiListRecord,
             schemas.DeviceEnrichmentRecord,
+            schemas.LeadRecord,
         ],
     )
     def test_every_model_field_appears_in_the_struct(self, model):
@@ -294,6 +295,68 @@ class TestEvidenceRecord:
     def test_confirmation_with_review_method_is_valid(self):
         rec = self._valid(mortality_confirmed_flag=True, mortality_review_method="human")
         assert rec.mortality_confirmed_flag is True
+
+
+class TestLeadRecord:
+    """One movement worth a curator's look (ADR 0016/0017), as stored in
+    `gold_device_leads`. Generated Spark schema like every other model."""
+
+    def _lead(self, **overrides):
+        base = {
+            "detected_at": dt.datetime(2026, 10, 5, 9, 0),
+            "prev_snapshot_id": "snapA",
+            "curr_snapshot_id": "snapB",
+            "prev_version": 1,
+            "curr_version": 3,
+            "submission_number": "K700",
+            "movement": "added",
+            "categories": ["new_submission", "cardiometabolic"],
+            "device_name": "HeartRisk AI",
+            "decision_date": dt.date(2026, 9, 30),
+            "pathway": "510k",
+            "specialty_category": "cardiovascular",
+            "specialty_panel": "Cardiovascular",
+            "product_code": "QIH",
+            "signal_new_submission": True,
+            "signal_cardiometabolic": True,
+            "signal_mortality_language": False,
+            "source_url": "https://example.org/K700",
+        }
+        base.update(overrides)
+        return schemas.LeadRecord(**base)
+
+    def test_a_valid_lead_round_trips(self):
+        lead = self._lead()
+        assert lead.categories == ["new_submission", "cardiometabolic"]
+        assert lead.changed_fields == []
+        assert lead.signal_life_sustaining is None  # not enriched, not "no"
+
+    def test_movement_is_constrained(self):
+        with pytest.raises(ValueError):
+            self._lead(movement="moved")
+
+    def test_a_lead_needs_at_least_one_category(self):
+        """A row with no reason to be a lead is noise in a triage surface."""
+        with pytest.raises(ValueError, match="categor"):
+            self._lead(categories=[])
+
+    def test_an_unknown_category_is_rejected(self):
+        """Deferred categories (PCCP, foundation-model) must not be smuggled in."""
+        with pytest.raises(ValueError, match="pccp"):
+            self._lead(categories=["pccp"])
+
+    def test_there_is_no_pccp_or_foundation_model_column(self):
+        """ADR 0016: no source populates them yet, so no column pretends to."""
+        names = set(schemas.LeadRecord.model_fields)
+        assert not {n for n in names if "pccp" in n or "foundation" in n}
+
+    def test_the_spark_mirror_types(self):
+        fields = {f.name: f for f in spark_schema_for(schemas.LeadRecord).fields}
+        assert isinstance(fields["detected_at"].dataType, TimestampType)
+        assert isinstance(fields["prev_version"].dataType, LongType)
+        assert isinstance(fields["categories"].dataType, ArrayType)
+        assert fields["signal_life_sustaining"].nullable is True
+        assert fields["submission_number"].nullable is False
 
 
 class TestCompanyRecord:

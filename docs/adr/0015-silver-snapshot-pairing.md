@@ -1,6 +1,6 @@
 # 0015 — Pair adjacent silver builds by content snapshot, via Delta time travel
 
-**Status:** Accepted in part — Decisions 3, 4 (as amended below) and 5, 2026-10-04 · Decisions 1, 2 and 6 still Proposed, to be accepted with the differ · **Date:** 2026-09-26
+**Status:** Accepted — Decisions 3, 4 (as amended below) and 5 on 2026-10-04 (PR #13); Decisions 1, 2 and 6 on 2026-10-04 with the differ (Issue 3 PR B) · the amendment's "Reading history" paragraph is **Superseded by [ADR 0017](0017-leads-output-surface.md)** (fail-safe three-way walk) · **Date:** 2026-09-26
 **Relates to:** [ADR 0001](0001-local-spark-delta-substrate.md), [ADR 0004](0004-config-driven-table-resolution.md), [ADR 0007](0007-two-stage-mortality-flag.md), [ADR 0014](0014-gold-mortality-mart.md) · roadmap Issue 3
 
 ## Context

@@ -132,6 +132,61 @@ def build_mart(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
 
 
 @app.command()
+def monitor(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Diff the two most recent silver snapshots and append leads to `gold_device_leads`.
+
+    Leads are built from pre-curation signals (ADR 0016) and recorded once per
+    snapshot pair (ADR 0017), so re-running is safe.
+    """
+    _setup_logging(verbose)
+    from registry.mart import leads
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    result = leads.run(get_spark(settings), settings)
+    table = settings.table_ref(leads.LEADS_TABLE)
+
+    if result.status == "no_pair":
+        typer.echo("Fewer than two distinct snapshots in silver; nothing to diff.")
+    elif result.status == "history_barrier":
+        typer.echo(
+            f"Not diffing: unrecognised Delta operation {result.barrier_operation!r} sits "
+            "between the snapshots in silver's history, so the pair cannot be trusted. "
+            "To set a new baseline, run `registry build-silver` against the current "
+            "bronze now, before the next ingest; the following pull then diffs against "
+            "it. If the operation never changes rows, classify it in registry/tables.py.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    elif result.status == "already_recorded":
+        typer.echo(
+            f"Leads for {result.prev_snapshot_id} -> {result.curr_snapshot_id} are already "
+            f"in {table}; nothing appended."
+        )
+    else:
+        typer.echo(
+            f"Recorded {len(result.leads)} lead(s) for {result.prev_snapshot_id} -> "
+            f"{result.curr_snapshot_id} in {table}"
+        )
+        for category, count in result.counts.items():
+            typer.echo(f"  {category:<20} {count}")
+        if result.removals_suppressed:
+            typer.echo(
+                f"Warning: {result.removals_suppressed} removal lead(s) not recorded; the "
+                "newest pull looks truncated.",
+                err=True,
+            )
+        if result.relistings_suppressed:
+            typer.echo(
+                f"Warning: {result.relistings_suppressed} relisting lead(s) not recorded; "
+                "the previous pull looks truncated.",
+                err=True,
+            )
+    for category, reason in leads.DEFERRED_CATEGORIES.items():
+        typer.echo(f"  deferred: {category} -- {reason}")
+
+
+@app.command()
 def inspect() -> None:
     """Report what the local lakehouse holds, and exit non-zero if it looks wrong."""
     from registry import lakehouse_report
