@@ -1,12 +1,21 @@
 # 510(k) Summary fixtures — provenance
 
-**Status: not yet recorded.** `accessdata.fda.gov` is blocked from agent sessions
-and CI, so PR 4A shipped the recorder rather than the recording
-([ADR 0018](../../../docs/adr/0018-summary-document-acquisition.md)). Until the
-JSON files below exist, the per-document checks in `TestRecordedSlice`
-(`tests/test_summary_documents.py`) skip, naming the missing file, and
-`test_every_slice_document_is_recorded` **fails**: CI is red until the slice is
-committed.
+**Status: recorded 2026-10-10 21:57 UTC** by the maintainer on a network-permitted
+host, with `pypdf==6.20.0` ([ADR 0018](../../../docs/adr/0018-summary-document-acquisition.md)).
+All ten documents resolved, each on its expected URL, and every assertion in
+`TestRecordedSlice` passes against them. `accessdata.fda.gov` is blocked from agent
+sessions and CI, so re-recording happens only on such a host.
+`test_every_slice_document_is_recorded` fails if any file below is ever removed.
+
+What the recording showed (see [finding 0018](../../../findings/0018-summary-acquisition-built.md)):
+
+- **pypdf reproduces the spike's pdf.js measurements.** Per-page character counts
+  for `K181892`, `K203469` and `K003301` are identical to the spike's, and `K241847`
+  has the same total. All ten `text_class` values match the spike.
+- **Glyph splitting survives pypdf.** On `K092116`, the raw layer contains the
+  document's own number as `K0921 16`: a naive `\bK\d{6}\b` finds 1 K-number raw
+  and 2 de-spaced. The other nine documents show no raw vs de-spaced difference.
+  4B must still normalise before it matches anything.
 
 ## How to record (on a network-permitted host, e.g. the maintainer's Mac)
 

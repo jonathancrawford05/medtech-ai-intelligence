@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-10 · **Branch:** `claude/laughing-davinci-52lw61` — Issue 4 **PR 4A**: 510(k) Summary acquisition (`ingest/summary_documents.py`, `bronze_summary_documents`, `registry fetch-summaries`, [ADR 0018](docs/adr/0018-summary-document-acquisition.md), [finding 0018](findings/0018-summary-acquisition-built.md)). **Blocked on a maintainer step before merge:** record the real fixture slice on the Mac (`uv run pytest -m live_network -k summary`) and commit it. Rebased onto `main` after #16 (`registry inspect` LEADS section) merged.
+**Last updated:** 2026-10-10 · **Branch:** `claude/laughing-davinci-52lw61` — Issue 4 **PR 4A**: 510(k) Summary acquisition (`ingest/summary_documents.py`, `bronze_summary_documents`, `registry fetch-summaries`, [ADR 0018](docs/adr/0018-summary-document-acquisition.md), [finding 0018](findings/0018-summary-acquisition-built.md)). Real fixture slice recorded on the Mac and committed (CI green); ready for review. Rebased onto `main` after #16 (`registry inspect` LEADS section) merged.
 **Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -78,13 +78,13 @@ PDF bytes go to an on-disk archive only when `REGISTRY_SUMMARY_PDF_ARCHIVE_DIR` 
 set. `registry inspect` has a DOCUMENTS section that reports coverage and the
 `text_class` split. All of this is in [ADR 0018](docs/adr/0018-summary-document-acquisition.md).
 
-**Nothing has hit the real host yet.** `accessdata.fda.gov` is blocked from agent
-sessions. On the Mac, run:
+**Verified on the real slice, not yet at full scale.** The ten-document fixture
+slice was recorded live on the Mac (2026-10-10) and is committed. It matched the
+spike's measurements exactly ([finding 0018](findings/0018-summary-acquisition-built.md)).
+`accessdata.fda.gov` is blocked from agent sessions, so the full fetch also runs on
+the Mac, after merge:
 
 ```bash
-uv run pytest -m live_network -k summary      # records tests/fixtures/summary_documents/
-git add tests/fixtures/summary_documents && git commit -m "Record real summary fixtures"
-# after merge:
 uv run registry fetch-summaries -v            # ~1,541 docs at ~1/s ≈ 30 min
 uv run registry inspect                       # DOCUMENTS section -> finding 0018's table
 ```
@@ -179,10 +179,10 @@ findings/                        what was actually verified, and what was not
    per-page text in `bronze_summary_documents`, fetched by `registry fetch-summaries`,
    with a `live_network` recorder for the handoff §2 fixture slice
    ([ADR 0018](docs/adr/0018-summary-document-acquisition.md),
-   [finding 0018](findings/0018-summary-acquisition-built.md)). **Before merge**, the
-   maintainer records the slice on the Mac and commits it. Until then 47 real-text
-   assertions skip and the guard `test_every_slice_document_is_recorded` fails,
-   so **CI is red by design** until the fixtures land. **After merge**, run the full fetch and fill in finding 0018's
+   [finding 0018](findings/0018-summary-acquisition-built.md)). The real fixture
+   slice was recorded on the Mac on 2026-10-10 and committed. pypdf reproduces
+   the spike's pdf.js measurements, and glyph splitting still appears
+   (`K092116`'s own number reads `K0921 16`), so 4B must normalise. **After merge**, run the full fetch and fill in finding 0018's
    table. **Next: PR 4B** (normalisation, predicates, cybersecurity →
    `silver_document_extraction`, plus the ADR 0013 Decision 4 amendment below),
    built against the committed fixtures. Handoff: `docs/handoffs/issue-4-document-pass.md`.
