@@ -132,13 +132,41 @@ def classify_pages(char_counts: Iterable[int]) -> TextClass | None:
     return "image" if text_pages == 0 else "mixed"
 
 
-def extract_pages(pdf_bytes: bytes) -> list[str]:
-    """One string per page, verbatim from the text layer (empty for a scanned page)."""
+@dataclass(slots=True)
+class PageExtraction:
+    texts: list[str]
+    unreadable_pages: list[int]  # 1-based; their entry in `texts` is ""
+    first_error: str | None = None
+
+
+def read_pages(pdf_bytes: bytes) -> PageExtraction:
+    """Per-page text, tolerating a page the extractor cannot read.
+
+    A document that will not open at all raises ``PdfExtractionError``. A single
+    page that fails (a malformed content stream or font) becomes ``""`` and is
+    named in ``unreadable_pages``, so one bad page never costs the whole Summary.
+    """
     try:
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        return [page.extract_text() or "" for page in reader.pages]
+        pages = list(reader.pages)
     except Exception as exc:  # pypdf raises a wide family; all mean "not readable"
         raise PdfExtractionError(f"{type(exc).__name__}: {exc}") from exc
+
+    result = PageExtraction(texts=[], unreadable_pages=[])
+    for number, page in enumerate(pages, start=1):
+        try:
+            result.texts.append(page.extract_text() or "")
+        except Exception as exc:
+            result.texts.append("")
+            result.unreadable_pages.append(number)
+            result.first_error = result.first_error or f"{type(exc).__name__}: {exc}"
+    return result
+
+
+def extract_pages(pdf_bytes: bytes) -> list[str]:
+    """One string per page, verbatim from the text layer (empty for a scanned or
+    unreadable page)."""
+    return read_pages(pdf_bytes).texts
 
 
 def _looks_like_pdf(response: httpx.Response) -> bool:
@@ -303,11 +331,17 @@ class SummaryFetcher:
             extractor=EXTRACTOR,
         )
         try:
-            doc.page_texts = extract_pages(body)
+            pages = read_pages(body)
         except PdfExtractionError as exc:
             # The bytes arrived and are hashed; say why no text came out of them.
             logger.warning("%s: could not read %s as a PDF: %s", number, url, exc)
             doc.extraction_error = str(exc)
+            return doc
+        doc.page_texts = pages.texts
+        if pages.unreadable_pages:
+            listed = ", ".join(str(n) for n in pages.unreadable_pages)
+            doc.extraction_error = f"unreadable page {listed} ({pages.first_error})"
+            logger.warning("%s: %s", number, doc.extraction_error)
         return doc
 
     def _throttle(self) -> None:

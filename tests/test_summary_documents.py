@@ -23,6 +23,7 @@ import re
 from pathlib import Path
 
 import httpx
+import pypdf
 import pytest
 import respx
 
@@ -131,6 +132,34 @@ class TestExtractPages:
     def test_garbage_raises_a_pdf_error(self):
         with pytest.raises(mod.PdfExtractionError):
             mod.extract_pages(b"<html>not a pdf</html>")
+
+    def test_one_unreadable_page_does_not_lose_the_document(self, broken_page):
+        """A page pypdf chokes on reads as empty; its neighbours keep their text."""
+        pages = mod.extract_pages(make_pdf([LONG, "BROKEN page", "Third page K250177"]))
+        assert len(pages) == 3
+        assert pages[0].startswith("Indications")
+        assert pages[1] == ""
+        assert "K250177" in pages[2]
+
+    def test_the_unreadable_pages_are_reported(self, broken_page):
+        result = mod.read_pages(make_pdf(["BROKEN one", LONG, "BROKEN three"]))
+        assert result.unreadable_pages == [1, 3]
+        assert result.texts[1].startswith("Indications")
+
+
+@pytest.fixture
+def broken_page(monkeypatch):
+    """Make pypdf raise on any page whose text contains BROKEN -- the per-page
+    failure mode (a malformed content stream or font) without a corrupt real file."""
+    original = pypdf.PageObject.extract_text
+
+    def extract_text(self, *args, **kwargs):
+        text = original(self, *args, **kwargs)
+        if "BROKEN" in text:
+            raise KeyError("/Font")
+        return text
+
+    monkeypatch.setattr(pypdf.PageObject, "extract_text", extract_text)
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +343,19 @@ class TestFetcher:
         assert doc.page_count == 0
         assert doc.text_class is None
         assert doc.extraction_error
+
+    @respx.mock
+    def test_an_unreadable_page_is_kept_empty_and_named(self, broken_page):
+        respx.get(f"{BASE}/pdf18/K181892.pdf").mock(
+            return_value=httpx.Response(
+                200, content=make_pdf([LONG, "BROKEN", LONG]), headers=PDF_HEADERS
+            )
+        )
+        doc = _fetcher().fetch("K181892")
+        assert doc.page_count == 3
+        assert doc.page_char_counts[1] == 0
+        assert doc.text_class == "mixed"
+        assert doc.extraction_error is not None and "page 2" in doc.extraction_error
 
     @pytest.mark.parametrize("status", [429, 403])
     @respx.mock
@@ -807,6 +849,15 @@ class TestRecordedSlice:
     @pytest.mark.parametrize("number", [n for n, s in SLICE.items() if s.get("cybersecurity")])
     def test_the_cybersecurity_clause_is_present(self, number):
         assert "cybersecurity" in _despaced(_load(number)).lower()
+
+    def test_every_slice_document_is_recorded(self):
+        """Fails, rather than skips, until the slice is recorded: the parametrized
+        checks above skip per missing file, and a skip must never be the steady
+        state. Record with `uv run pytest -m live_network -k summary` on a host
+        that can reach accessdata.fda.gov, then commit tests/fixtures/."""
+        missing = sorted(n for n in SLICE if not (FIXTURE_DIR / f"{n}.json").exists())
+        assert not missing, f"summary fixtures not recorded: {missing}"
+        assert (FIXTURE_DIR / "manifest.json").exists()
 
     def test_no_pdf_bytes_are_committed(self):
         """Text, never PDFs, in git (handoff §2)."""

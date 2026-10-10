@@ -17,8 +17,9 @@ recording test runs). Nothing in this PR has yet touched a real Summary PDF.
   what counts as a PDF: an HTML 200 falls through to the next candidate, and
   `%PDF-` magic is accepted under a generic content type. A 429 or 403 halts at
   once with no retry. 5xx and network errors are retried, then raise. The throttle
-  spaces every request, fallbacks included. Bytes `pypdf` cannot parse are kept
-  as a hash plus an `extraction_error`. The optional PDF archive writes atomically
+  spaces every request, fallbacks included. Bytes `pypdf` cannot open are kept
+  as a hash plus an `extraction_error`. A single page `pypdf` fails on becomes
+  `""` and is named in `extraction_error`; the other pages keep their text. The optional PDF archive writes atomically
   and never fails the fetch.
 - **Text measurement.** Per-page non-whitespace counts and the `text`/`mixed`/
   `image` rule reproduce the spike's profiles: `K003301` all zeros → `image`;
@@ -35,7 +36,8 @@ recording test runs). Nothing in this PR has yet touched a real Summary PDF.
 
 1. **The real fixture slice.** Run `uv run pytest -m live_network -k summary`, then
    commit `tests/fixtures/summary_documents/`. Until that happens, the 47
-   real-text assertions in `TestRecordedSlice` skip. **PR 4A should not merge
+   per-document real-text assertions in `TestRecordedSlice` skip, and the guard
+   `test_every_slice_document_is_recorded` **fails**, so CI stays red. **PR 4A should not merge
    before this.** It is also the first evidence that the fetcher works against
    the real host.
 2. **`pypdf` vs pdf.js.** The spike measured with pdf.js. `manifest.json` records

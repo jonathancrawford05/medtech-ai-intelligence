@@ -181,7 +181,8 @@ findings/                        what was actually verified, and what was not
    ([ADR 0018](docs/adr/0018-summary-document-acquisition.md),
    [finding 0018](findings/0018-summary-acquisition-built.md)). **Before merge**, the
    maintainer records the slice on the Mac and commits it. Until then 47 real-text
-   assertions skip. **After merge**, run the full fetch and fill in finding 0018's
+   assertions skip and the guard `test_every_slice_document_is_recorded` fails,
+   so **CI is red by design** until the fixtures land. **After merge**, run the full fetch and fill in finding 0018's
    table. **Next: PR 4B** (normalisation, predicates, cybersecurity →
    `silver_document_extraction`, plus the ADR 0013 Decision 4 amendment below),
    built against the committed fixtures. Handoff: `docs/handoffs/issue-4-document-pass.md`.

@@ -3,8 +3,10 @@
 **Status: not yet recorded.** `accessdata.fda.gov` is blocked from agent sessions
 and CI, so PR 4A shipped the recorder rather than the recording
 ([ADR 0018](../../../docs/adr/0018-summary-document-acquisition.md)). Until the
-JSON files below exist, `TestRecordedSlice` in `tests/test_summary_documents.py`
-skips, naming the missing file.
+JSON files below exist, the per-document checks in `TestRecordedSlice`
+(`tests/test_summary_documents.py`) skip, naming the missing file, and
+`test_every_slice_document_is_recorded` **fails**: CI is red until the slice is
+committed.
 
 ## How to record (on a network-permitted host, e.g. the maintainer's Mac)
 

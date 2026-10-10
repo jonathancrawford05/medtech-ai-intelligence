@@ -61,8 +61,10 @@ a new row, so the history of what the FDA served is kept.
 `text_class` is finding 0011's rule. A page is an image page below 100
 non-whitespace characters. A document is `text` when every page clears that bar,
 `image` when none does, and `mixed` otherwise. `None` means no page could be read:
-a miss, or bytes `pypdf` could not parse, with the reason in `extraction_error`.
-Because the per-page counts are stored, the rule can be re-applied without a fetch.
+a miss, or bytes `pypdf` could not open, with the reason in `extraction_error`.
+A single page `pypdf` fails on is stored as `""` (counted as an image page) and
+named in `extraction_error` ("unreadable page 2 (…)"), so one bad page never
+costs the rest of the document's text. Because the per-page counts are stored, the rule can be re-applied without a fetch.
 
 ## Decision 3 — PDF bytes are optional, on disk, keyed by hash; never in git or Delta
 
@@ -133,8 +135,11 @@ evidence. Statement filers have no public document and are not targets.
 - The real-text fixtures cannot be recorded from the session that wrote this
   code. `tests/test_summary_documents.py::TestLiveRecording` (`live_network`)
   records the slice from handoff §2 into `tests/fixtures/summary_documents/`
-  (text and a manifest, no PDFs). The offline assertions over that slice skip,
-  and name the missing file, until it is committed. **PR 4A merges only after the
+  (text and a manifest, no PDFs). The per-document assertions over that slice
+  skip, naming the missing file, and one guard test
+  (`test_every_slice_document_is_recorded`) **fails** until all ten files and the
+  manifest exist. CI is therefore red until the slice is committed, and no
+  slice assertion can ever skip silently afterwards. **PR 4A merges only after the
   maintainer has recorded and committed it.**
 - The weekly `live-network` CI job also runs the recording test. That job hits
   accessdata about eleven times at 1 request/second and doubles as a drift check on
