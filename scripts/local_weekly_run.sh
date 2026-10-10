@@ -17,7 +17,12 @@ run uv run registry ingest-fda-list -v
 run uv run registry enrich-openfda -v
 run uv run registry build-silver -v
 run uv run registry build-mart -v
-run uv run registry monitor -v
+# `monitor` arrives with Issue 3 PR B (#14); skip it cleanly on an older checkout.
+if uv run registry --help 2>/dev/null | grep -qw monitor; then
+  run uv run registry monitor -v
+else
+  echo "==> skipping monitor: not in this checkout yet (Issue 3 PR B, #14)" | tee -a "$log"
+fi
 run uv run registry inspect
 
 echo "Done. Log: $log"

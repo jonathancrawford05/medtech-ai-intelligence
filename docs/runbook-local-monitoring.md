@@ -9,7 +9,7 @@ ADR 0017 (`docs/adr/0017-leads-output-surface.md`, arriving with PR #14)). Today
 machine. Back it up; it is not reconstructible.
 
 Run from the repo root on `main`, on a JDK-17 host (CLAUDE.md). `registry monitor` and
-the leads table arrive with Issue 3 PR B (#14); before that merges, skip step 5. One
+the leads table arrive with Issue 3 PR B (#14); until then the script skips step 5. One
 command does the whole sequence:
 
 ```bash
