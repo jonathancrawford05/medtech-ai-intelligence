@@ -124,6 +124,107 @@ class TestLeadFilter:
         assert leads.build_leads(moves, _ctx(), prev=p, curr=p, detected_at=DETECTED) == []
 
 
+def _pccp(rows: list[dict], values: dict[str, bool | None]) -> list[dict]:
+    """The same silver rows with the document pass's `has_pccp` filled in."""
+    return [
+        {**r, "has_pccp": values[r["submission_number"]]} if r["submission_number"] in values else r
+        for r in rows
+    ]
+
+
+class TestPccpSignal:
+    """ADR 0020: `has_pccp` (from the document pass, ADR 0019) tags a movement,
+    and is never itself a movement (PR #14's rule for derived fields)."""
+
+    def test_populating_has_pccp_for_existing_devices_records_no_leads(self):
+        """The first build after `extract-documents` fills `has_pccp` for every
+        Summary filer at once. That is our pipeline catching up, not the FDA
+        moving: it must not turn the 1,541 existing devices into leads."""
+        p, c = _versions()
+        before = prev_rows()  # has_pccp None everywhere: not yet extracted
+        after = [
+            {**r, "source_snapshot_id": CURR, "has_pccp": i % 2 == 0}
+            for i, r in enumerate(prev_rows())
+        ]
+        assert any(r["has_pccp"] for r in after)
+        moves = differ.classify(before, after, PREV, CURR)
+        assert moves == []
+        assert leads.build_leads(moves, _ctx(), prev=p, curr=c, detected_at=DETECTED) == []
+
+    def test_a_has_pccp_flip_alone_records_no_leads(self):
+        """A rule change (extractor version bump) that flips True <-> False."""
+        p, c = _versions()
+        before = _pccp(prev_rows(), {"K100": True, "K200": False})
+        after = [
+            {**r, "source_snapshot_id": CURR}
+            for r in _pccp(prev_rows(), {"K100": False, "K200": True})
+        ]
+        moves = differ.classify(before, after, PREV, CURR)
+        assert leads.build_leads(moves, _ctx(), prev=p, curr=c, detected_at=DETECTED) == []
+
+    def test_a_new_device_with_a_pccp_is_tagged(self):
+        lead = {r.submission_number: r for r in _build(curr=_pccp(curr_rows(), {"K800": True}))}[
+            "K800"
+        ]
+        assert lead.categories == ["new_submission", "pccp"]
+        assert lead.signal_pccp is True
+
+    def test_a_changed_device_with_a_pccp_on_either_side_is_a_lead(self):
+        """K100 (radiology, no other signal) gets renamed. Without a PCCP that is
+        not a lead; with one on either side it is."""
+        renamed = [
+            {**r, "device_name": "Renamed"} if r["submission_number"] == "K100" else r
+            for r in curr_rows()
+        ]
+        assert "K100" not in {r.submission_number for r in _build(curr=renamed)}
+
+        for prev, curr in (
+            (_pccp(prev_rows(), {"K100": True}), renamed),
+            (prev_rows(), _pccp(renamed, {"K100": True})),
+        ):
+            lead = {r.submission_number: r for r in _build(prev=prev, curr=curr)}["K100"]
+            assert lead.movement == "changed"
+            assert lead.categories == ["pccp"]
+            assert lead.signal_pccp is True
+
+    def test_a_removed_device_with_a_pccp_is_a_lead(self):
+        """K600 (radiology) leaving the list is not a lead on its own; a device
+        that was cleared with a change-control plan leaving it is."""
+        prev = _pccp(prev_rows(), {"K600": True})
+        curr = _pccp(curr_rows(), {"K600": True})
+        lead = {r.submission_number: r for r in _build(prev=prev, curr=curr)}["K600"]
+        assert (lead.movement, lead.categories) == ("removed", ["pccp"])
+
+    @pytest.mark.parametrize(
+        ("prev", "curr", "signal"),
+        [
+            (None, None, None),  # no Summary, or not yet extracted: unknown
+            (None, False, False),
+            (False, False, False),
+            (True, False, True),  # either side holding counts
+            (None, True, True),
+        ],
+    )
+    def test_signal_is_true_false_or_unknown(self, prev, curr, signal):
+        """ADR 0012: None means "not read", never "no PCCP". K300 moves panel
+        (a cardiometabolic lead either way), so its row exists in every case."""
+        lead = {
+            r.submission_number: r
+            for r in _build(
+                prev=_pccp(prev_rows(), {"K300": prev}), curr=_pccp(curr_rows(), {"K300": curr})
+            )
+        }["K300"]
+        assert lead.signal_pccp is signal
+        assert ("pccp" in lead.categories) is (signal is True)
+
+    def test_no_pccp_is_not_a_category(self):
+        """False is "read, no plan": it records nothing, like `life_sustaining`."""
+        leads_ = _build(curr=_pccp(curr_rows(), {"K800": False}))
+        lead = {r.submission_number: r for r in leads_}["K800"]
+        assert lead.categories == ["new_submission"]
+        assert lead.signal_pccp is False
+
+
 class TestTheConfirmedFlagIsNeverTheGate:
     def test_the_module_never_reads_the_confirmed_flag(self):
         """Belt and braces on the P0 the handoff names. The behavioural tests
@@ -133,10 +234,13 @@ class TestTheConfirmedFlagIsNeverTheGate:
 
 
 class TestDeferredCategories:
-    def test_pccp_and_foundation_model_are_deferred_with_reasons(self):
-        assert set(leads.DEFERRED_CATEGORIES) == {"pccp", "foundation_model"}
-        assert "Issue 4" in leads.DEFERRED_CATEGORIES["pccp"]
+    def test_only_foundation_model_is_still_deferred(self):
+        """ADR 0020 brings PCCP live; the foundation-model deferral stands."""
+        assert set(leads.DEFERRED_CATEGORIES) == {"foundation_model"}
         assert "heuristic" in leads.DEFERRED_CATEGORIES["foundation_model"]
+
+    def test_pccp_is_live(self):
+        assert "pccp" in leads.LEAD_CATEGORIES
 
     def test_deferred_categories_are_not_live(self):
         assert set(leads.DEFERRED_CATEGORIES).isdisjoint(leads.LEAD_CATEGORIES)
@@ -208,6 +312,7 @@ class TestRun:
             "cardiometabolic": 3,
             "mortality_language": 2,
             "life_sustaining": 0,
+            "pccp": 0,
         }
 
     def test_the_gold_table_has_the_generated_schema(self, spark, lakehouse):
@@ -222,6 +327,34 @@ class TestRun:
             return [(f.name, f.dataType.simpleString()) for f in schema.fields]
 
         assert shape(self._gold(spark, lakehouse).schema) == shape(spark_schema_for(LeadRecord))
+
+    def test_appends_to_a_table_written_before_signal_pccp(self, spark, lakehouse):
+        """ADR 0020 adds a column to an append-only table that already exists on the
+        maintainer's lakehouse. The append must widen it, and old rows read None."""
+        from pyspark.sql.types import StructType
+
+        from registry import tables
+        from registry.schemas import LeadRecord, spark_schema_for
+
+        old_schema = StructType(
+            [f for f in spark_schema_for(LeadRecord).fields if f.name != "signal_pccp"]
+        )
+        old = _build()[0].model_dump()
+        old.pop("signal_pccp")
+        old["prev_snapshot_id"], old["curr_snapshot_id"] = "older-a", "older-b"
+        tables.write_table(
+            spark.createDataFrame([old], old_schema), lakehouse, leads.LEADS_TABLE, mode="append"
+        )
+        self._two_snapshots(spark, lakehouse)
+
+        result = leads.run(spark, lakehouse, now=DETECTED)
+
+        assert result.status == "recorded"
+        gold = self._gold(spark, lakehouse)
+        assert "signal_pccp" in gold.columns
+        older = gold.filter("prev_snapshot_id = 'older-a'").collect()
+        assert [r["signal_pccp"] for r in older] == [None]
+        assert gold.filter(f"prev_snapshot_id = '{PREV}'").count() == len(result.leads)
 
     def test_a_rerun_on_the_same_pair_appends_nothing(self, spark, lakehouse):
         """Leads are first detections: re-running the monitor is safe."""

@@ -49,11 +49,17 @@ PccpMethod = t.Literal[
     "no_text",  # no readable page at all -> None
 ]
 
-# The live lead categories (ADR 0016). PCCP and foundation-model clearances are
-# deliberately absent: no current source populates them (see
-# `registry.mart.leads.DEFERRED_CATEGORIES`), and a category nothing can fill
-# would read as "none found" rather than "not measured".
-LEAD_CATEGORIES = ("new_submission", "cardiometabolic", "mortality_language", "life_sustaining")
+# The live lead categories (ADR 0016; `pccp` added by ADR 0020 once the document
+# pass populated `has_pccp`). Foundation-model clearances are deliberately absent:
+# no current source populates them (see `registry.mart.leads.DEFERRED_CATEGORIES`),
+# and a category nothing can fill would read as "none found", not "not measured".
+LEAD_CATEGORIES = (
+    "new_submission",
+    "cardiometabolic",
+    "mortality_language",
+    "life_sustaining",
+    "pccp",
+)
 
 _SCALARS: dict[type, DataType] = {
     str: StringType(),
@@ -529,6 +535,9 @@ class LeadRecord(BaseModel):
     mortality_language_source: str | None = None
     # openFDA's life-sustain/support flag; None = not enriched, not "no".
     signal_life_sustaining: bool | None = None
+    # Silver's `has_pccp` (ADR 0019) on either side of the movement (ADR 0020);
+    # None = no Summary read on either side, not "no PCCP". A signal, never a trigger.
+    signal_pccp: bool | None = None
 
     source_url: str
 

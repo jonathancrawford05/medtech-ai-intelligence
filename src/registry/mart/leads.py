@@ -18,6 +18,11 @@ from signals available before curation:
                         curator happened to capture it. Device-level intended
                         use for new devices arrives with roadmap Issue 4.
 ``life_sustaining``     openFDA's life-sustain/support flag (enrichment tier 1).
+``pccp``                silver's ``has_pccp`` (the FDA clearance letter or a
+                        classified Summary statement, ADR 0019) on either side
+                        of the movement (ADR 0020). Derived from the document,
+                        so like every derived field it tags a movement and never
+                        makes one: populating it records no leads.
 
 Which movements are leads: every ``added`` device (``new_submission`` is itself
 the roadmap's first category); a ``changed`` or ``removed`` device only when a
@@ -59,12 +64,8 @@ LEADS_TABLE = "gold_device_leads"
 # Categories the roadmap names that no current source can populate. Deferred
 # explicitly rather than shipped as always-empty columns: an empty column reads
 # as "none found", which is a claim nobody has measured.
+# PCCP was deferred here until the document pass populated `has_pccp` (ADR 0020).
 DEFERRED_CATEGORIES = {
-    "pccp": (
-        "No current source carries PCCP: absent from the public 510(k) Summary text "
-        "(finding 0011, 0/60) and from every openFDA endpoint. Revisit with roadmap "
-        "Issue 4's document pass."
-    ),
     "foundation_model": (
         "No FDA or openFDA field marks a foundation-model clearance, and no curated "
         "keyword heuristic is defined yet. Needs one (curated like the mortality "
@@ -141,6 +142,14 @@ def _language_source(row: dict[str, Any], ctx: LeadContext) -> str | None:
     return None
 
 
+def _pccp(rows: list[dict[str, Any]]) -> bool | None:
+    """True if either side has a PCCP; False if read and none does; None if unread."""
+    values = [r.get("has_pccp") for r in rows]
+    if True in values:
+        return True
+    return False if False in values else None
+
+
 def _signals(rows: list[dict[str, Any]], ctx: LeadContext) -> dict[str, Any]:
     """Signals over one or both sides of a movement (any side holding counts)."""
     sources = [s for r in rows if (s := _language_source(r, ctx))]
@@ -152,6 +161,7 @@ def _signals(rows: list[dict[str, Any]], ctx: LeadContext) -> dict[str, Any]:
         "signal_mortality_language": bool(sources),
         "mortality_language_source": sources[0] if sources else None,
         "signal_life_sustaining": ctx.life_sustaining.get(key),
+        "signal_pccp": _pccp(rows),
     }
 
 
@@ -180,6 +190,7 @@ def build_leads(
                 ("cardiometabolic", signals["signal_cardiometabolic"]),
                 ("mortality_language", signals["signal_mortality_language"]),
                 ("life_sustaining", signals["signal_life_sustaining"] is True),
+                ("pccp", signals["signal_pccp"] is True),
             )
             if on
         ]
@@ -321,7 +332,9 @@ def run(spark, settings: Settings | None = None, *, now: dt.datetime | None = No
         df = spark.createDataFrame(
             [r.model_dump() for r in records], schema=spark_schema_for(LeadRecord)
         )
-        tables.write_table(df, settings, LEADS_TABLE, mode="append")
+        # merge_schema: an additive column (signal_pccp, ADR 0020) must widen a
+        # table written before it; earlier rows read None ("not computed").
+        tables.write_table(df, settings, LEADS_TABLE, mode="append", merge_schema=True)
     logger.info(
         "Recorded %d lead(s) for %s -> %s",
         len(records),
