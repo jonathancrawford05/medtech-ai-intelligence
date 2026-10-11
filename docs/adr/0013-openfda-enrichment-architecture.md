@@ -1,6 +1,6 @@
 # 0013 — openFDA enrichment: a separate table, two tiers, and what the API cannot give us
 
-**Status:** Accepted · **Date:** 2026-09-15
+**Status:** Accepted; **Decision 4 superseded by [0019](0019-deterministic-summary-extraction.md)** · **Date:** 2026-09-15
 **Relates to:** [ADR 0010](0010-openfda-client.md), [ADR 0012](0012-silver-schema-and-supplement-handling.md)
 
 ## Context

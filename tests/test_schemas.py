@@ -81,6 +81,8 @@ class TestFieldParity:
             schemas.BronzeSummaryDocumentRecord,
             schemas.DeviceEnrichmentRecord,
             schemas.LeadRecord,
+            schemas.DocumentExtractionRecord,
+            schemas.PredicateDateRecord,
         ],
     )
     def test_every_model_field_appears_in_the_struct(self, model):

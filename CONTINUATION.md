@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-10 · **Branch:** `claude/laughing-davinci-52lw61` — Issue 4 **PR 4A**: 510(k) Summary acquisition (`ingest/summary_documents.py`, `bronze_summary_documents`, `registry fetch-summaries`, [ADR 0018](docs/adr/0018-summary-document-acquisition.md), [finding 0018](findings/0018-summary-acquisition-built.md)). Real fixture slice recorded on the Mac and committed (CI green); ready for review. Rebased onto `main` after #16 (`registry inspect` LEADS section) merged.
+**Last updated:** 2026-10-11 · **Branch:** `claude/pr-4b-finding-0019-iiky1w` — Issue 4 **PR 4B**: deterministic Summary extraction (`transform/document_extraction.py` → `silver_document_extraction`, `registry extract-documents`; predicate dates via `registry enrich-predicates`; `build-silver` join), [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md) (supersedes ADR 0013 Decision 4), [finding 0020](findings/0020-summary-extraction-built.md). PCCP fixtures recorded on the Mac; full-scale yields in finding 0020. Open: confirm `K260714` (a new Summary-body PCCP positive) and re-run `extract-documents` at `4b.2`.
 **Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -19,7 +19,7 @@ target `main` unless a stack is deliberate.
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
-| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). openFDA-dependent fields (`device_class`, predicate lineage, PCCP, cybersecurity) are **`None` until an enrichment pass exists** — coverage is currently 0% ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)); nothing reads the table yet (4B). |
+| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). Enrichment-dependent fields are **`None` until their pass runs** ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)): `device_class` from openFDA (ADR 0013); predicate lineage, PCCP and cybersecurity from the Summary (PR 4B, ADR 0019). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)). **PR 4B** reads it: `registry extract-documents` → `silver_document_extraction` (all predicates + primary, cybersecurity presence, `has_pccp` from the FDA clearance letter; [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)), joined by `build-silver` into `predicate_submission_number`, `predicate_age_days` (via `registry enrich-predicates`), `has_pccp`, `cybersecurity_statement_present`. Verified at full scale ([finding 0020](findings/0020-summary-extraction-built.md)): predicate 1,486/1,541 (96.4%), cybersecurity 471, PCCP 68 letter + 5 Summary positives, 2 corrections, 1 negation, 1 inherited (extractor `4b.2`). |
 | **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
 | **4 — Monitoring** | 🟡 Built, awaiting real movement | PR A (#13, merged): silver self-identifying, rebuild gate, 90-day retention ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). PR B (#14, merged): `registry monitor` diffs the two newest distinct snapshots and appends leads to `gold_device_leads` on pre-curation signals — new submission, cardiometabolic, mortality language, life-sustaining; PCCP and foundation-model **deferred** ([ADR 0016](docs/adr/0016-leads-filter-pre-curation-signals.md), [ADR 0017](docs/adr/0017-leads-output-surface.md), [finding 0017](findings/0017-first-diff-run-and-lead-categories.md)). Live today: one distinct snapshot, so "nothing to diff" is the correct answer. `registry inspect` reports the table in a LEADS section. |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
@@ -89,6 +89,24 @@ uv run registry fetch-summaries -v            # ~1,541 docs at ~1/s ≈ 30 min
 uv run registry inspect                       # DOCUMENTS section -> finding 0018's table
 ```
 
+### 510(k) Summary extraction (Issue 4, PR 4B) — built, full scale open
+
+Offline and deterministic ([ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)):
+normalise each page (ligatures, split/misread K-numbers), classify pages (FDA letter /
+3881 form / Summary / unreadable), find label-style headings, then extract predicates
+(`table` / `section` / `sentence`, a primary with its basis), the cybersecurity
+presence flag, and `has_pccp` (correction letter → `False`; clearance-letter sentence →
+`True`; else classified Summary mentions). Every value has page, method and quote.
+On the Mac, before merge:
+
+```bash
+uv run pytest -m live_network -k pccp         # records finding 0019's PCCP cases + manifest
+git add tests/fixtures && git commit -m "Record PCCP fixtures" && git push
+uv run registry extract-documents -v          # full-scale yields -> finding 0020's table
+uv run registry enrich-predicates -v          # predicate decision dates (api.fda.gov)
+uv run registry build-silver && uv run registry inspect
+```
+
 ## 3. What exists, and where
 
 ```text
@@ -101,7 +119,8 @@ src/registry/
   ingest/fda_ai_list.py  CSV-export-first, HTML-fallback bronze ingester
   ingest/openfda_client.py  typed api.fda.gov client (510k/pma/classification), cache + backoff
   ingest/summary_documents.py  510(k) Summary PDFs -> per-page text in bronze (ADR 0018)
-  transform/             bronze_to_silver, enrichment, taxonomy, company resolution, mortality seed
+  transform/             bronze_to_silver, enrichment, taxonomy, company resolution, mortality seed,
+                         document_extraction (Summary text -> predicates/cyber/PCCP), predicate_dates
   mart/                  mortality_relevant (gold mart), leads (gold_device_leads)
   monitor/differ.py      snapshot pairing + movement classification (Issue 3)
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
@@ -184,14 +203,15 @@ findings/                        what was actually verified, and what was not
    slice was recorded on the Mac on 2026-10-10 and committed. pypdf reproduces
    the spike's pdf.js measurements, and glyph splitting still appears
    (`K092116`'s own number reads `K0921 16`), so 4B must normalise. The full fetch ran
-   2026-10-10 (finding 0019). **Next: PR 4B** (normalisation, predicates, cybersecurity,
+   2026-10-10 (finding 0019). **PR 4B (this branch):** built — see §1 and [finding 0020](findings/0020-summary-extraction-built.md);
+   the maintainer records the PCCP fixtures and runs `extract-documents` on the Mac before merge.
+   **Was next: PR 4B** (normalisation, predicates, cybersecurity,
    `has_pccp` from the clearance-letter sentence → `silver_document_extraction`, plus the
    ADR 0013 Decision 4 amendment below), then **PR 4B+** (PCCP lead category),
    built against the committed fixtures. Handoff: `docs/handoffs/issue-4-document-pass.md`.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
    `pypdf` vs pdf.js glyph splitting to be read from the fixture manifest.
-   **Roadmap follow-up (PR #11 review nit, will not be dropped — direction reversed by
-   finding 0019):** PR 4B adds a new ADR amending **ADR 0013 Decision 4** to record that PCCP
+   **Roadmap follow-up (PR #11 review nit) — done in PR 4B as [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md):** PR 4B adds a new ADR amending **ADR 0013 Decision 4** to record that PCCP
    **is** signalled by the FDA clearance letter and `has_pccp` is populated from it (correction
    letters and explicit negations read as `False`); `pccp_summary` stays `None`. Supersede, do
    not edit the accepted ADR. **Do not** write the "PCCP absent" ADR this item once called for.
