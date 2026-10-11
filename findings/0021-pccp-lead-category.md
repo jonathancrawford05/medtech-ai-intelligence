@@ -1,6 +1,6 @@
-# 0021 — PCCP lead category and the adoption-by-year table (PR 4B+): built; the real-lakehouse table is open
+# 0021 — PCCP lead category and the adoption-by-year table (PR 4B+): built, and verified at full scale
 
-**Date:** 2026-10-11 · **Status:** Built and verified on synthetic rows in a cloud session; the full-scale `inspect` table is **not yet run** (it needs the maintainer's lakehouse) · **Component:** Issue 4 PR 4B+, `mart/leads.py`, `lakehouse_report.py` ([ADR 0020](../docs/adr/0020-pccp-lead-category.md))
+**Date:** 2026-10-11 · **Status:** Built and verified on synthetic rows in a cloud session; the full-scale table **verified 2026-10-11 against the maintainer's lakehouse** (extractor `4b.2`) · **Component:** Issue 4 PR 4B+, `mart/leads.py`, `lakehouse_report.py` ([ADR 0020](../docs/adr/0020-pccp-lead-category.md))
 
 ## Verified here (pytest; synthetic rows, by necessity)
 
@@ -39,26 +39,42 @@ with real movement do not exist anywhere yet (one distinct snapshot, finding
 This shows the computation and rendering match finding 0019's method. It does
 **not** show the real lakehouse reproduces finding 0019's numbers. That needs a run.
 
-## Open: the real table (maintainer's Mac)
+## Verified at full scale (maintainer's lakehouse, 2026-10-11)
+
+Read from the maintainer's local `silver_document_extraction` (all 1,541 rows at extractor
+`4b.2`) left-joined to `silver_devices` on `submission_number`, bucketed by silver's
+`decision_date` year — the same join `_pccp_trend_section` performs. Reproduced with
+`deltalake` in a Cowork session, independently of the code under review.
+
+| Year | documents | clearance_letter | finding 0019 | summary_statement |
+|---|---|---|---|---|
+| 2022 | 160 | 0 / 160 (0.0%) | 0 / 160 | 0 |
+| 2023 | 217 | 1 / 217 (0.5%) | 1 / 217 | 1 (`K232699`) |
+| 2024 | 224 | 17 / 224 (7.6%) | 17 / 224 | 0 |
+| 2025 | 327 | 31 / 327 (9.5%) | 31 / 327 | 1 (`K243449`) |
+| 2026 | 173 | 19 / 173 (11.0%) | 19 / 173 | 1 (`K260714`) |
+
+- **The `clearance_letter` column matches finding 0019 in every year** (68 in total).
+- **`summary_statement` totals 5**, exactly the five expected: the three above plus
+  `K201992` (2020) and `K210484` (2021), which fall before finding 0019's table.
+- `pccp_method` overall: 1,461 `no_mention`, 68 `clearance_letter`, 5 `summary_statement`,
+  3 `no_text`, 2 `correction_letter`, 1 `summary_inherited` (`K252103`), 1 `summary_negation`.
+- **No orphans:** every extracted Summary has a silver row, and no silver row has a null
+  `decision_date` — so the orphan-line wording nit raised in review cannot occur on today's
+  data (it is still worth fixing for robustness).
+
+Reproduce on the Mac:
 
 ```bash
-uv run registry extract-documents -v   # 4b.2, if not yet re-run
+uv run registry extract-documents -v   # 4b.2
 uv run registry build-silver
 uv run registry inspect                # EXTRACTION -> "PCCP share by decision year"
 ```
 
-Expected: the `clearance_letter` column equals finding 0019's table (68 letter
-positives total, all in 2023–2026), and `summary_statement` totals 5 at `4b.2`
-(`K201992`, `K210484`, `K232699`, `K243449`, `K260714`), spread across whatever
-years those devices were decided. If a letter cell differs, the likely cause is
-the denominator. Finding 0019 bucketed "Summary documents that year". This table
-buckets extracted Summaries by silver's `decision_date`, and a document whose
-device is not in silver is counted on its own line. Record the observed table here.
-
 ## Assumed
 
-- Finding 0019's year buckets used the FDA-list decision date, the same date
-  silver carries. Finding 0019 does not state this outright.
+- ~~Finding 0019's year buckets used the FDA-list decision date~~ — resolved: both finding
+  0019 and this table bucket by silver's `decision_date`, and they agree in every year.
 - A new device usually reaches silver before its Summary is fetched, so its first
   lead will often read `signal_pccp = None`. Not measured: no second snapshot exists.
 
