@@ -344,14 +344,21 @@ class TestLeadRecord:
             self._lead(categories=[])
 
     def test_an_unknown_category_is_rejected(self):
-        """Deferred categories (PCCP, foundation-model) must not be smuggled in."""
-        with pytest.raises(ValueError, match="pccp"):
-            self._lead(categories=["pccp"])
+        """A deferred category (foundation-model) must not be smuggled in."""
+        with pytest.raises(ValueError, match="foundation_model"):
+            self._lead(categories=["foundation_model"])
 
-    def test_there_is_no_pccp_or_foundation_model_column(self):
-        """ADR 0016: no source populates them yet, so no column pretends to."""
+    def test_pccp_is_a_live_category_with_an_optional_signal(self):
+        """ADR 0020: has_pccp is populated (ADR 0019), so PCCP is live. The signal
+        is None when no Summary was read -- unknown, not "no PCCP"."""
+        lead = self._lead(categories=["new_submission", "pccp"], signal_pccp=True)
+        assert lead.signal_pccp is True
+        assert self._lead().signal_pccp is None
+
+    def test_there_is_no_foundation_model_column(self):
+        """ADR 0016: no source populates it yet, so no column pretends to."""
         names = set(schemas.LeadRecord.model_fields)
-        assert not {n for n in names if "pccp" in n or "foundation" in n}
+        assert not {n for n in names if "foundation" in n}
 
     def test_the_spark_mirror_types(self):
         fields = {f.name: f for f in spark_schema_for(schemas.LeadRecord).fields}
@@ -359,6 +366,7 @@ class TestLeadRecord:
         assert isinstance(fields["prev_version"].dataType, LongType)
         assert isinstance(fields["categories"].dataType, ArrayType)
         assert fields["signal_life_sustaining"].nullable is True
+        assert fields["signal_pccp"].nullable is True
         assert fields["submission_number"].nullable is False
 
 

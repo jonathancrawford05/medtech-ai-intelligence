@@ -60,7 +60,7 @@ class TestMonitor:
         assert result.exit_code == 0
         assert "Recorded 0 lead(s) for a -> b" in result.output
         assert "new_submission" in result.output
-        assert "deferred: pccp" in result.output
+        assert "pccp" in result.output and "deferred: pccp" not in result.output
         assert "deferred: foundation_model" in result.output
 
     def test_says_when_there_is_nothing_to_diff(self, monkeypatch):

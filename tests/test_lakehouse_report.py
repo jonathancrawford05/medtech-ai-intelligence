@@ -462,6 +462,77 @@ class TestExtractionSection:
         assert "predicate found                : 1 / 1 (100.0%)" in text, text
         assert report.ok is True
 
+    def test_reports_pccp_share_by_decision_year(self, spark, bronze_two_pulls):
+        """ADR 0020: the adoption trend is stock, recomputed from silver's decision
+        dates and the extraction's pccp_method, split letter vs Summary."""
+        import json
+        from pathlib import Path
+
+        from registry.schemas import DocumentExtractionRecord
+        from registry.transform import document_extraction as de
+
+        TestDocumentsSection()._setup(
+            spark, bronze_two_pulls, [TestDocumentsSection._doc("K100001")]
+        )
+        _write_silver(
+            spark,
+            bronze_two_pulls,
+            [
+                _silver_row("K1", decision_date=dt.date(2024, 3, 1)),
+                _silver_row("K2", decision_date=dt.date(2024, 9, 1)),
+                _silver_row("K3", decision_date=dt.date(2025, 2, 1)),
+                _silver_row("K4", decision_date=dt.date(2025, 5, 1)),
+            ],
+        )
+        fixture = Path(__file__).parent / "fixtures" / "summary_documents" / "K243239.json"
+        base = de.extract_document(json.loads(fixture.read_text()))
+        records = [
+            base.model_copy(
+                update={
+                    "submission_number": number,
+                    "has_pccp": has,
+                    "pccp_method": method,
+                    "pccp_page": 1 if method != "no_mention" else None,
+                }
+            )
+            for number, has, method in (
+                ("K1", True, "clearance_letter"),
+                ("K2", False, "no_mention"),
+                ("K3", True, "summary_statement"),
+                ("K4", True, "clearance_letter"),
+                ("K9", True, "clearance_letter"),  # not in silver: no decision date
+            )
+        ]
+        tables.write_table(
+            spark.createDataFrame(
+                [r.model_dump() for r in records], spark_schema_for(DocumentExtractionRecord)
+            ),
+            bronze_two_pulls,
+            de.EXTRACTION_TABLE,
+            mode="overwrite",
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "PCCP share by decision year" in text, text
+        section = text.split("PCCP share by decision year", 1)[1].splitlines()
+        row_2024 = next(ln for ln in section if ln.strip().startswith("2024 "))
+        row_2025 = next(ln for ln in section if ln.strip().startswith("2025 "))
+        assert "1 / 2 (50.0%)" in row_2024, row_2024
+        assert row_2025.split()[1:] == [
+            "2",
+            "1",
+            "/",
+            "2",
+            "(50.0%)",
+            "1",
+            "2",
+            "/",
+            "2",
+            "(100.0%)",
+        ]
+        assert "1 document(s) not in silver_devices" in text, text
+        assert report.ok is True
+
     def test_filled_document_columns_are_reported_as_coverage(self, spark, bronze_two_pulls):
         _write_silver(
             spark,

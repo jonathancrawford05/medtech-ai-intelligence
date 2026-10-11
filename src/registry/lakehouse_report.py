@@ -21,6 +21,7 @@ until the enrichment pass exists, so the report prints coverage and moves on.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from pyspark.sql import DataFrame, SparkSession
@@ -333,6 +334,86 @@ def _extraction_section(report: Report, extraction: DataFrame) -> None:
         report.say(f"  {line}")
 
 
+@dataclass
+class PccpYear:
+    """One decision year of the PCCP adoption trend (ADR 0020)."""
+
+    year: int | None
+    documents: int = 0  # Summaries extracted for devices decided that year
+    clearance_letter: int = 0  # the FDA letter sentence (finding 0019's column)
+    summary_statement: int = 0  # Summary-body positives without a letter sentence
+
+    @property
+    def has_pccp(self) -> int:
+        return self.clearance_letter + self.summary_statement
+
+    def _cell(self, count: int) -> str:
+        pct = 100 * count / self.documents if self.documents else 0.0
+        return f"{count:,} / {self.documents:,} ({pct:.1f}%)"
+
+    @property
+    def letter_cell(self) -> str:
+        return self._cell(self.clearance_letter)
+
+    @property
+    def has_pccp_cell(self) -> str:
+        return self._cell(self.has_pccp)
+
+
+def pccp_by_year(rows: Iterable[tuple[int | None, str]]) -> list[PccpYear]:
+    """``(decision year, pccp_method)`` per extracted Summary -> one row per year.
+
+    The two positive methods are kept apart so the letter column is finding 0019's
+    table exactly, and the Summary-body positives stay visible beside it. Every other
+    method (negatives, ``no_text``) counts only toward the year's documents.
+    """
+    years: dict[int | None, PccpYear] = {}
+    for year, method in rows:
+        y = years.setdefault(year, PccpYear(year))
+        y.documents += 1
+        if method == "clearance_letter":
+            y.clearance_letter += 1
+        elif method == "summary_statement":
+            y.summary_statement += 1
+    return sorted(years.values(), key=lambda y: (y.year is None, y.year or 0))
+
+
+def pccp_year_lines(years: list[PccpYear]) -> list[str]:
+    if not years:
+        return []
+    lines = [
+        f"{'year':<6}{'documents':>10}  {'clearance_letter':<22}"
+        f"{'summary_statement':>17}  {'has_pccp (either)':<22}"
+    ]
+    for y in years:
+        label = str(y.year) if y.year is not None else "<null>"
+        lines.append(
+            f"{label:<6}{y.documents:>10,}  {y.letter_cell:<22}"
+            f"{y.summary_statement:>17,}  {y.has_pccp_cell:<22}"
+        )
+    return lines
+
+
+def _pccp_trend_section(report: Report, silver: DataFrame, extraction: DataFrame) -> None:
+    """PCCP adoption by decision year: stock, not movement (ADR 0020)."""
+    joined = extraction.select("submission_number", "pccp_method").join(
+        silver.select("submission_number", F.year("decision_date").alias("year")),
+        "submission_number",
+        "left",
+    )
+    collected = joined.select("year", "pccp_method", "submission_number").collect()
+    # A Summary for a device silver no longer carries has no decision year to bucket.
+    orphans = sum(1 for r in collected if r["year"] is None)
+    years = pccp_by_year((r["year"], r["pccp_method"]) for r in collected if r["year"] is not None)
+    report.say()
+    report.say("  PCCP share by decision year (ADR 0020; stock, not movement -- finding 0019's")
+    report.say("  table is the clearance_letter column):")
+    for line in pccp_year_lines(years):
+        report.say(f"    {line}")
+    if orphans:
+        report.say(f"    ({orphans:,} document(s) not in silver_devices: no decision year)")
+
+
 # How many confirmed devices `inspect` lists. The section prints the total first, and
 # the header says when the list is clipped, so a long mart is never silently truncated.
 GOLD_DEVICES_SHOWN = 15
@@ -473,8 +554,10 @@ def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -
             report, tables.read_table(spark, settings, "bronze_summary_documents"), enrichment
         )
         if tables.table_exists(spark, settings, "silver_document_extraction"):
-            _extraction_section(
-                report, tables.read_table(spark, settings, "silver_document_extraction")
+            extraction = tables.read_table(spark, settings, "silver_document_extraction")
+            _extraction_section(report, extraction)
+            _pccp_trend_section(
+                report, tables.read_table(spark, settings, "silver_devices"), extraction
             )
         else:
             report.say()
