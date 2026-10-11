@@ -170,9 +170,22 @@ demographics are disclosed (`EvidenceRecord.discloses_demographics`,
 4. **Gold set before scale.** 40–60 documents, stratified by year and panel, labelled by a
    human (LLM pre-labels allowed, human-confirmed). Report precision/recall per field.
    No full run until a field clears an agreed bar; fields that do not clear it stay deferred.
-5. Provider-agnostic interface; the provider/model choice, cost estimate (≈1,541 docs),
-   and where it runs (it needs the bronze text, i.e. the Mac lakehouse, until durable
-   storage exists) are the 4D ADR.
+5. **Local model via Ollama, behind a thin provider interface.** Decided 2026-10-11:
+   primary `qwen3:14b`, comparison model `gpt-oss:20b`, both already installed on the Mac.
+   - One function: (pages, schema, prompt version) → validated JSON + model metadata.
+     Ollama's `format` field takes the JSON schema generated from the Pydantic model;
+     the same model validates the response.
+   - Send only the pages 4B located (`summary_pages`, `ifu_form_pages`), never the whole PDF.
+   - Deterministic settings: temperature 0, fixed seed, `think: false` for `qwen3:14b`.
+     Record the **full** model digest (not the short id) and the prompt version on every row.
+   - Runs on the Mac only (it needs the bronze text until durable storage exists). The
+     cloud session builds and tests against recorded responses; real model calls sit behind
+     their own pytest marker, as `live_network` does. No API cost; expect an overnight-scale
+     run for ≈1,541 docs that writes as it goes and resumes.
+   - A field that fails its gold-set bar on `qwen3:14b` is re-run on `gpt-oss:20b` (or a
+     hosted model through the same interface) before it is deferred, so a failure can
+     tell field difficulty from model size.
+   The 4D ADR records this choice and the measured run time.
 6. Output is evidence for curation and leads — it never sets `mortality_confirmed_flag`.
 
 ## 4. What stays out of scope
@@ -266,6 +279,8 @@ do not merge.
 ```text
 Read CLAUDE.md and docs/handoffs/issue-4-document-pass.md §3 PR 4D. Implement the
 LLM-assisted extraction framework with the verbatim-quote validation rule, provenance,
-and a gold-set evaluation harness. Do not run at full scale. Write the provider/cost
-ADR. Open the PR; do not merge.
+and a gold-set evaluation harness, using the Ollama provider interface in §3 rule 5
+(qwen3:14b primary, gpt-oss:20b comparison). You cannot reach Ollama: build and test
+against recorded responses, and put real model calls behind their own pytest marker.
+Do not run at full scale. Write the provider ADR. Open the PR; do not merge.
 ```
