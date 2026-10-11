@@ -231,7 +231,7 @@ checkable in the PR itself.
 > | Matching runs on normalised text, with a test that fails on the raw layer (finding 0011's glyph splitting) |
 > | Every extracted value has page + method (+ a verbatim quote for LLM output) (ADR 0007) |
 > | LLM values pass the verbatim-substring check, with a test that a fabricated quote is rejected |
-> | PCCP never populated from the Summary (finding 0011: 0/60) |
+> | `has_pccp` only from the FDA clearance-letter sentence or a classified Summary statement, with page + method; correction letters and negations read as `False` (finding 0019) |
 > | Extraction never writes `mortality_confirmed_flag` (ADR 0014) |
 >
 > **3. DOMAIN LENSES** — apply only those the diff touches:

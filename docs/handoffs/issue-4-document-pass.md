@@ -18,7 +18,8 @@ predicate lineage, device-level intended use, a cybersecurity presence flag, and
 2. `findings/0011-pdf-spike.md` and `findings/data/pdf-spike-sample.csv` — **the measured
    facts this brief builds on.** Read the whole finding.
 3. `docs/adr/0013-openfda-enrichment-architecture.md` — Decision 4 grouped predicate,
-   PCCP and cybersecurity as "in the PDF". Finding 0011 corrected the PCCP part.
+   PCCP and cybersecurity as "in the PDF". Finding 0011 thought PCCP absent; finding 0019
+   (full scale) shows it is signalled by the FDA clearance letter — read 0019 before 4B.
 4. `docs/adr/0016-leads-filter-pre-curation-signals.md` — `mortality_language` is weak
    *because* no device-level intended use exists yet. PR 4C fixes that.
 5. `docs/adr/0007` and `0014` — evidence provenance and the confirmed-flag gate. Extraction
@@ -40,7 +41,8 @@ predicate lineage, device-level intended use, a cybersecurity presence flag, and
   Every match must run on a normalised or de-spaced copy.
 - **Predicate:** `\b(K|DEN|P)\d{6}\b` near "predicate" / "substantially equivalent"
   recovered predicates in **57/60**. Multi-predicate tables exist (`K181892`: 8).
-- **PCCP: 0/60** — not in the public Summary text. **Cybersecurity: 8/60**, post-2019,
+- **PCCP:** 0/60 by Summary heading in the spike, but **superseded by finding 0019**: at
+  full scale 68 clearance letters state a cleared PCCP verbatim. **Cybersecurity: 8/60**, post-2019,
   a short formulaic clause.
 - Availability: `silver_device_enrichment.statement_or_summary` = Summary 1,541,
   Statement 11, null 62. Only `Summary` filings have a document to fetch.
@@ -107,12 +109,36 @@ prompt in §6.
 - `predicate_age_days` needs the predicate's decision date. Most predicates are not AI
   devices, so they are not in silver: fetch through the existing openFDA client (Issue 1)
   and cache — an enrichment step, not a PDF step.
-- Cybersecurity presence flag. PCCP stays `None` and **ADR 0013 Decision 4 is amended by a
-  new ADR** recording that PCCP is absent from the public Summary (the roadmap commitment
-  from PR #11).
+- Cybersecurity presence flag (finding 0019: 30.6% mention it; define and measure the
+  presence rule). **`has_pccp` from the clearance-letter sentence** (finding 0019: 68
+  positives), with FDA correction letters ("inadvertently indicated") and explicit negations
+  as negatives and the other Summary-body mentions classified; `pccp_summary` stays `None`.
+  A new ADR amends ADR 0013 Decision 4 accordingly — *not* the "PCCP absent" ADR once planned
+  in PR #11.
 - `silver_document_extraction` with `extractor_version`; `build-silver` joins it to fill
   the predicate and cybersecurity fields (ADR 0012's optional-until-enriched fields).
 - Finding: full-scale yields vs the spike (57/60 predicate, 8/60 cybersecurity).
+
+### PR 4B+ — PCCP lead category · cloud only (after 4B merges)
+
+Agreed 2026-10-11 on finding 0019's evidence (PCCP in 0% of 2022 clearances, 11.0% of
+2026's): bring PCCP forward rather than wait for 4C.
+
+- **New ADR superseding the PCCP part of ADR 0016 Decision 3** (the deferral). Do not edit
+  0016. The foundation-model deferral stays.
+- **A `pccp` signal and category in the leads mart**: `signal_pccp` from silver's
+  `has_pccp` (4B), `True` / `False` / `None` with ADR 0012's distinction (`None` = no
+  Summary fetched or not yet extracted, never "no PCCP"). Remove `pccp` from
+  `leads.DEFERRED_CATEGORIES`, add it to `LEAD_CATEGORIES`; the `LeadRecord` validator and
+  schema parity follow.
+- **Signal, not trigger.** `has_pccp` is derived (from the document, not the FDA list), so
+  by PR #14's rule it never decides *whether* a device moved: an added or changed device
+  is tagged `pccp` when either side has `has_pccp` true. Populating `has_pccp` for the
+  existing 1,541 devices must therefore produce **no** leads — assert that in a test.
+- **The adoption trend is stock, not movement.** Add PCCP share by decision year to
+  `registry inspect` (the finding 0019 table, recomputed from silver), so the trend is
+  visible without waiting for new clearances.
+- Measure: the `inspect` table should reproduce finding 0019's year-by-year counts.
 
 ### PR 4C — device-level intended use · cloud only
 
@@ -153,7 +179,7 @@ demographics are disclosed (`EvidenceRecord.discloses_demographics`,
 
 - OCR for the scanned tail: route `image` documents to a deferred bucket; revisit only if
   the full-scale count makes it worth it.
-- PCCP from any source other than a future structured FDA field.
+- `pccp_summary` (what a PCCP covers) before 4D; 4B populates only `has_pccp`.
 - Durable storage (ADR 0011) — separate decision; until then the Mac lakehouse is the
   system of record (`docs/runbook-local-monitoring.md`).
 
@@ -173,7 +199,7 @@ green; the review checklist below.
 | Matching runs on normalised text, with a test that fails on the raw layer | The glyph-splitting trap (finding 0011) |
 | Every extracted value has page + method (+ quote for LLM) | Provenance (ADR 0007) |
 | LLM values pass the verbatim-substring check, with a test that a fabricated quote is rejected | Hallucination guard |
-| PCCP never populated from the Summary | Finding 0011, 0/60 |
+| `has_pccp` only from the clearance-letter sentence or a classified Summary statement, with page + method; correction letters and negations read as `False` | Finding 0019 |
 | Extraction never writes `mortality_confirmed_flag` | ADR 0014 |
 
 ## 6. Session prompts (paste one per session, in order)
@@ -207,8 +233,22 @@ uv run registry inspect
 Read CLAUDE.md and docs/handoffs/issue-4-document-pass.md. Implement PR 4B only:
 normalisation, section segmentation, predicate and cybersecurity extraction into
 silver_document_extraction, the build-silver join, predicate decision dates via the
-openFDA client, and a new ADR amending ADR 0013 Decision 4 (PCCP absent from the public
-Summary). Use the committed real fixtures. Open the PR; do not merge. Stop after 4B.
+openFDA client, has_pccp from the FDA clearance-letter sentence with corrections and
+negations handled (read findings/0019 first: it overturns finding 0011 on PCCP), and a new
+ADR amending ADR 0013 Decision 4 accordingly. Use the committed real fixtures, and add
+fixtures for the PCCP cases finding 0019 names (record them on the Mac like 4A's slice).
+Report full-scale yields against finding 0019. Open the PR; do not merge. Stop after 4B.
+```
+
+**4B+ (cloud, after 4B merges):**
+
+```text
+Read CLAUDE.md, docs/handoffs/issue-4-document-pass.md (§3 "PR 4B+") and findings/0019.
+Implement PR 4B+ only: a pccp lead category from silver's has_pccp, via a new ADR that
+supersedes the PCCP part of ADR 0016 Decision 3 (do not edit 0016). has_pccp is a signal,
+never a movement trigger (PR #14's rule): add a test that populating has_pccp for existing
+devices records no leads. Add PCCP share by decision year to registry inspect and show it
+reproduces finding 0019's table. Open the PR; do not merge.
 ```
 
 **4C (cloud):**
