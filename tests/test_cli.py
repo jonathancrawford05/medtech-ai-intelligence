@@ -200,3 +200,59 @@ class TestFetchSummaries:
         out = CliRunner().invoke(cli.app, ["fetch-summaries"])
         assert out.exit_code == 1
         assert "enrich-openfda" in out.output
+
+
+class TestExtractDocuments:
+    """What `registry extract-documents` tells the operator (ADR 0019)."""
+
+    def test_reports_rows_and_yields(self, monkeypatch):
+        import registry.spark_session
+        from registry.transform import document_extraction as de
+
+        result = de.ExtractionRun(written=3, yields=de.Yields(documents=3, with_predicate=2))
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(de, "run", lambda spark, settings: result)
+        out = CliRunner().invoke(cli.app, ["extract-documents"])
+        assert out.exit_code == 0, out.output
+        assert "Wrote 3 row(s)" in out.output
+        assert de.EXTRACTOR_VERSION in out.output
+        assert "predicate found                : 2 / 3" in out.output
+        assert "1,508 / 1,541" in out.output, "the finding 0019 comparison is printed"
+
+    def test_a_missing_bronze_table_is_a_clean_error(self, monkeypatch):
+        import registry.spark_session
+        from registry.transform import document_extraction as de
+
+        def boom(spark, settings):
+            raise ValueError("Run `registry fetch-summaries` first")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(de, "run", boom)
+        out = CliRunner().invoke(cli.app, ["extract-documents"])
+        assert out.exit_code == 1
+        assert "fetch-summaries" in out.output
+
+
+class TestEnrichPredicates:
+    def test_reports_the_dates_fetched(self, monkeypatch):
+        import registry.spark_session
+        from registry.transform import predicate_dates
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(predicate_dates, "run", lambda spark, settings: 7)
+        out = CliRunner().invoke(cli.app, ["enrich-predicates"])
+        assert out.exit_code == 0, out.output
+        assert "Fetched 7 predicate decision date(s)" in out.output
+
+    def test_extraction_must_run_first(self, monkeypatch):
+        import registry.spark_session
+        from registry.transform import predicate_dates
+
+        def boom(spark, settings):
+            raise ValueError("Run `registry extract-documents` first.")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(predicate_dates, "run", boom)
+        out = CliRunner().invoke(cli.app, ["enrich-predicates"])
+        assert out.exit_code == 1
+        assert "extract-documents" in out.output

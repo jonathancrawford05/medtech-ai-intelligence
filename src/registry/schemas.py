@@ -32,6 +32,22 @@ ReviewMethod = t.Literal["human", "llm_assisted"]
 Movement = t.Literal["added", "changed", "removed"]
 # How much of a 510(k) Summary has a text layer (finding 0011's per-page rule).
 TextClass = t.Literal["text", "mixed", "image"]
+# How a predicate number was found in a Summary (ADR 0019), strongest first.
+PredicateMethod = t.Literal["table", "section", "sentence"]
+# Why one predicate was chosen as primary: the Summary says so ("is the primary
+# predicate"), it is the first under a predicate label, or the first in a sentence.
+PrimaryPredicateBasis = t.Literal["stated_primary", "first_in_section", "first_in_sentence"]
+CybersecurityBasis = t.Literal["mention", "negated", "no_mention", "no_text"]
+# Where `has_pccp` came from (finding 0019, ADR 0019).
+PccpMethod = t.Literal[
+    "clearance_letter",  # the FDA letter's "review and clearance of your PCCP" -> True
+    "correction_letter",  # an FDA letter: the SE letter "inadvertently indicated" one -> False
+    "summary_statement",  # a Summary-body mention, not negated or inherited -> True
+    "summary_inherited",  # "PCCP (cleared as part of K…)": an earlier clearance's plan -> False
+    "summary_negation",  # "No Predetermined Change Control Plan is included" -> False
+    "no_mention",  # readable text, no PCCP anywhere -> False
+    "no_text",  # no readable page at all -> None
+]
 
 # The live lead categories (ADR 0016). PCCP and foundation-model clearances are
 # deliberately absent: no current source populates them (see
@@ -355,6 +371,118 @@ class CompanyRecord(BaseModel):
         return _non_blank(v) if isinstance(v, str) else v
 
 
+class DocumentExtractionRecord(BaseModel):
+    """Deterministic facts read from one 510(k) Summary (`silver_document_extraction`).
+
+    Issue 4 PR 4B (ADR 0019). One row per document, from its newest found fetch in
+    ``bronze_summary_documents``. Every value carries the page it came from and how
+    it was found; quotes are verbatim spans of the *normalised* page text. Evidence
+    for silver and the leads, never a confirmed judgement (ADR 0007/0014).
+
+    Predicates sit in parallel arrays (``predicate_numbers[i]`` was found on
+    ``predicate_pages[i]`` by ``predicate_methods[i]`` under the heading
+    ``predicate_sections[i]``), in document order.
+    """
+
+    submission_number: str  # FK to DeviceRecord
+    extractor_version: str
+    extracted_at: dt.datetime
+    # Which bronze fetch this was read from.
+    source_content_sha256: str
+    source_snapshot_id: str | None = None
+    source_fetched_at: dt.datetime
+    text_class: TextClass | None = None
+    page_count: int = Field(ge=0)
+
+    # Segmentation: 1-based page numbers of each part of the PDF.
+    letter_pages: list[int] = Field(default_factory=list)
+    ifu_form_pages: list[int] = Field(default_factory=list)  # FDA 3881
+    summary_pages: list[int] = Field(default_factory=list)
+
+    predicate_numbers: list[str] = Field(default_factory=list)
+    predicate_pages: list[int] = Field(default_factory=list)
+    predicate_methods: list[str] = Field(default_factory=list)
+    predicate_sections: list[str] = Field(default_factory=list)
+    primary_predicate: str | None = None
+    primary_predicate_page: int | None = None
+    primary_predicate_method: PredicateMethod | None = None
+    primary_predicate_basis: PrimaryPredicateBasis | None = None
+    primary_predicate_quote: str | None = None
+    reference_device_numbers: list[str] = Field(default_factory=list)
+
+    # None = no readable Summary text, not "no statement" (ADR 0012).
+    cybersecurity_statement_present: bool | None = None
+    cybersecurity_basis: CybersecurityBasis
+    cybersecurity_page: int | None = None
+    cybersecurity_quote: str | None = None
+
+    has_pccp: bool | None = None
+    pccp_method: PccpMethod
+    pccp_page: int | None = None
+    pccp_quote: str | None = None
+    pccp_reference_submission: str | None = None  # the earlier clearance, if inherited
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> DocumentExtractionRecord:
+        n = len(self.predicate_numbers)
+        if not (
+            len(self.predicate_pages)
+            == len(self.predicate_methods)
+            == len(self.predicate_sections)
+            == n
+        ):
+            raise ValueError("predicate arrays must be parallel")
+        unknown = set(self.predicate_methods) - set(t.get_args(PredicateMethod))
+        if unknown:
+            raise ValueError(f"unknown predicate methods {sorted(unknown)}")
+        if (
+            self.primary_predicate is not None
+            and self.primary_predicate not in self.predicate_numbers
+        ):
+            raise ValueError("primary_predicate must be one of predicate_numbers")
+        if (self.has_pccp is None) != (self.pccp_method == "no_text"):
+            raise ValueError("has_pccp is None exactly when pccp_method is 'no_text'")
+        if (self.cybersecurity_statement_present is None) != (
+            self.cybersecurity_basis == "no_text"
+        ):
+            raise ValueError(
+                "cybersecurity_statement_present is None exactly when the basis is 'no_text'"
+            )
+        if (
+            self.has_pccp is not None
+            and self.pccp_method != "no_mention"
+            and self.pccp_page is None
+        ):
+            raise ValueError("a has_pccp read from the text needs the page it came from")
+        return self
+
+
+class PredicateDateRecord(BaseModel):
+    """A predicate's FDA decision date, from openFDA (`silver_predicate_dates`).
+
+    Most predicates are not AI devices and so are not in silver; their decision
+    date comes from the existing openFDA client (ADR 0010), keyed by number. A
+    materialised view of a remote service like the enrichment table: overwritten,
+    and a miss is stored so a re-run does not refetch it.
+    """
+
+    submission_number: str  # the predicate's number
+    fetched_at: dt.datetime
+    found: bool
+    endpoint: str | None = None
+    decision_date: dt.date | None = None
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+
 # ---------------------------------------------------------------------------
 # Gold
 # ---------------------------------------------------------------------------
@@ -428,6 +556,8 @@ TABLE_MODELS: dict[str, type[BaseModel]] = {
     "bronze_summary_documents": BronzeSummaryDocumentRecord,
     "silver_devices": DeviceRecord,
     "silver_evidence": EvidenceRecord,
+    "silver_document_extraction": DocumentExtractionRecord,
+    "silver_predicate_dates": PredicateDateRecord,
     "silver_companies": CompanyRecord,
     "gold_device_leads": LeadRecord,
 }

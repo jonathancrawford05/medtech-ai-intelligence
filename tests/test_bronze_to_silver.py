@@ -126,6 +126,42 @@ class TestRowBuild:
         rec = bts.build_device_record(self._bronze(), ctx)
         assert rec.device_class is None, "absent must mean unknown, not a default"
 
+    def test_summary_facts_come_from_the_extraction_map(self, silver_ctx):
+        """ADR 0019: the primary predicate, its age and the two presence flags are read
+        from `silver_document_extraction` / `silver_predicate_dates`, never fetched."""
+        from registry.transform.document_extraction import DocumentFacts
+
+        ctx = replace(
+            silver_ctx,
+            documents={"K243456": DocumentFacts("K230085", True, False)},
+            predicate_dates={"K230085": dt.date(2023, 11, 1)},
+        )
+        rec = bts.build_device_record(self._bronze(), ctx)
+        assert rec.predicate_submission_number == "K230085"
+        assert rec.predicate_age_days == 366  # 2023-11-01 -> 2024-11-01 (leap year)
+        assert rec.has_pccp is True
+        assert rec.cybersecurity_statement_present is False
+        assert rec.pccp_summary is None, "the letter says *that*, not *what* (4D)"
+
+    def test_a_submission_with_no_extracted_summary_stays_unknown(self, silver_ctx):
+        """Absent from the map = no Summary read, which is None -- never False."""
+        from registry.transform.document_extraction import DocumentFacts
+
+        ctx = replace(silver_ctx, documents={"K999999": DocumentFacts("K1", True, True)})
+        rec = bts.build_device_record(self._bronze(), ctx)
+        assert rec.has_pccp is None
+        assert rec.cybersecurity_statement_present is None
+        assert rec.predicate_submission_number is None
+        assert rec.predicate_age_days is None
+
+    def test_a_predicate_without_a_known_date_has_no_age(self, silver_ctx):
+        from registry.transform.document_extraction import DocumentFacts
+
+        ctx = replace(silver_ctx, documents={"K243456": DocumentFacts("K230085", False, True)})
+        rec = bts.build_device_record(self._bronze(), ctx)
+        assert rec.predicate_submission_number == "K230085"
+        assert rec.predicate_age_days is None
+
     def test_builds_a_device_record_from_the_ai_list_alone(self, silver_ctx):
         rec = bts.build_device_record(self._bronze(), silver_ctx)
         assert rec is not None

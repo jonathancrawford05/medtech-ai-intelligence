@@ -6,10 +6,14 @@ else is interpretation that bronze deliberately deferred — parsing the decisio
 date, deriving the pathway from the submission prefix, mapping the FDA panel to
 our specialty taxonomy, and resolving the applicant to a parent company.
 
-openFDA-dependent fields (device class, predicate lineage, PCCP, cybersecurity)
-are left `None` here. They are enriched in a later pass, and `None` means "not
-yet enriched" rather than "no" (ADR 0012), so silver can be built from the FDA
-list alone and enrichment coverage is measurable rather than a precondition.
+Enrichment-dependent fields are joined from tables other passes produced, never
+fetched here: `device_class` from `silver_device_enrichment` (ADR 0013), and the
+primary predicate, `has_pccp` and the cybersecurity flag from
+`silver_document_extraction`, with `predicate_age_days` from
+`silver_predicate_dates` (ADR 0019). A missing table leaves its fields `None`, and
+`None` means "not yet enriched" rather than "no" (ADR 0012), so silver can be built
+from the FDA list alone and enrichment coverage is measurable rather than a
+precondition.
 
 Silver is **derived state**, so a rebuild overwrites it. That is the one place
 the append-only rule does not apply: bronze is the history, silver is a view of
@@ -34,7 +38,13 @@ from typing import Any
 from registry.config.settings import Settings, get_settings
 from registry.ingest.openfda_client import split_pma_number
 from registry.schemas import DeviceRecord, spark_schema_for
-from registry.transform import company_resolution, enrichment, taxonomy
+from registry.transform import (
+    company_resolution,
+    document_extraction,
+    enrichment,
+    predicate_dates,
+    taxonomy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +126,11 @@ class SilverContext:
     # and this transform only ever reads what it produced. Empty is normal -- it is
     # what silver did before enrichment existed.
     device_classes: dict[str, str] = field(default_factory=dict)
+    # Submission number -> what its 510(k) Summary said, read from
+    # `silver_document_extraction` (ADR 0019); predicate number -> its decision
+    # date, from `silver_predicate_dates`. Same rule: read here, fetched elsewhere.
+    documents: dict[str, document_extraction.DocumentFacts] = field(default_factory=dict)
+    predicate_dates: dict[str, dt.date] = field(default_factory=dict)
 
     @classmethod
     def load(cls, settings: Settings | None = None) -> SilverContext:
@@ -164,6 +179,9 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
     panel = (row.get("panel_raw") or "").strip()
     resolution = ctx.companies.resolve(row.get("applicant_raw"))
     base, supplement = split_supplement(submission)
+    # Absent from the map means "no Summary extracted", which None already says.
+    facts = ctx.documents.get(submission)
+    predicate = facts.predicate_submission_number if facts else None
 
     return DeviceRecord(
         submission_number=submission,
@@ -183,11 +201,17 @@ def build_device_record(row: dict[str, Any], ctx: SilverContext) -> DeviceRecord
         # Absent from the map means "not enriched", which is what None already
         # says -- never a default class (ADR 0012).
         device_class=ctx.device_classes.get(submission),
+        # From the 510(k) Summary (ADR 0019): the primary predicate, its age, and the
+        # two presence flags. pccp_summary stays None -- the letter says *that* a
+        # PCCP was cleared, not what it covers (4D).
+        predicate_submission_number=predicate,
+        predicate_age_days=predicate_dates.predicate_age_days(
+            decision_date, ctx.predicate_dates.get(predicate) if predicate else None
+        ),
+        has_pccp=facts.has_pccp if facts else None,
+        cybersecurity_statement_present=facts.cybersecurity_statement_present if facts else None,
         source_url=(row.get("source_url") or "").strip() or "",
         source_snapshot_id=snapshot,
-        # has_pccp, pccp_summary, cybersecurity_statement_present and predicate
-        # lineage stay None: no openFDA endpoint carries them, they are in the
-        # 510(k) summary PDF (ADR 0013 Decision 4).
     )
 
 
@@ -333,9 +357,20 @@ def run(spark=None, settings: Settings | None = None) -> int:
     settings = settings or get_settings()
     spark = spark or get_spark(settings)
     ctx = SilverContext.load(settings)
-    ctx = replace(ctx, device_classes=enrichment.device_classes_by_submission(spark, settings))
+    ctx = replace(
+        ctx,
+        device_classes=enrichment.device_classes_by_submission(spark, settings),
+        documents=document_extraction.facts_by_submission(spark, settings),
+        predicate_dates=predicate_dates.dates_by_submission(spark, settings),
+    )
     if ctx.device_classes:
         logger.info("Joined %d device classes from enrichment", len(ctx.device_classes))
+    if ctx.documents:
+        logger.info(
+            "Joined %d Summary extractions (%d predicate dates)",
+            len(ctx.documents),
+            len(ctx.predicate_dates),
+        )
 
     rows = latest_bronze_rows(spark, settings)
     records = [rec for row in rows if (rec := build_device_record(row, ctx)) is not None]

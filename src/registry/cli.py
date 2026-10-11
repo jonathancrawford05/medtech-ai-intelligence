@@ -164,6 +164,55 @@ def fetch_summaries(
         raise typer.Exit(code=1)
 
 
+@app.command("extract-documents")
+def extract_documents(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Read predicates, cybersecurity and PCCP out of the stored Summary text.
+
+    Offline and deterministic (ADR 0019): reads `bronze_summary_documents`, rebuilds
+    `silver_document_extraction`, and prints the yields to compare with finding 0019.
+    Run `build-silver` afterwards to carry the results onto `silver_devices`.
+    """
+    _setup_logging(verbose)
+    from registry.spark_session import get_spark
+    from registry.transform import document_extraction
+
+    settings = get_settings()
+    try:
+        result = document_extraction.run(get_spark(settings), settings)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    table = settings.table_ref(document_extraction.EXTRACTION_TABLE)
+    typer.echo(
+        f"Wrote {result.written} row(s) to {table} "
+        f"(extractor {document_extraction.EXTRACTOR_VERSION})"
+    )
+    for line in result.yields.lines():
+        typer.echo(f"  {line}")
+
+
+@app.command("enrich-predicates")
+def enrich_predicates(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Fetch each primary predicate's decision date from openFDA (for predicate_age_days).
+
+    Needs api.fda.gov, so it runs where `enrich-openfda` runs; cached like it (ADR 0010).
+    """
+    _setup_logging(verbose)
+    from registry.spark_session import get_spark
+    from registry.transform import predicate_dates
+
+    settings = get_settings()
+    try:
+        written = predicate_dates.run(get_spark(settings), settings)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"Fetched {written} predicate decision date(s) into "
+        f"{settings.table_ref(predicate_dates.DATES_TABLE)}"
+    )
+
+
 @app.command("build-mart")
 def build_mart(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
     """Load the curated mortality seed and rebuild the gold mortality mart.

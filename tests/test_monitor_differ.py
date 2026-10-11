@@ -126,6 +126,21 @@ class TestOnlyFdaListFieldsDecideMovement:
         curr = [device("K1", CURR, device_class="II")]
         assert differ.classify(prev, curr, PREV, CURR) == []
 
+    def test_the_document_pass_alone_is_not_movement(self):
+        """ADR 0019: populating predicate, PCCP and cybersecurity for the 1,541
+        existing Summaries must not turn every one of them into a lead."""
+        prev = [device("K1", PREV)]
+        curr = [
+            {
+                **device("K1", CURR),
+                "predicate_submission_number": "K230085",
+                "predicate_age_days": 366,
+                "has_pccp": True,
+                "cybersecurity_statement_present": True,
+            }
+        ]
+        assert differ.classify(prev, curr, PREV, CURR) == []
+
     def test_a_taxonomy_edit_alone_is_not_movement(self):
         """Same FDA panel, re-mapped category: a curation change, not FDA movement."""
         prev = [device("K1", PREV, category="radiology", panel="Radiology")]

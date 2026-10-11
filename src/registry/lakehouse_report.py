@@ -50,6 +50,8 @@ _DOCUMENT_ONLY_COLUMNS = (
     "pccp_summary",
     "cybersecurity_statement_present",
 )
+# The subset the document pass fills (ADR 0019). pccp_summary waits for 4D.
+_EXTRACTED_COLUMNS = tuple(c for c in _DOCUMENT_ONLY_COLUMNS if c != "pccp_summary")
 
 
 @dataclass
@@ -194,15 +196,25 @@ def _silver_section(report: Report, silver: DataFrame, settings: Settings) -> No
         pct = 100 * filled / rows if rows else 0.0
         report.say(f"    {column:<32} {filled:>7,} / {rows:,}  ({pct:.1f}%)")
 
-    # Deliberately no percentage: a coverage figure implies a fetch that could have
-    # filled the column, and none exists yet.
     report.say()
-    report.say("  awaiting the document pass (roadmap Issue 4) -- not in any openFDA endpoint:")
-    report.say(f"    {', '.join(_DOCUMENT_ONLY_COLUMNS)}")
-    report.say(
-        "    These live in the 510(k) summary PDF. `silver_device_enrichment."
-        "statement_or_summary` says how many are fetchable."
-    )
+    filled = {c: silver.filter(F.col(c).isNotNull()).count() for c in _EXTRACTED_COLUMNS}
+    if any(filled.values()):
+        # The document pass has run (ADR 0019): its coverage is now a real number.
+        # The denominator is every silver row, most of which filed no Summary.
+        report.say("  document pass (`registry extract-documents`, ADR 0019):")
+        for column, count in filled.items():
+            pct = 100 * count / rows if rows else 0.0
+            report.say(f"    {column:<32} {count:>7,} / {rows:,}  ({pct:.1f}%)")
+        report.say("    pccp_summary stays null until LLM-assisted extraction (Issue 4, PR 4D).")
+    else:
+        # Deliberately no percentage: a coverage figure implies a pass that could
+        # have filled the column, and it has not run.
+        report.say("  awaiting the document pass (roadmap Issue 4) -- not in any openFDA endpoint:")
+        report.say(f"    {', '.join(_DOCUMENT_ONLY_COLUMNS)}")
+        report.say(
+            "    These live in the 510(k) summary PDF: run `registry extract-documents`, "
+            "then `registry build-silver`."
+        )
 
     supplements = silver.filter(F.col("pma_supplement_number").isNotNull())
     supplement_count = supplements.count()
@@ -306,6 +318,19 @@ def _documents_section(report: Report, documents: DataFrame, enrichment: DataFra
 
     report.say("  text layer (finding 0011: 51 text / 8 mixed / 1 image of 60):")
     _render(report, _counts(found, "text_class"), "text_class")
+
+
+def _extraction_section(report: Report, extraction: DataFrame) -> None:
+    """What the deterministic extractors read out of the Summaries (ADR 0019)."""
+    from registry.schemas import DocumentExtractionRecord
+    from registry.transform import document_extraction
+
+    report.rule("EXTRACTION  silver_document_extraction  (predicates, cybersecurity, PCCP)")
+    records = [DocumentExtractionRecord.model_validate(r.asDict()) for r in extraction.collect()]
+    versions = sorted({r.extractor_version for r in records})
+    report.say(f"  extractor version(s)           : {', '.join(versions) or '-'}")
+    for line in document_extraction.summarise(records).lines():
+        report.say(f"  {line}")
 
 
 # How many confirmed devices `inspect` lists. The section prints the total first, and
@@ -447,6 +472,15 @@ def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -
         _documents_section(
             report, tables.read_table(spark, settings, "bronze_summary_documents"), enrichment
         )
+        if tables.table_exists(spark, settings, "silver_document_extraction"):
+            _extraction_section(
+                report, tables.read_table(spark, settings, "silver_document_extraction")
+            )
+        else:
+            report.say()
+            report.say(
+                "No silver_document_extraction table yet. Run: uv run registry extract-documents"
+            )
     else:
         report.say()
         report.say(

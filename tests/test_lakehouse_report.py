@@ -414,6 +414,66 @@ class TestDocumentsSection:
         assert any("accessdata" in line for line in report.lines)
 
 
+def _extracted(row: tuple) -> tuple:
+    """A silver row as the document pass leaves it (ADR 0019)."""
+    fields = list(DeviceRecord.model_fields)
+    values = list(row)
+    values[fields.index("predicate_submission_number")] = "K230085"
+    values[fields.index("has_pccp")] = True
+    values[fields.index("cybersecurity_statement_present")] = False
+    return tuple(values)
+
+
+class TestExtractionSection:
+    """`registry inspect` after the document pass (ADR 0019): the yields, and silver's
+    document columns reported as coverage instead of "awaiting"."""
+
+    def test_says_what_to_run_before_extraction(self, spark, bronze_two_pulls):
+        TestDocumentsSection()._setup(
+            spark, bronze_two_pulls, [TestDocumentsSection._doc("K100001")]
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("extract-documents" in line for line in report.lines), report.lines
+
+    def test_reports_yields_from_the_extraction_table(self, spark, bronze_two_pulls):
+        import json
+        from pathlib import Path
+
+        from registry.schemas import DocumentExtractionRecord
+        from registry.transform import document_extraction as de
+
+        TestDocumentsSection()._setup(
+            spark, bronze_two_pulls, [TestDocumentsSection._doc("K100001")]
+        )
+        fixture = Path(__file__).parent / "fixtures" / "summary_documents" / "K243239.json"
+        record = de.extract_document(json.loads(fixture.read_text()))
+        tables.write_table(
+            spark.createDataFrame(
+                [record.model_dump()], spark_schema_for(DocumentExtractionRecord)
+            ),
+            bronze_two_pulls,
+            de.EXTRACTION_TABLE,
+            mode="overwrite",
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "EXTRACTION" in text
+        assert f"extractor version(s)           : {de.EXTRACTOR_VERSION}" in text, text
+        assert "predicate found                : 1 / 1 (100.0%)" in text, text
+        assert report.ok is True
+
+    def test_filled_document_columns_are_reported_as_coverage(self, spark, bronze_two_pulls):
+        _write_silver(
+            spark,
+            bronze_two_pulls,
+            [_extracted(_silver_row("K1")), _silver_row("K2")],
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        line = next(ln for ln in report.lines if "has_pccp" in ln)
+        assert "1 / 2  (50.0%)" in line, line
+        assert not any("awaiting the document pass" in ln for ln in report.lines)
+
+
 class TestGoldSection:
     """`registry inspect` must surface the gold mart -- the registry's actual
     deliverable. Before this the verdict tool was blind to it: a full mart and an
