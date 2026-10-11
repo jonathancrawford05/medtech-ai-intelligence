@@ -531,7 +531,44 @@ class TestExtractionSection:
             "(100.0%)",
         ]
         assert "1 document(s) not in silver_devices" in text, text
+        assert "null decision_date" not in text, text
         assert report.ok is True
+
+    def test_a_null_decision_date_is_not_reported_as_missing_from_silver(
+        self, spark, bronze_two_pulls
+    ):
+        """Review P3: a silver row with no decision_date is in silver; the trend's
+        footnote must say which of the two gaps a yearless document falls in."""
+        import json
+        from pathlib import Path
+
+        from registry.schemas import DocumentExtractionRecord
+        from registry.transform import document_extraction as de
+
+        TestDocumentsSection()._setup(
+            spark, bronze_two_pulls, [TestDocumentsSection._doc("K100001")]
+        )
+        _write_silver(
+            spark,
+            bronze_two_pulls,
+            [_silver_row("K1"), _silver_row("K2", decision_date=None)],
+            allow_nulls=True,
+        )
+        fixture = Path(__file__).parent / "fixtures" / "summary_documents" / "K243239.json"
+        base = de.extract_document(json.loads(fixture.read_text()))
+        records = [base.model_copy(update={"submission_number": n}) for n in ("K1", "K2")]
+        tables.write_table(
+            spark.createDataFrame(
+                [r.model_dump() for r in records], spark_schema_for(DocumentExtractionRecord)
+            ),
+            bronze_two_pulls,
+            de.EXTRACTION_TABLE,
+            mode="overwrite",
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "1 document(s) whose silver row has a null decision_date" in text, text
+        assert "not in silver_devices" not in text, text
 
     def test_filled_document_columns_are_reported_as_coverage(self, spark, bronze_two_pulls):
         _write_silver(

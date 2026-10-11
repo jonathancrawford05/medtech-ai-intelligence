@@ -397,21 +397,30 @@ def pccp_year_lines(years: list[PccpYear]) -> list[str]:
 def _pccp_trend_section(report: Report, silver: DataFrame, extraction: DataFrame) -> None:
     """PCCP adoption by decision year: stock, not movement (ADR 0020)."""
     joined = extraction.select("submission_number", "pccp_method").join(
-        silver.select("submission_number", F.year("decision_date").alias("year")),
+        silver.select(
+            "submission_number",
+            F.year("decision_date").alias("year"),
+            F.lit(True).alias("_in_silver"),
+        ),
         "submission_number",
         "left",
     )
-    collected = joined.select("year", "pccp_method", "submission_number").collect()
-    # A Summary for a device silver no longer carries has no decision year to bucket.
-    orphans = sum(1 for r in collected if r["year"] is None)
+    collected = joined.select("year", "pccp_method", "_in_silver").collect()
+    # Two different reasons a Summary has no decision year to bucket: its device is
+    # not in silver at all, or its silver row has a null decision_date (a parse gap
+    # the SILVER section already flags). Counted apart so the line names the right one.
+    no_row = sum(1 for r in collected if r["_in_silver"] is None)
+    no_date = sum(1 for r in collected if r["_in_silver"] and r["year"] is None)
     years = pccp_by_year((r["year"], r["pccp_method"]) for r in collected if r["year"] is not None)
     report.say()
     report.say("  PCCP share by decision year (ADR 0020; stock, not movement -- finding 0019's")
     report.say("  table is the clearance_letter column):")
     for line in pccp_year_lines(years):
         report.say(f"    {line}")
-    if orphans:
-        report.say(f"    ({orphans:,} document(s) not in silver_devices: no decision year)")
+    if no_row:
+        report.say(f"    ({no_row:,} document(s) not in silver_devices: no decision year)")
+    if no_date:
+        report.say(f"    ({no_date:,} document(s) whose silver row has a null decision_date)")
 
 
 # How many confirmed devices `inspect` lists. The section prints the total first, and
