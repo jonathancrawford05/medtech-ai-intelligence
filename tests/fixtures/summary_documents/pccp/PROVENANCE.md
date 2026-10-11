@@ -1,13 +1,19 @@
 # PCCP Summary fixtures — provenance
 
-**Status: not yet recorded.** `accessdata.fda.gov` is blocked from agent sessions and
-CI, so these are recorded on the maintainer's Mac, which also holds the full
-`bronze_summary_documents` ([finding 0019](../../../../findings/0019-full-scale-document-measures.md)):
+**Status: recorded 2026-10-11 16:06 UTC** by the maintainer on the Mac, which also
+holds the full `bronze_summary_documents` ([finding 0019](../../../../findings/0019-full-scale-document-measures.md)).
+`accessdata.fda.gov` is blocked from agent sessions and CI, so re-recording happens
+only on such a host:
 
 ```bash
 uv run pytest -m live_network -k pccp
 git add tests/fixtures/summary_documents/pccp && git commit -m "Record PCCP fixtures"
 ```
+
+`TestRecordedPccpCases` runs against these in CI. The first recording caught a rule
+bug: `K252103` read as a positive under extractor `4b.1` and is fixed in `4b.2`
+([finding 0020](../../../../findings/0020-summary-extraction-built.md)). Note that
+`manifest.json`'s yields were computed by `4b.1`.
 
 What gets recorded (`tests/test_document_extraction.py::TestLivePccpRecording`), one
 JSON per document in the same shape as the 4A slice one level up (text, never PDFs):
@@ -22,4 +28,4 @@ JSON per document in the same shape as the 4A slice one level up (text, never PD
 
 `manifest.json` also carries the **full-scale yields** and the full-scale list of
 documents per non-trivial PCCP method, so finding 0020's numbers are committed with
-the fixtures that back them. Until it exists, `TestRecordedPccpCases` skips.
+the fixtures that back them.
