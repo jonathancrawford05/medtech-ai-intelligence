@@ -119,6 +119,27 @@ prompt in §6.
   the predicate and cybersecurity fields (ADR 0012's optional-until-enriched fields).
 - Finding: full-scale yields vs the spike (57/60 predicate, 8/60 cybersecurity).
 
+### PR 4B+ — PCCP lead category · cloud only (after 4B merges)
+
+Agreed 2026-10-11 on finding 0019's evidence (PCCP in 0% of 2022 clearances, 11.0% of
+2026's): bring PCCP forward rather than wait for 4C.
+
+- **New ADR superseding the PCCP part of ADR 0016 Decision 3** (the deferral). Do not edit
+  0016. The foundation-model deferral stays.
+- **A `pccp` signal and category in the leads mart**: `signal_pccp` from silver's
+  `has_pccp` (4B), `True` / `False` / `None` with ADR 0012's distinction (`None` = no
+  Summary fetched or not yet extracted, never "no PCCP"). Remove `pccp` from
+  `leads.DEFERRED_CATEGORIES`, add it to `LEAD_CATEGORIES`; the `LeadRecord` validator and
+  schema parity follow.
+- **Signal, not trigger.** `has_pccp` is derived (from the document, not the FDA list), so
+  by PR #14's rule it never decides *whether* a device moved: an added or changed device
+  is tagged `pccp` when either side has `has_pccp` true. Populating `has_pccp` for the
+  existing 1,541 devices must therefore produce **no** leads — assert that in a test.
+- **The adoption trend is stock, not movement.** Add PCCP share by decision year to
+  `registry inspect` (the finding 0019 table, recomputed from silver), so the trend is
+  visible without waiting for new clearances.
+- Measure: the `inspect` table should reproduce finding 0019's year-by-year counts.
+
 ### PR 4C — device-level intended use · cloud only
 
 - Extract the intended-use text (3881 form first, Summary section second), verbatim, with
@@ -217,6 +238,17 @@ negations handled (read findings/0019 first: it overturns finding 0011 on PCCP),
 ADR amending ADR 0013 Decision 4 accordingly. Use the committed real fixtures, and add
 fixtures for the PCCP cases finding 0019 names (record them on the Mac like 4A's slice).
 Report full-scale yields against finding 0019. Open the PR; do not merge. Stop after 4B.
+```
+
+**4B+ (cloud, after 4B merges):**
+
+```text
+Read CLAUDE.md, docs/handoffs/issue-4-document-pass.md (§3 "PR 4B+") and findings/0019.
+Implement PR 4B+ only: a pccp lead category from silver's has_pccp, via a new ADR that
+supersedes the PCCP part of ADR 0016 Decision 3 (do not edit 0016). has_pccp is a signal,
+never a movement trigger (PR #14's rule): add a test that populating has_pccp for existing
+devices records no leads. Add PCCP share by decision year to registry inspect and show it
+reproduces finding 0019's table. Open the PR; do not merge.
 ```
 
 **4C (cloud):**
