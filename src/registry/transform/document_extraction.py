@@ -53,7 +53,7 @@ EXTRACTION_TABLE = "silver_document_extraction"
 
 # Bump on any rule change: rows record the version that produced them, so a
 # full-scale yield is always attributable to one rule set.
-EXTRACTOR_VERSION = "4b.1"
+EXTRACTOR_VERSION = "4b.2"
 
 # How much text a quote carries either side of the matched span.
 _QUOTE_CONTEXT = 120
@@ -650,7 +650,10 @@ def extract_pccp(doc: Document, seg: Segmentation) -> PccpResult:
     Precedence (ADR 0019): a correction letter -> ``False``; the clearance-letter
     sentence -> ``True``; otherwise the Summary-body mentions are classified --
     any positive -> ``True``; only inherited (a PCCP cleared under an earlier
-    number) -> ``False`` with that number kept; only negations -> ``False``. No
+    number) -> ``False`` with that number kept; only negations -> ``False``. Once a
+    document names its plan as inherited, later mentions ("this PCCP", "in
+    accordance with the PCCP") refer back to that plan, so they are not positives
+    (K252103, recorded). No
     mention -> ``False`` when the document has readable text, ``None`` when it has
     none.
     """
@@ -677,6 +680,8 @@ def extract_pccp(doc: Document, seg: Segmentation) -> PccpResult:
     classified: dict[str, tuple[re.Match[str], str | None]] = {}
     for match in mentions:
         label, ref = _classify_mention(doc, match)
+        if label == "positive" and "inherited" in classified:
+            continue  # an anaphoric reference to the inherited plan named earlier
         classified.setdefault(label, (match, ref))
     if "positive" in classified:
         match, _ = classified["positive"]

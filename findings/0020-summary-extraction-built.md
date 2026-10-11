@@ -1,6 +1,6 @@
 # 0020 — Summary extraction (PR 4B): built and verified on the real slice; full-scale yields open
 
-**Date:** 2026-10-11 · **Status:** Built; verified on the ten-document real slice and synthetic PCCP cases; **PCCP fixtures and full-scale yields open (Mac)** · **Component:** Issue 4 PR 4B, `transform/document_extraction.py`, `transform/predicate_dates.py`, `registry extract-documents` / `enrich-predicates` ([ADR 0019](../docs/adr/0019-deterministic-summary-extraction.md))
+**Date:** 2026-10-11 · **Status:** Built; verified on the real slice, on finding 0019's recorded PCCP cases, and **at full scale** (maintainer's Mac, 2026-10-11) · **Component:** Issue 4 PR 4B, `transform/document_extraction.py`, `transform/predicate_dates.py`, `registry extract-documents` / `enrich-predicates` ([ADR 0019](../docs/adr/0019-deterministic-summary-extraction.md))
 
 The code was written in a cloud session that **cannot reach `accessdata.fda.gov`,
 `api.fda.gov`, or the maintainer's lakehouse**. So this finding separates what ran
@@ -70,31 +70,56 @@ has_pccp True                  : 0 / 10 (0.0%)
   by method                     : no_mention 9, no_text 1
 ```
 
-## Not verified — needs the Mac
+## Verified at full scale (maintainer's Mac, 2026-10-11, extractor `4b.1`)
 
-1. **The PCCP fixtures.** `uv run pytest -m live_network -k pccp` records finding
-   0019's eight named cases (`K231837`, `K233692`, `K253984`, `K252103`, `K210484`,
-   `K232699`, `K243449`, `K201992`) and three clearance-letter positives it picks
-   from the local full bronze, into `tests/fixtures/summary_documents/pccp/`. Its
-   manifest also carries the full-scale yields. Until committed, the
-   `TestRecordedPccpCases` assertions skip. **They may fail on first recording** —
-   the Summary-body wording of the eight named cases has never been seen by this
-   session — and a failure there is the point: it is where the rule meets real text.
-2. **Full-scale yields** — `uv run registry extract-documents -v` prints them:
+The maintainer ran `uv run pytest -m live_network -k pccp` against the full
+`bronze_summary_documents`. The run recorded finding 0019's eight named cases and
+three clearance-letter positives the extractor picked (`K231010`, `K250507`,
+`K260406`), and wrote the full-scale yields into
+`tests/fixtures/summary_documents/pccp/manifest.json`:
 
-| Measure | Spike (60) | Finding 0019 (1,541, proxy) | 4B full scale |
+| Measure | Spike (60) | Finding 0019 (1,541) | 4B full scale |
 |---|---|---|---|
-| Predicate found | 57 / 60 (95%) | ≤ 1,508 (97.9%) — upper bound | _pending_ |
-| Cybersecurity present | 8 / 60 (13%) | 471 mentioned (30.6%) | _pending_ (presence ≤ mentions) |
-| `no_mention` in a `mixed` doc | — | — | _pending_ (the Decision 5 gap) |
-| `has_pccp` = True, `clearance_letter` | 0 / 60 | 68 | _pending_ (expect 68) |
-| `correction_letter` | — | 2 | _pending_ (expect 2) |
-| `summary_statement` | — | 4 | _pending_ (expect 4) |
-| `summary_inherited` / `summary_negation` | — | 1 / 1 | _pending_ |
+| Predicate found | 57 / 60 (95%) | ≤ 1,508 (97.9%), an upper-bound proxy | **1,486 (96.4%)**, 22 under the ceiling |
+| Primary chosen by | — | — | `first_in_section` 1,052 · `stated_primary` 324 · `first_in_sentence` 110 |
+| Predicate numbers by method | — | — | `section` 1,481 · `sentence` 545 · `table` 237 |
+| Cybersecurity present | 8 / 60 (13%) | 471 mentioned (30.6%) | **471 (30.6%)**; 0 negated, 1,048 `no_mention`, 22 `no_text` |
+| `no_mention` in a `mixed` doc | — | — | **300** (the ADR 0019 Decision 5 gap) |
+| `clearance_letter` (True) | 0 / 60 | 68 | **68**, exactly |
+| `correction_letter` (False) | — | 2 | **2** (`K231837`, `K233692`) |
+| `summary_negation` (False) | — | 1 | **1** (`K253984`) |
+| `summary_statement` (True) | — | 4 | 6 under `4b.1`, **5 under `4b.2`** (see below) |
+| `summary_inherited` (False) | — | 1 | 0 under `4b.1`, **1 under `4b.2`** (`K252103`) |
+| `no_text` (None) | — | — | 3 |
 
-3. **Predicate decision dates.** `uv run registry enrich-predicates -v` (api.fda.gov),
-   then `uv run registry build-silver` and `uv run registry inspect`: the SILVER
-   section then reports `predicate_age_days` coverage.
+**What the real text corrected.** In CI, `4b.1` read `K252103` as a positive. The
+Summary names the plan as "cleared as part of K234009", then refers back to it as
+"this PCCP" and "in accordance with the PCCP", and `4b.1` counted those later
+mentions as new positives. `4b.2` reads a positive that follows an inherited mention
+as a reference to that same plan. All eleven recorded PCCP documents now pass. The
+change can affect only a document that has an inherited mention, so among the
+full-scale `4b.1` positives only `K252103` and `K260714` could move. The four
+recorded positives are pinned by tests and did not move.
+
+**One new positive: `K260714`.** It reads `summary_statement` and is not among
+finding 0019's 76. The likely cause is that it says "PCCP" without the spelled-out
+phrase finding 0019 searched for. Nobody has read it yet, and it has no letter
+sentence. It is the visible edge of the gap finding 0019 named. Re-running
+`registry extract-documents` (now `4b.2`) gives the final count.
+
+**Cybersecurity presence equals the mention count.** At full scale no document
+negates its only mention, so the presence rule and finding 0019's mention count
+agree: 471.
+
+## Still open
+
+1. **Predicate decision dates at scale.** The maintainer reports `enrich-predicates`
+   and `build-silver` ran. `registry inspect` shows the `predicate_age_days`
+   coverage, and it is not recorded here yet.
+2. **`K260714`.** Read the stored text to confirm it is a real Summary positive.
+   If it is, add it to the recorded PCCP cases.
+3. **Predicate precision.** The figure above is recall only; a sample audit is
+   still owed.
 
 ## Assumed
 

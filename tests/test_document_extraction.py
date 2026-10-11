@@ -426,6 +426,26 @@ class TestPccpSynthetic:
         result = de.extract_pccp(*_synthetic(clause))
         assert (result.has_pccp, result.method) == (True, "summary_statement")
 
+    def test_later_mentions_of_an_inherited_plan_are_not_positives(self):
+        """K252103's shape (recorded): the plan is named as cleared under K234009,
+        then referred to as "this PCCP" -- which is still the inherited plan."""
+        result = de.extract_pccp(
+            *_synthetic(
+                "Improvements under a PCCP (cleared as part of K234009).",
+                "Changes made under this PCCP are detailed below.",
+            )
+        )
+        assert (result.has_pccp, result.method) == (False, "summary_inherited")
+
+    def test_a_positive_before_any_inherited_mention_still_counts(self):
+        result = de.extract_pccp(
+            *_synthetic(
+                "This submission includes a PCCP for retraining.",
+                "The viewer keeps its PCCP (cleared as part of K234009).",
+            )
+        )
+        assert (result.has_pccp, result.method) == (True, "summary_statement")
+
     def test_a_positive_outranks_a_negation_elsewhere(self):
         result = de.extract_pccp(
             *_synthetic(
