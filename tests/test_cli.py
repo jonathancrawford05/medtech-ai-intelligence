@@ -256,3 +256,101 @@ class TestEnrichPredicates:
         out = CliRunner().invoke(cli.app, ["enrich-predicates"])
         assert out.exit_code == 1
         assert "extract-documents" in out.output
+
+
+class TestExtractIntendedUse:
+    """What `registry extract-intended-use` tells the operator (ADR 0021)."""
+
+    def test_reports_rows_and_coverage_against_finding_0019(self, monkeypatch):
+        from collections import Counter
+
+        import registry.spark_session
+        from registry.transform import intended_use as iu
+
+        yields = iu.Yields(documents=4, basis=Counter(form_3881=2, summary_section=1, no_text=1))
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(iu, "run", lambda spark, settings: iu.IntendedUseRun(4, yields))
+        out = CliRunner().invoke(cli.app, ["extract-intended-use"])
+        assert out.exit_code == 0, out.output
+        assert "Wrote 4 row(s)" in out.output
+        assert iu.INTENDED_USE_VERSION in out.output
+        assert "intended use found             : 3 / 4 (75.0%)" in out.output
+        assert "1,537 / 1,541" in out.output, "the finding 0019 ceiling is printed"
+
+    def test_extraction_must_run_first(self, monkeypatch):
+        import registry.spark_session
+        from registry.transform import intended_use as iu
+
+        def boom(spark, settings):
+            raise ValueError("Run `registry extract-documents` first")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(iu, "run", boom)
+        out = CliRunner().invoke(cli.app, ["extract-intended-use"])
+        assert out.exit_code == 1
+        assert "extract-documents" in out.output
+
+
+class TestCurationCandidates:
+    def _report(self, n: int):
+        import datetime as dt
+
+        from registry.mart import curation_candidates as cc
+
+        rows = [
+            cc.Candidate(
+                submission_number=f"K70000{i}",
+                device_name=f"Risk index {i}",
+                applicant="Acme",
+                decision_date=dt.date(2026, 1, i + 1),
+                specialty_category="cardiovascular",
+                product_code="DQK",
+                keyword_hits=["mortality"],
+                intended_use_basis="form_3881",
+                intended_use_pages=[3],
+                intended_use_text="Predicts in-hospital mortality.",
+                source_url=f"https://example.test/K70000{i}.pdf",
+            )
+            for i in range(n)
+        ]
+        return cc.CurationReport(rows, cc.KeywordAgreement(curated=133), 160, 150)
+
+    def _invoke(self, monkeypatch, report, args=()):
+        import registry.spark_session
+        from registry.mart import curation_candidates as cc
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(cc, "build", lambda spark, settings: report)
+        return CliRunner().invoke(cli.app, ["curation-candidates", *args])
+
+    def test_prints_the_measure_and_the_batch_with_evidence(self, monkeypatch):
+        out = self._invoke(monkeypatch, self._report(3))
+        assert out.exit_code == 0, out.output
+        assert "keyword_disagrees" in out.output
+        assert "3 candidate(s) among 160 cardiometabolic device(s), 150 with a statement" in (
+            out.output
+        )
+        assert "K700000" in out.output and "[mortality]" in out.output
+        assert "form_3881 p3  https://example.test/K700000.pdf" in out.output
+
+    def test_limit_clips_the_print_and_the_csv_has_all(self, monkeypatch, tmp_path):
+        target = tmp_path / "batch.csv"
+        out = self._invoke(monkeypatch, self._report(3), ["--limit", "1", "--csv", str(target)])
+        assert out.exit_code == 0, out.output
+        assert "... 2 more" in out.output
+        assert len(target.read_text().splitlines()) == 4  # header + 3
+
+    def test_missing_tables_say_what_to_run(self, monkeypatch):
+        import registry.spark_session
+        from registry.mart import curation_candidates as cc
+
+        def boom(spark, settings):
+            raise ValueError(
+                "No silver_intended_use table. Run: uv run registry extract-intended-use"
+            )
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(cc, "build", boom)
+        out = CliRunner().invoke(cli.app, ["curation-candidates"])
+        assert out.exit_code == 1
+        assert "extract-intended-use" in out.output

@@ -582,6 +582,90 @@ class TestExtractionSection:
         assert not any("awaiting the document pass" in ln for ln in report.lines)
 
 
+class TestIntendedUseSection:
+    """`registry inspect` after the intended-use pass (ADR 0021): coverage against
+    finding 0019, and what moves to the device's own text in mortality_language."""
+
+    def _extracted(self, spark, settings):
+        import json
+        from pathlib import Path
+
+        from registry.schemas import DocumentExtractionRecord
+        from registry.transform import document_extraction as de
+
+        TestDocumentsSection()._setup(spark, settings, [TestDocumentsSection._doc("K100001")])
+        _write_silver(spark, settings, [_silver_row("K1"), _silver_row("K2"), _silver_row("K3")])
+        fixture = Path(__file__).parent / "fixtures" / "summary_documents" / "K243239.json"
+        record = de.extract_document(json.loads(fixture.read_text()))
+        tables.write_table(
+            spark.createDataFrame(
+                [record.model_dump()], spark_schema_for(DocumentExtractionRecord)
+            ),
+            settings,
+            de.EXTRACTION_TABLE,
+            mode="overwrite",
+        )
+
+    def test_says_what_to_run(self, spark, bronze_two_pulls):
+        self._extracted(spark, bronze_two_pulls)
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        assert any("extract-intended-use" in line for line in report.lines), report.lines
+
+    def test_reports_coverage_and_the_source_shift(self, spark, bronze_two_pulls):
+        from registry.schemas import IntendedUseRecord
+        from registry.transform import intended_use as iu
+
+        self._extracted(spark, bronze_two_pulls)
+        rows = [
+            IntendedUseRecord(
+                submission_number=key,
+                extractor_version=iu.INTENDED_USE_VERSION,
+                extracted_at=dt.datetime(2026, 10, 11),
+                source_content_sha256="ab" * 32,
+                segmentation_version="4b.2",
+                intended_use_text=text,
+                intended_use_basis="form_3881" if text else "no_text",
+                intended_use_pages=[3] if text else [],
+            ).model_dump()
+            for key, text in (
+                ("K1", "Predicts in-hospital mortality."),
+                ("K2", "Displays ECGs."),
+                ("K3", None),
+            )
+        ]
+        tables.write_table(
+            spark.createDataFrame(rows, spark_schema_for(IntendedUseRecord)),
+            bronze_two_pulls,
+            iu.INTENDED_USE_TABLE,
+            mode="overwrite",
+        )
+        report = lakehouse_report.build_report(spark, bronze_two_pulls)
+        text = "\n".join(report.lines)
+        assert "INTENDED USE" in text, text
+        assert "intended use found             : 2 / 3 (66.7%)" in text, text
+        assert "source moves to summary_intended_use: 1  (from no source 1)" in text, text
+        assert report.ok is True
+
+
+class TestSourceShiftLines:
+    def test_moves_and_their_origins(self):
+        lines = lakehouse_report.source_shift_lines(
+            {
+                ("device_name", "summary_intended_use"): 2,
+                (None, "summary_intended_use"): 3,
+                ("device_name", "device_name"): 4,
+                (None, None): 10,
+            }
+        )
+        assert lines[0].endswith(": 19")
+        assert lines[1] == (
+            "source moves to summary_intended_use: 5  (from device_name 2, no source 3)"
+        )
+        assert lines[2].endswith(": 3")
+        assert lines[3].endswith(": 4")
+        assert lines[4].endswith(": 10")
+
+
 class TestGoldSection:
     """`registry inspect` must surface the gold mart -- the registry's actual
     deliverable. Before this the verdict tool was blind to it: a full mart and an

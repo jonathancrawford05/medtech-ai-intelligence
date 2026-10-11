@@ -21,7 +21,7 @@ until the enrichment pass exists, so the report prints coverage and moves on.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from pyspark.sql import DataFrame, SparkSession
@@ -423,6 +423,61 @@ def _pccp_trend_section(report: Report, silver: DataFrame, extraction: DataFrame
         report.say(f"    ({no_date:,} document(s) whose silver row has a null decision_date)")
 
 
+def source_shift_lines(shift: Mapping[tuple[str | None, str | None], int]) -> list[str]:
+    """Render `leads.language_source_shift`: what moves to the device's own text."""
+    total = sum(shift.values())
+    moved = {b: n for (b, a), n in shift.items() if a == "summary_intended_use" and b != a}
+    lines = [
+        f"rows                           : {total:,}",
+        f"source moves to summary_intended_use: {sum(moved.values()):,}"
+        + (
+            "  (from "
+            + ", ".join(f"{b or 'no source'} {n:,}" for b, n in sorted(moved.items(), key=str))
+            + ")"
+            if moved
+            else ""
+        ),
+        f"  of which newly flagged       : {moved.get(None, 0):,}",
+        f"unchanged                      : "
+        f"{sum(n for (b, a), n in shift.items() if a == b and a is not None):,}",
+        f"no source either way           : {shift.get((None, None), 0):,}",
+    ]
+    return lines
+
+
+def _intended_use_section(
+    report: Report, spark: SparkSession, settings: Settings, silver: DataFrame
+) -> None:
+    """Device-level intended use and what it does to `mortality_language` (ADR 0021)."""
+    from registry.schemas import IntendedUseRecord
+    from registry.transform import intended_use
+
+    report.rule("INTENDED USE  silver_intended_use  (the device's own statement, ADR 0021)")
+    rows = tables.read_table(spark, settings, intended_use.INTENDED_USE_TABLE).collect()
+    records = [IntendedUseRecord.model_validate(r.asDict()) for r in rows]
+    versions = sorted({r.extractor_version for r in records})
+    report.say(f"  extractor version(s)           : {', '.join(versions) or '-'}")
+    for line in intended_use.summarise(records).lines():
+        report.say(f"  {line}")
+
+    ctx = leads.LeadContext.load(spark, settings)
+    devices = [r.asDict() for r in silver.select("submission_number", "device_name").collect()]
+    report.say()
+    report.say("  mortality_language source before -> after, every silver device as a lead:")
+    for line in source_shift_lines(leads.language_source_shift(devices, ctx)):
+        report.say(f"    {line}")
+    if tables.table_exists(spark, settings, leads.LEADS_TABLE):
+        recorded = [
+            r.asDict()
+            for r in tables.read_table(spark, settings, leads.LEADS_TABLE)
+            .select("submission_number", "device_name")
+            .collect()
+        ]
+        report.say("  ... and over the leads already recorded:")
+        for line in source_shift_lines(leads.language_source_shift(recorded, ctx)):
+            report.say(f"    {line}")
+
+
 # How many confirmed devices `inspect` lists. The section prints the total first, and
 # the header says when the list is clipped, so a long mart is never silently truncated.
 GOLD_DEVICES_SHOWN = 15
@@ -568,6 +623,15 @@ def _curated_sections(report: Report, spark: SparkSession, settings: Settings) -
             _pccp_trend_section(
                 report, tables.read_table(spark, settings, "silver_devices"), extraction
             )
+            if tables.table_exists(spark, settings, "silver_intended_use"):
+                _intended_use_section(
+                    report, spark, settings, tables.read_table(spark, settings, "silver_devices")
+                )
+            else:
+                report.say()
+                report.say(
+                    "No silver_intended_use table yet. Run: uv run registry extract-intended-use"
+                )
         else:
             report.say()
             report.say(

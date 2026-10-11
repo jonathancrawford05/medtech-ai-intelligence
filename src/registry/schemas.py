@@ -48,6 +48,14 @@ PccpMethod = t.Literal[
     "no_mention",  # readable text, no PCCP anywhere -> False
     "no_text",  # no readable page at all -> None
 ]
+# Where a device's intended-use text came from (ADR 0021), in precedence order.
+IntendedUseBasis = t.Literal[
+    "form_3881",  # the FDA 3881 Indications-for-Use form page(s)
+    "form_estar",  # the eSTAR form's "Please provide your Indications for Use below."
+    "summary_section",  # the Summary's "Indications for Use" / "Intended Use" section
+    "not_found",  # readable form or Summary pages, no statement found -> text None
+    "no_text",  # no readable form or Summary page at all -> text None
+]
 
 # The live lead categories (ADR 0016; `pccp` added by ADR 0020 once the document
 # pass populated `has_pccp`). Foundation-model clearances are deliberately absent:
@@ -468,6 +476,48 @@ class DocumentExtractionRecord(BaseModel):
         return self
 
 
+class IntendedUseRecord(BaseModel):
+    """A device's own intended-use statement, verbatim (`silver_intended_use`).
+
+    Issue 4 PR 4C (ADR 0021). One row per extracted Summary. The page roles come
+    from the `silver_document_extraction` row for the same PDF (``ifu_form_pages``,
+    ``summary_pages``), not from a second segmentation, and the text is read from
+    the bronze fetch with the same ``content_sha256``. ``intended_use_text`` is a
+    span of the normalised page text (several form pages are joined by a blank
+    line), so it is evidence a curator can check against the PDF, never a
+    judgement (ADR 0007).
+    """
+
+    submission_number: str  # FK to DeviceRecord
+    extractor_version: str
+    extracted_at: dt.datetime
+    # Which bronze fetch the text came from, and which 4B segmentation placed it.
+    source_content_sha256: str
+    source_url: str | None = None
+    segmentation_version: str
+
+    # None = no statement read (see the basis), not "no intended use" (ADR 0012).
+    intended_use_text: str | None = None
+    intended_use_basis: IntendedUseBasis
+    intended_use_pages: list[int] = Field(default_factory=list)
+    # The label the statement followed, verbatim ("Indications for Use (Describe)").
+    intended_use_heading: str | None = None
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> IntendedUseRecord:
+        unread = self.intended_use_basis in ("not_found", "no_text")
+        if unread != (self.intended_use_text is None):
+            raise ValueError("intended_use_text is None exactly when the basis is unread")
+        if not unread and not self.intended_use_pages:
+            raise ValueError("an intended use read from the text needs the page(s) it came from")
+        return self
+
+
 class PredicateDateRecord(BaseModel):
     """A predicate's FDA decision date, from openFDA (`silver_predicate_dates`).
 
@@ -530,8 +580,9 @@ class LeadRecord(BaseModel):
     signal_new_submission: bool
     signal_cardiometabolic: bool
     signal_mortality_language: bool
-    # Which text the stage-1 keyword pass hit: device_name, classification_definition
-    # (product-code level) or intended_use_text (only where curation captured it).
+    # Which text the stage-1 keyword pass hit, most device-specific first (ADR 0021):
+    # summary_intended_use (the device's own statement, PR 4C), intended_use_text
+    # (curated), classification_definition (product-code level) or device_name.
     mortality_language_source: str | None = None
     # openFDA's life-sustain/support flag; None = not enriched, not "no".
     signal_life_sustaining: bool | None = None
@@ -567,6 +618,7 @@ TABLE_MODELS: dict[str, type[BaseModel]] = {
     "silver_evidence": EvidenceRecord,
     "silver_document_extraction": DocumentExtractionRecord,
     "silver_predicate_dates": PredicateDateRecord,
+    "silver_intended_use": IntendedUseRecord,
     "silver_companies": CompanyRecord,
     "gold_device_leads": LeadRecord,
 }

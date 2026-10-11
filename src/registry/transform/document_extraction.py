@@ -340,7 +340,36 @@ def segment(doc: Document) -> Segmentation:
     kinds: list[str] = []
     for page in doc.pages:
         kinds.append(classify_page(page, kinds[-1] if kinds else None))
+    return sections_for(doc, kinds)
 
+
+def page_kinds_from_roles(
+    page_count: int,
+    *,
+    letter_pages: Iterable[int] = (),
+    ifu_form_pages: Iterable[int] = (),
+    summary_pages: Iterable[int] = (),
+) -> list[str]:
+    """The per-page roles `segment` stored on a `silver_document_extraction` row.
+
+    A page in none of the three lists was classed ``unreadable``. Later passes
+    (PR 4C's intended use) rebuild the segmentation from these instead of
+    re-classifying pages, so every pass agrees on which page is which.
+    """
+    kinds = ["unreadable"] * page_count
+    for kind, pages in (
+        ("fda_letter", letter_pages),
+        ("ifu_form", ifu_form_pages),
+        ("summary", summary_pages),
+    ):
+        for page in pages or ():
+            if 1 <= page <= page_count:
+                kinds[page - 1] = kind
+    return kinds
+
+
+def sections_for(doc: Document, kinds: list[str]) -> Segmentation:
+    """Label-style headings inside the pages ``kinds`` marks as ``summary``."""
     spans = [
         (doc.starts[i], doc.starts[i] + len(doc.pages[i]))
         for i, kind in enumerate(kinds)

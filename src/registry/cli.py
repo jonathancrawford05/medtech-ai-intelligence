@@ -8,6 +8,7 @@ without shelling out.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -189,6 +190,80 @@ def extract_documents(verbose: bool = typer.Option(False, "--verbose", "-v")) ->
     )
     for line in result.yields.lines():
         typer.echo(f"  {line}")
+
+
+@app.command("extract-intended-use")
+def extract_intended_use(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Read each device's own intended-use statement, verbatim, out of its Summary.
+
+    Offline (ADR 0021): reuses the page roles `extract-documents` stored rather than
+    re-segmenting, rebuilds `silver_intended_use`, and prints coverage against
+    finding 0019's 99.7%. `monitor` and `curation-candidates` read the result.
+    """
+    _setup_logging(verbose)
+    from registry.spark_session import get_spark
+    from registry.transform import intended_use
+
+    settings = get_settings()
+    try:
+        result = intended_use.run(get_spark(settings), settings)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    table = settings.table_ref(intended_use.INTENDED_USE_TABLE)
+    typer.echo(
+        f"Wrote {result.written} row(s) to {table} (extractor {intended_use.INTENDED_USE_VERSION})"
+    )
+    for line in result.yields.lines():
+        typer.echo(f"  {line}")
+
+
+@app.command("curation-candidates")
+def curation_candidates(
+    csv_path: Annotated[
+        Path | None, typer.Option("--csv", help="Also write the batch to this CSV file.")
+    ] = None,
+    limit: Annotated[int, typer.Option(help="Candidates to print (the CSV has all).")] = 50,
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """The next curation batch: cardiometabolic devices whose own intended use trips
+    the stage-1 keyword pass but which config/mortality_seed.yaml has not reviewed.
+
+    Also measures stage 1 on the curated devices: the curator's excerpt vs the
+    device's full statement (`keyword_disagrees`). Evidence only; writes no flag.
+    """
+    _setup_logging(verbose)
+    from registry.mart import curation_candidates as cc
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    try:
+        report = cc.build(get_spark(settings), settings)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo("Stage 1 on the curated devices (ADR 0007; finding 0014 is the baseline):")
+    for line in report.agreement.lines():
+        typer.echo(f"  {line}")
+    typer.echo(
+        f"\n{len(report.candidates)} candidate(s) among {report.devices_in_scope} "
+        f"cardiometabolic device(s), {report.in_scope_with_statement} with a statement read:"
+    )
+    for c in report.candidates[:limit]:
+        when = f"{c.decision_date:%Y-%m-%d}" if c.decision_date else "----------"
+        pages = ",".join(map(str, c.intended_use_pages))
+        typer.echo(
+            f"  {c.submission_number:<10} {when}  {c.specialty_category:<14} "
+            f"[{', '.join(c.keyword_hits)}]  {c.device_name[:50]}"
+        )
+        typer.echo(f"      {c.intended_use_basis} p{pages}  {c.source_url or ''}")
+        typer.echo(f"      {c.intended_use_text[:200]}")
+    if len(report.candidates) > limit:
+        typer.echo(f"  ... {len(report.candidates) - limit} more (use --csv for all)")
+    if csv_path is not None:
+        cc.write_csv(report.candidates, csv_path)
+        typer.echo(f"Wrote {len(report.candidates)} candidate(s) to {csv_path}")
 
 
 @app.command("enrich-predicates")

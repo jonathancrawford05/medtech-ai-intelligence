@@ -57,6 +57,19 @@ def keyword_flag(intended_use_text: str) -> bool:
     return bool(_MORTALITY_KEYWORDS.search(intended_use_text or ""))
 
 
+def keyword_hits(text: str) -> list[str]:
+    """The distinct stage-1 terms ``text`` contains, lowercased, in order.
+
+    The evidence behind a `keyword_flag` hit, for a curator to check.
+    """
+    hits: list[str] = []
+    for match in _MORTALITY_KEYWORDS.finditer(text or ""):
+        term = match.group(0).lower()
+        if term not in hits:
+            hits.append(term)
+    return hits
+
+
 def _require(entry: dict[str, Any], field: str, submission: str) -> str:
     value = entry.get(field)
     text = str(value).strip() if value is not None else ""

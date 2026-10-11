@@ -13,10 +13,13 @@ from signals available before curation:
                         ``mortality_relevant_categories`` (cardiovascular, metabolic).
 ``mortality_language``  the stage-1 keyword pass (`mortality_seed.keyword_flag`,
                         widened in finding 0014) over the text that exists
-                        pre-curation: the device name, the openFDA product-code
-                        definition, and curated intended-use text where a
-                        curator happened to capture it. Device-level intended
-                        use for new devices arrives with roadmap Issue 4.
+                        pre-curation, most device-specific first (ADR 0021):
+                        the device's own intended use read from its Summary
+                        (PR 4C), curated intended-use text where a curator
+                        captured it, the openFDA product-code definition, and
+                        the device name. The Summary text is read at build
+                        time like the definition, never from silver_devices,
+                        so populating it cannot make a movement.
 ``life_sustaining``     openFDA's life-sustain/support flag (enrichment tier 1).
 ``pccp``                silver's ``has_pccp`` (the FDA clearance letter or a
                         classified Summary statement, ADR 0019) on either side
@@ -44,7 +47,9 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass, field
+from collections import Counter
+from collections.abc import Iterable
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from pyspark.sql import DataFrame
@@ -53,6 +58,7 @@ from pyspark.sql import functions as F
 from registry.config.settings import Settings, get_settings
 from registry.monitor import differ
 from registry.schemas import LEAD_CATEGORIES, LeadRecord, spark_schema_for
+from registry.transform import intended_use as device_intended_use
 from registry.transform import taxonomy
 from registry.transform.enrichment import ENRICHMENT_TABLE
 from registry.transform.mortality_seed import EVIDENCE_TABLE, keyword_flag
@@ -77,8 +83,16 @@ DEFERRED_CATEGORIES = {
 # the previous pull's rows (~ the scheduled ingest's 1,500 / 1,614 floor).
 MIN_PULL_FRACTION = 0.95
 
-# Precedence when more than one text hits: the most device-specific first.
-_LANGUAGE_SOURCES = ("intended_use_text", "classification_definition", "device_name")
+# Precedence when more than one text hits: the most device-specific first. The
+# device's own Summary statement leads (ADR 0021, superseding ADR 0016 Decision
+# 2's order): it is verbatim and whole, where curated text is a truncated excerpt
+# and the definition is shared by every device with the product code.
+_LANGUAGE_SOURCES = (
+    "summary_intended_use",
+    "intended_use_text",
+    "classification_definition",
+    "device_name",
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +107,9 @@ class LeadContext:
     # submission -> curated intended-use text, where curation captured it.
     # Text only: the curated judgement is deliberately not loaded.
     intended_use: dict[str, str] = field(default_factory=dict)
+    # submission -> the device's intended use read from its Summary (PR 4C,
+    # `silver_intended_use`); absent = not read.
+    summary_intended_use: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def load(cls, spark, settings: Settings | None = None) -> LeadContext:
@@ -126,12 +143,18 @@ class LeadContext:
             definitions=definitions,
             life_sustaining=sustaining,
             intended_use=intended_use,
+            summary_intended_use=device_intended_use.texts_by_submission(spark, settings),
         )
+
+    def without_summary_text(self) -> LeadContext:
+        """The context as it read before PR 4C, for the before/after measure."""
+        return replace(self, summary_intended_use={})
 
 
 def _language_source(row: dict[str, Any], ctx: LeadContext) -> str | None:
     key = row["submission_number"]
     texts = {
+        "summary_intended_use": ctx.summary_intended_use.get(key),
         "intended_use_text": ctx.intended_use.get(key),
         "classification_definition": ctx.definitions.get(key),
         "device_name": row.get("device_name"),
@@ -140,6 +163,18 @@ def _language_source(row: dict[str, Any], ctx: LeadContext) -> str | None:
         if keyword_flag(texts[source] or ""):
             return source
     return None
+
+
+def language_source_shift(
+    rows: Iterable[dict[str, Any]], ctx: LeadContext
+) -> Counter[tuple[str | None, str | None]]:
+    """``(source before PR 4C, source after) -> rows``, for the 4C measure.
+
+    Over recorded leads, or over every silver device as if each were one: how
+    many move to the device's own text, and how many gain a source at all.
+    """
+    before = ctx.without_summary_text()
+    return Counter((_language_source(r, before), _language_source(r, ctx)) for r in rows)
 
 
 def _pccp(rows: list[dict[str, Any]]) -> bool | None:

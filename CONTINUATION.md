@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-11 · **Branch:** `claude/elegant-euler-rwguzx` — Issue 4 **PR 4B+**: `pccp` lead category from silver's `has_pccp` (a signal, never a movement trigger) and PCCP share by decision year in `registry inspect`, split `clearance_letter` vs `summary_statement` ([ADR 0020](docs/adr/0020-pccp-lead-category.md), supersedes ADR 0016 Decision 3's PCCP part; [finding 0021](findings/0021-pccp-lead-category.md)). Open: run `registry inspect` on the Mac and confirm the `clearance_letter` column reproduces finding 0019's table; confirm `K260714` (from PR 4B).
+**Last updated:** 2026-10-11 · **Branch:** `claude/device-intended-use-text-90ugkt` — Issue 4 **PR 4C**: device-level intended use read verbatim from each Summary (3881 form → eSTAR form → Summary section) into `silver_intended_use`, reusing 4B's stored page roles; first in `mortality_language`'s precedence as `summary_intended_use`, a tag never a movement; `registry curation-candidates` for the next seed batch ([ADR 0021](docs/adr/0021-device-intended-use.md), supersedes ADR 0016 Decision 2's text precedence; [finding 0022](findings/0022-device-intended-use.md)). Open: the three full-scale measures in finding 0022, run on the Mac. From 4B+: confirm the `inspect` PCCP table and `K260714`.
 **Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -19,9 +19,9 @@ target `main` unless a stack is deliberate.
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
-| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). Enrichment-dependent fields are **`None` until their pass runs** ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)): `device_class` from openFDA (ADR 0013); predicate lineage, PCCP and cybersecurity from the Summary (PR 4B, ADR 0019). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)). **PR 4B** reads it: `registry extract-documents` → `silver_document_extraction` (all predicates + primary, cybersecurity presence, `has_pccp` from the FDA clearance letter; [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)), joined by `build-silver` into `predicate_submission_number`, `predicate_age_days` (via `registry enrich-predicates`), `has_pccp`, `cybersecurity_statement_present`. Verified at full scale ([finding 0020](findings/0020-summary-extraction-built.md)): predicate 1,486/1,541 (96.4%), cybersecurity 471, PCCP 68 letter + 5 Summary positives, 2 corrections, 1 negation, 1 inherited (extractor `4b.2`). |
+| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). Enrichment-dependent fields are **`None` until their pass runs** ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)): `device_class` from openFDA (ADR 0013); predicate lineage, PCCP and cybersecurity from the Summary (PR 4B, ADR 0019). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)). **PR 4B** reads it: `registry extract-documents` → `silver_document_extraction` (all predicates + primary, cybersecurity presence, `has_pccp` from the FDA clearance letter; [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)), joined by `build-silver` into `predicate_submission_number`, `predicate_age_days` (via `registry enrich-predicates`), `has_pccp`, `cybersecurity_statement_present`. Verified at full scale ([finding 0020](findings/0020-summary-extraction-built.md)): predicate 1,486/1,541 (96.4%), cybersecurity 471, PCCP 68 letter + 5 Summary positives, 2 corrections, 1 negation, 1 inherited (extractor `4b.2`). **PR 4C:** `registry extract-intended-use` → `silver_intended_use`, the device's own intended-use statement verbatim with page(s) and PDF URL, from 4B's stored page roles (not re-segmented); 19/21 on the recorded slice, full scale open ([ADR 0021](docs/adr/0021-device-intended-use.md), [finding 0022](findings/0022-device-intended-use.md)). |
 | **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
-| **4 — Monitoring** | 🟡 Built, awaiting real movement | PR A (#13, merged): silver self-identifying, rebuild gate, 90-day retention ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). PR B (#14, merged): `registry monitor` diffs the two newest distinct snapshots and appends leads to `gold_device_leads` on pre-curation signals — new submission, cardiometabolic, mortality language, life-sustaining, and since PR 4B+ **PCCP** (from silver's `has_pccp`, a signal not a trigger; [ADR 0020](docs/adr/0020-pccp-lead-category.md)); foundation-model **deferred** ([ADR 0016](docs/adr/0016-leads-filter-pre-curation-signals.md), [ADR 0017](docs/adr/0017-leads-output-surface.md), [finding 0017](findings/0017-first-diff-run-and-lead-categories.md)). Live today: one distinct snapshot, so "nothing to diff" is the correct answer. `registry inspect` reports the table in a LEADS section, and the PCCP adoption trend (share by decision year, stock not movement) under EXTRACTION. |
+| **4 — Monitoring** | 🟡 Built, awaiting real movement | PR A (#13, merged): silver self-identifying, rebuild gate, 90-day retention ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). PR B (#14, merged): `registry monitor` diffs the two newest distinct snapshots and appends leads to `gold_device_leads` on pre-curation signals — new submission, cardiometabolic, mortality language, life-sustaining, and since PR 4B+ **PCCP** (from silver's `has_pccp`, a signal not a trigger; [ADR 0020](docs/adr/0020-pccp-lead-category.md)); since PR 4C `mortality_language` reads the device's own Summary statement first (`summary_intended_use`, read at build time, never a silver column, so never a movement; [ADR 0021](docs/adr/0021-device-intended-use.md)); foundation-model **deferred** ([ADR 0016](docs/adr/0016-leads-filter-pre-curation-signals.md), [ADR 0017](docs/adr/0017-leads-output-surface.md), [finding 0017](findings/0017-first-diff-run-and-lead-categories.md)). Live today: one distinct snapshot, so "nothing to diff" is the correct answer. `registry inspect` reports the table in a LEADS section, and the PCCP adoption trend (share by decision year, stock not movement) under EXTRACTION. |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
 
 Scope was deliberately kept narrow (one source, bronze only) per the brief:
@@ -107,6 +107,24 @@ uv run registry enrich-predicates -v          # predicate decision dates (api.fd
 uv run registry build-silver && uv run registry inspect
 ```
 
+### Device-level intended use (Issue 4, PR 4C) — built, full scale open
+
+Offline ([ADR 0021](docs/adr/0021-device-intended-use.md)): `registry extract-intended-use`
+joins `silver_document_extraction`'s page roles to the bronze fetch with the same sha and
+reads the statement — 3881 form, else eSTAR form, else the Summary's Indications/Intended
+Use section — into `silver_intended_use`. `LeadContext` reads it at build time as the
+top `mortality_language` source. `registry curation-candidates` lists cardiometabolic
+devices whose statement trips stage 1 and that the seed has not reviewed, and measures
+`keyword_disagrees` on the 133 curated devices (excerpt vs statement). On the Mac:
+
+```bash
+uv run registry extract-intended-use -v      # coverage vs finding 0019's 1,537 / 1,541
+uv run registry inspect                      # INTENDED USE: source shift to summary_intended_use
+uv run registry curation-candidates --csv candidates.csv
+```
+
+Record the three outputs in [finding 0022](findings/0022-device-intended-use.md).
+
 ## 3. What exists, and where
 
 ```text
@@ -120,8 +138,10 @@ src/registry/
   ingest/openfda_client.py  typed api.fda.gov client (510k/pma/classification), cache + backoff
   ingest/summary_documents.py  510(k) Summary PDFs -> per-page text in bronze (ADR 0018)
   transform/             bronze_to_silver, enrichment, taxonomy, company resolution, mortality seed,
-                         document_extraction (Summary text -> predicates/cyber/PCCP), predicate_dates
-  mart/                  mortality_relevant (gold mart), leads (gold_device_leads)
+                         document_extraction (Summary text -> predicates/cyber/PCCP), predicate_dates,
+                         intended_use (device statement, from 4B's page roles)
+  mart/                  mortality_relevant (gold mart), leads (gold_device_leads),
+                         curation_candidates (next seed batch + stage-1 agreement)
   monitor/differ.py      snapshot pairing + movement classification (Issue 3)
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
@@ -211,7 +231,12 @@ findings/                        what was actually verified, and what was not
    year, `clearance_letter` vs `summary_statement` ([ADR 0020](docs/adr/0020-pccp-lead-category.md),
    [finding 0021](findings/0021-pccp-lead-category.md)). **Maintainer step:** `registry inspect`
    on the Mac; the letter column should equal finding 0019's table — record it in finding 0021.
-   **Next: PR 4C** (device-level intended use). Handoff: `docs/handoffs/issue-4-document-pass.md`.
+   **PR 4C (this branch):** device-level intended use, the top `mortality_language` source, and
+   the curation-candidates report ([ADR 0021](docs/adr/0021-device-intended-use.md),
+   [finding 0022](findings/0022-device-intended-use.md)). **Maintainer step:** the three
+   full-scale measures in finding 0022 (`extract-intended-use`, `inspect`,
+   `curation-candidates`) on the Mac. **Next: PR 4D** (LLM-assisted study facts; gold set
+   first). Handoff: `docs/handoffs/issue-4-document-pass.md`.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
    `pypdf` vs pdf.js glyph splitting to be read from the fixture manifest.
    **Roadmap follow-up (PR #11 review nit) — done in PR 4B as [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md):** PR 4B adds a new ADR amending **ADR 0013 Decision 4** to record that PCCP
@@ -259,9 +284,9 @@ findings/                        what was actually verified, and what was not
     an operation in neither `DATA_WRITE_OPERATIONS` nor `METADATA_ONLY_OPERATIONS` stops the walk as
     an unstamped write (gate rebuilds; differ refuses to pair across it and `monitor` exits 1).
     **Run order on a real lakehouse:** `ingest-fda-list` → `build-silver` → (`enrich-openfda` →
-    `build-silver`) → `monitor`. Until the FDA list changes, `monitor` says "nothing to diff".
-    **Open follow-ups:** (a) `mortality_language` is weak — no device-level intended-use text
-    exists for uncurated devices until Issue 4; (b) foundation-model needs a curated keyword set
+    `build-silver`) → (`extract-documents` → `extract-intended-use`) → `monitor`. Until the FDA list changes, `monitor` says "nothing to diff".
+    **Open follow-ups:** (a) ~~`mortality_language` is weak~~ — since PR 4C it reads the
+    device's own Summary statement first (ADR 0021); devices with no Summary keep the old sources; (b) foundation-model needs a curated keyword set
     and an ADR before it can be a category; PCCP is a category since PR 4B+ (ADR 0020); (c) withdrawn devices are still
     current rows in silver and so in the gold mart — the `removed` lead now labels them, but the
     mart does not filter them (decide separately); (d) wire `registry monitor` into the
