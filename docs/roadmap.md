@@ -130,7 +130,8 @@ fixtures.
 
 > **Status 2026-10-05 — started.** The spike is done and measured
 > ([finding 0011](../findings/0011-pdf-spike.md): 59/60 text layer, 57/60 predicates by regex,
-> 0/60 PCCP). The execution brief, split into PRs 4A–4D with session prompts, is
+> 0/60 PCCP — overturned at full scale by [finding 0019](../findings/0019-full-scale-document-measures.md):
+> the FDA clearance letter states a cleared PCCP in 68 documents). The execution brief, split into PRs 4A–4D with session prompts, is
 > [docs/handoffs/issue-4-document-pass.md](handoffs/issue-4-document-pass.md); it supersedes
 > the scope below where they differ. *(Was: deferred pending business buy-in, 2026-09-15.)*
 
@@ -155,9 +156,10 @@ work are therefore a query, not an estimate.
 - **Predicate extraction first.** 510(k) summaries state the predicate in a
   formulaic sentence; this is pattern extraction, not document understanding, and
   it unlocks the lineage graph.
-- Cybersecurity presence next — a section-heading search, not NLP. **PCCP is not in
-  the public Summary** (finding 0011, 0/60): it stays `None`, recorded by a new ADR
-  amending ADR 0013 Decision 4.
+- Cybersecurity presence next — a section-heading search, not NLP. **PCCP is signalled
+  by the FDA clearance letter** bundled in the PDF (finding 0019: 68 documents, rising from
+  0% of 2022 clearances to 11% of 2026's): populate `has_pccp` from it, recorded by a new
+  ADR amending ADR 0013 Decision 4.
 - Only then consider anything model-assisted, and if so, under ADR 0007's
   two-stage rule: a logged, reviewable pass, never a silent judgement.
 
