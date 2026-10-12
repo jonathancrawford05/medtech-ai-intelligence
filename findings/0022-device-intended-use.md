@@ -175,7 +175,6 @@ three are noisy in ways a follow-up could tighten:
 - **`K231038`, `K080896`:** the statement breaks across a page without a full stop, so
   the next page's opening came along (by design, for `K203469`-style breaks).
 
-
 ### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
 
 **Stage 1 holds on the full statements.** The confirmed devices are still all caught
