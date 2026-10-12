@@ -1,6 +1,6 @@
-# 0022 — Device-level intended use (PR 4C): built and verified on the real slice; full-scale measures open
+# 0022 — Device-level intended use (PR 4C): built, and measured at full scale
 
-**Date:** 2026-10-11 · **Status:** Built; verified on the 21 recorded Summaries and the committed seed in a cloud session. **Measure (3) verified at full scale on the maintainer's Mac 2026-10-12; measures (1) and (2) still need a run there** · **Component:** Issue 4 PR 4C, `transform/intended_use.py`, `mart/curation_candidates.py`, `mart/leads.py`, `lakehouse_report.py`, `registry extract-intended-use` / `curation-candidates` ([ADR 0021](../docs/adr/0021-device-intended-use.md))
+**Date:** 2026-10-11 · **Status:** Built; verified on the 21 recorded Summaries and the committed seed in a cloud session. **All three full-scale measures run on the maintainer's Mac 2026-10-12** (extractor `4c.1` over 4B `4b.2`) · **Component:** Issue 4 PR 4C, `transform/intended_use.py`, `mart/curation_candidates.py`, `mart/leads.py`, `lakehouse_report.py`, `registry extract-intended-use` / `curation-candidates` ([ADR 0021](../docs/adr/0021-device-intended-use.md))
 
 The code was written in a cloud session that cannot reach `accessdata.fda.gov` or the
 maintainer's lakehouse. So this finding separates what ran here, against committed
@@ -69,14 +69,48 @@ uv run registry curation-candidates --csv candidates.csv   # (3) keyword_disagre
 
 | Measure | Baseline | 4C full scale |
 |---|---|---|
-| (1) Intended use found | finding 0019: readable in 1,537 / 1,541 (99.7%) | _pending_ |
-| (1) by basis | — | _pending_ (`form_3881` / `form_estar` / `summary_section` / `not_found` / `no_text`) |
-| (2) `mortality_language_source` moves to `summary_intended_use`, every silver device as a lead | before: device text did not exist | _pending_ (and from which source; how many newly flagged) |
-| (2) … over the leads already recorded | `gold_device_leads` (finding 0017: one snapshot, likely empty) | _pending_ |
+| (1) Intended use found | finding 0019: readable in 1,537 / 1,541 (99.7%) | **1,515 / 1,541 (98.3%)**, 22 under the ceiling |
+| (1) by basis | — | `form_3881` **914** · `summary_section` **497** · `form_estar` **104** · `not_found` **14** · `no_text` **12** |
+| (2) `mortality_language_source` moves to `summary_intended_use`, every silver device as a lead (1,614) | before: 26 devices had a source | **89 move** (from `intended_use_text` 12, `device_name` 7, no source 70); **70 newly flagged**; 7 unchanged; 1,518 no source either way |
+| (2) … over the leads already recorded | `gold_device_leads` (finding 0017: one snapshot) | **n/a**: no `gold_device_leads` table yet on the lakehouse (`monitor` has not recorded a pair) |
 | (3) curated devices with a statement read | — | **132 / 133** |
 | (3) `keyword_disagrees` on the 11 confirmed | 0 / 11 on the curated excerpt (finding 0014) | **0 / 11** on the device statement; every confirmed device has one |
 | (3) negatives flagged, of 122 | 1 (`K192732`) on the curated excerpt | **2** on the device statement: `K192732`, **`K243349`** (new) |
 | (3) curation candidates | — | **5** among 168 cardiometabolic devices (154 with a statement read) |
+
+### Measures (1) and (2), read (maintainer's Mac, 2026-10-12, `extract-intended-use -v` and `inspect`)
+
+**Coverage: 1,515 / 1,541 (98.3%), 22 under finding 0019's ceiling.** The gap is two
+different things:
+
+- **`no_text` 12 (finding 0019: 4 unreadable).** 4B classes a page as unreadable when
+  it is under 100 characters or under 50% letters, which is stricter than finding 0019's
+  regex over raw text. So 8 documents where finding 0019 saw the wording somewhere have
+  no form or Summary page that 4B accepted. This pass inherits 4B's page roles by
+  design (ADR 0021 Decision 1). Recovering those 8 would mean changing 4B's floor, not
+  this pass.
+- **`not_found` 14.** These have readable form or Summary pages but no statement under
+  any label this pass knows. This is the visible edge of the "labels" assumption below.
+
+The form carries the statement in 1,018 documents (914 on the 3881, 104 on the eSTAR),
+66% of what was read. The Summary section covers the other 497.
+
+**The source shift: 89 of 1,614 devices move to their own statement.** Before 4C, 26
+devices had any `mortality_language` source: 19 move and 7 keep theirs. The 7 are
+devices with no statement, or whose statement has no stage-1 term while their name or
+definition does. The other **70 are newly flagged**: their name, product-code definition
+and curated text never hit, and their statement does. That raises the share of devices
+carrying the signal from 26 to 96 (1.6% → 5.9%).
+
+**Assumed, not yet checked: what the 70 are.** They are spread across all panels, not
+just the 168 cardiometabolic devices, because the curation report found only 5
+unreviewed cardiometabolic hits. The likely bulk is radiology triage for intracranial
+**hemorrhage**: `h(?:ae|e)morrhag\w*` was added in finding 0014 for `K233249`
+(hemorrhage *risk*), and it also matches every ICH-detection device. Stage 1 is
+recall-oriented and never filters the mart (ADR 0014), so this is not wrong. But if
+most of the 70 are ICH triage, `mortality_language` will be dominated by them in the
+leads, and the term may want narrowing. To check, count the matched terms over the
+70 (see How to re-check).
 
 ### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
 
@@ -106,8 +140,7 @@ from the list because their statements trip no stage-1 term, not because no stat
 was read. 14 of the 168 in-scope devices have no statement; the candidates CSV does not
 list them.
 
-Paste the remaining two outputs into this table, and read a sample of the candidates and of
-any newly flagged negatives before the next curation batch.
+Before the next curation batch, read a sample of the candidates and of any newly flagged negatives.
 
 ## Assumed
 
@@ -120,6 +153,37 @@ any newly flagged negatives before the next curation batch.
   measure (3) shows the cost on curated negatives.
 
 ## How to re-check
+
+The matched terms over the 70 newly flagged devices (Mac; one-off, not pipeline code):
+
+```python
+from collections import Counter
+from registry import tables
+from registry.config.settings import get_settings
+from registry.mart import leads
+from registry.spark_session import get_spark
+from registry.transform.mortality_seed import keyword_hits
+
+s = get_settings()
+spark = get_spark(s)
+ctx = leads.LeadContext.load(spark, s)
+rows = [
+    r.asDict()
+    for r in tables.read_table(spark, s, "silver_devices")
+    .select("submission_number", "device_name", "specialty_category")
+    .collect()
+]
+new = [
+    r
+    for r in rows
+    if leads._language_source(r, ctx.without_summary_text()) is None
+    and leads._language_source(r, ctx) == "summary_intended_use"
+]
+print(len(new), Counter(r["specialty_category"] for r in new))
+print(
+    Counter(t for r in new for t in keyword_hits(ctx.summary_intended_use[r["submission_number"]]))
+)
+```
 
 ```bash
 uv run pytest tests/test_intended_use.py tests/test_curation_candidates.py \
