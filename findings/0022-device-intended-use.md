@@ -71,7 +71,7 @@ uv run registry curation-candidates --csv candidates.csv   # (3) keyword_disagre
 |---|---|---|
 | (1) Intended use found | finding 0019: readable in 1,537 / 1,541 (99.7%) | **1,515 / 1,541 (98.3%)**, 22 under the ceiling |
 | (1) by basis | — | `form_3881` **914** · `summary_section` **497** · `form_estar` **104** · `not_found` **14** · `no_text` **12** |
-| (2) `mortality_language_source` moves to `summary_intended_use`, every silver device as a lead (1,614) | before: 26 devices had a source | **89 move** (from `intended_use_text` 12, `device_name` 7, no source 70); **70 newly flagged**; 7 unchanged; 1,518 no source either way |
+| (2) `mortality_language_source` moves to `summary_intended_use`, every silver device as a lead (1,614) | before: 26 devices had a source | **89 move** (from `intended_use_text` 12, `device_name` 7, no source 70); **70 newly flagged**; 7 unchanged; 1,518 no source either way. **After the hemorrhage narrowing: 43 move** (`intended_use_text` 12, `device_name` 5, no source 26); **26 newly flagged**; 7 unchanged; 1,564 no source either way |
 | (2) … over the leads already recorded | `gold_device_leads` (finding 0017: one snapshot) | **n/a**: no `gold_device_leads` table yet on the lakehouse (`monitor` has not recorded a pair) |
 | (3) curated devices with a statement read | — | **132 / 133** |
 | (3) `keyword_disagrees` on the 11 confirmed | 0 / 11 on the curated excerpt (finding 0014) | **0 / 11** on the device statement; every confirmed device has one |
@@ -136,8 +136,12 @@ largest group tagged `mortality_language`. **Both follow-ups were folded into th
    (`test_curation_candidates.py`).
 
 **Measures (2) and (3) above were taken before this change.** The candidates have
-been re-run (below). The `inspect` source shift has not; the expectation is that newly
-flagged drops from 70 to about 26 as the 44 hemorrhage hits go.
+been re-run (below), and so has the `inspect` source shift: **newly flagged drops from 70
+to 26**, exactly the 44 hemorrhage hits removed. 43 devices now take their source from
+their own statement (12 from curated text, 5 from the device name, 26 newly flagged), and
+7 keep theirs. In all, **50 of 1,614 devices (3.1%)** carry `mortality_language`, against
+96 under the bare term and 24 before 4C under the narrowed one. The `device_name` origin
+fell from 7 to 5: two device names matched only the bare hemorrhage term.
 
 ### The candidates after the change (maintainer's Mac, 2026-10-12, `candidates.csv`)
 
