@@ -89,11 +89,18 @@ for `pccp` (ADR 0020).
 
 ## Decision 5 — offered to curation, and measured against it
 
-`registry curation-candidates [--csv PATH]` lists cardiovascular/metabolic devices
-(the taxonomy's `mortality_relevant_categories`) whose statement trips the stage-1
-pass but which `config/mortality_seed.yaml` has not reviewed — the next batch, newest
-first, each with the matched terms, the statement, its page(s) and its PDF. It writes
-nothing to the seed: a candidate is "read this", not "this is one".
+`registry curation-candidates [--csv PATH]` lists the devices whose statement trips
+the stage-1 pass but which `config/mortality_seed.yaml` has not reviewed — the next
+batch, newest first, each with the matched terms, the statement, its page(s) and its
+PDF. It writes nothing to the seed: a candidate is "read this", not "this is one".
+
+A device is in scope (`scope` on each row) when its specialty is in the taxonomy's
+`mortality_relevant_categories` (`specialty`), **or** when its statement names the
+heart — coronary, cardiac, cardio…, heart, myocard…, atheroscler… (`statement`).
+The second arm was added on finding 0022's full-scale evidence: 18 coronary-plaque
+tools (Cleerly, CardIQ, AVIEW CAC, …) are cleared through Radiology, which is in scope
+by finding 0012's rule, but a specialty-only scope never offered them. It is anatomy,
+not risk, and the stage-1 hit is still required.
 
 The same command measures stage 1 on the curated devices: `keyword_disagrees`
 (confirmed, stage 1 misses) and negatives flagged, on the curator's excerpt and on the
@@ -110,6 +117,11 @@ against finding 0019's 99.7%, and how many devices' (and recorded leads')
 - More text means more stage-1 hits, including on negatives: a full statement can say
   "risk of death" in a caveat. Leads are recall-oriented (ADR 0016 Decision 1), so this
   is accepted; the curated-negatives line of the measure keeps the cost visible.
+- The full statements exposed one stage-1 term as too broad: the bare
+  `h(?:ae|e)morrhag\w*` (finding 0014) flagged 44 intracranial-hemorrhage triage tools
+  (finding 0022). It now matches only in a risk frame ("hemorrhage risk", "risk of/for
+  hemorrhage"), which keeps `K233249`, the device it was added for. Stage 1 stays a lead
+  flag; the mart is unaffected (ADR 0014).
 - A new monitored device is often in silver before its Summary is fetched (ADR 0020's
   consequence holds here too): its first lead reads the old sources. The candidates
   report, not the leads, is where a late statement shows up.

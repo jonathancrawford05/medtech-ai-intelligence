@@ -46,7 +46,11 @@ _MORTALITY_KEYWORDS = re.compile(
     # stays a cheap, recall-oriented lead flag -- never the mart filter (ADR 0014),
     # so widening it only shrinks the keyword_disagrees gap.
     r"hemodynamic instabilit\w*|hypotens\w*|hypoperfus\w*|"
-    r"loss of pulse|h(?:ae|e)morrhag\w*|deteriorat\w*|plaque\w*"
+    r"loss of pulse|deteriorat\w*|plaque\w*|"
+    # Hemorrhage only as a *risk* (APPRAISE-HRI, "hemorrhage risk"). The bare term
+    # flagged 44 intracranial-hemorrhage triage tools once device statements were
+    # read (finding 0022): they detect a bleed, they do not stratify mortality.
+    r"h(?:ae|e)morrhag\w* risk|risk (?:of|for) h(?:ae|e)morrhag\w*"
     r")\b",
     re.IGNORECASE,
 )

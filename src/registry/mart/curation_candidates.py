@@ -4,9 +4,15 @@ The mortality seed (`config/mortality_seed.yaml`) was curated by hand over the
 cardiovascular devices, from intended-use text a Cowork session copied out of each
 PDF; 21 were omitted for want of clean text (finding 0012). PR 4C reads every
 Summary's intended use verbatim, so the stage-1 keyword pass can now run over the
-device's own statement for *every* cardiometabolic device. This report lists the
-ones whose statement trips it but which the seed has not reviewed: the next batch,
-each with the matched terms, the statement, its page and its PDF.
+device's own statement for *every* device. This report lists the ones in scope
+whose statement trips it but which the seed has not reviewed: the next batch, each
+with the matched terms, the statement, its page and its PDF.
+
+In scope (`scope` on each candidate): a cardiometabolic specialty (the taxonomy's
+`mortality_relevant_categories`), **or** any other specialty whose statement speaks
+of the heart (`_CARDIOVASCULAR_LANGUAGE`). Finding 0022 found 18 coronary-plaque
+tools cleared through Radiology that a specialty-only scope never offered -- the
+"cardiovascular-risk tool cleared through Radiology" ADR 0016 warned about.
 
 It also measures stage 1 against the curated judgements (`keyword_agreement`):
 with the device's full statement in place of the curator's truncated excerpt, how
@@ -21,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -29,6 +36,12 @@ from typing import Any
 from registry.config.settings import Settings, get_settings
 from registry.schemas import EvidenceRecord
 from registry.transform import intended_use, mortality_seed, taxonomy
+
+# The heart, named: what brings a device from another specialty into scope. Anatomy,
+# not risk -- the stage-1 hit is still required on top of it.
+_CARDIOVASCULAR_LANGUAGE = re.compile(
+    r"\b(?:coronar\w*|cardiac|cardio\w*|heart|myocard\w*|atheroscler\w*)\b", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +57,7 @@ class Candidate:
     intended_use_pages: list[int]
     intended_use_text: str
     source_url: str | None
+    scope: str  # "specialty" (cardiometabolic) | "statement" (cardiovascular language)
 
 
 def candidates(
@@ -53,19 +67,27 @@ def candidates(
     reviewed: set[str],
     categories: frozenset[str],
 ) -> list[Candidate]:
-    """Cardiometabolic devices whose own statement trips stage 1, not yet reviewed.
+    """In-scope devices whose own statement trips stage 1, not yet reviewed.
 
-    Newest decision first, so the batch starts with what is most current.
+    In scope: a cardiometabolic specialty, or a statement that speaks of the heart
+    (module docstring). Newest decision first, so the batch starts with what is most
+    current.
     """
     out: list[Candidate] = []
     for device in devices:
         key = device["submission_number"]
-        if device["specialty_category"] not in categories or key in reviewed:
+        if key in reviewed:
             continue
         row = statements.get(key)
         text = row["intended_use_text"] if row else None
         hits = mortality_seed.keyword_hits(text or "")
         if not hits:
+            continue
+        if device["specialty_category"] in categories:
+            scope = "specialty"
+        elif _CARDIOVASCULAR_LANGUAGE.search(text):
+            scope = "statement"
+        else:
             continue
         out.append(
             Candidate(
@@ -80,6 +102,7 @@ def candidates(
                 intended_use_pages=list(row["intended_use_pages"] or []),
                 intended_use_text=text,
                 source_url=row.get("source_url"),
+                scope=scope,
             )
         )
     out.sort(key=lambda c: (c.decision_date or dt.date.min, c.submission_number), reverse=True)

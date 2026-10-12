@@ -226,8 +226,9 @@ def curation_candidates(
     limit: Annotated[int, typer.Option(help="Candidates to print (the CSV has all).")] = 50,
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    """The next curation batch: cardiometabolic devices whose own intended use trips
-    the stage-1 keyword pass but which config/mortality_seed.yaml has not reviewed.
+    """The next curation batch: devices whose own intended use trips the stage-1
+    keyword pass but which config/mortality_seed.yaml has not reviewed -- in a
+    cardiometabolic specialty, or another one whose statement speaks of the heart.
 
     Also measures stage 1 on the curated devices: the curator's excerpt vs the
     device's full statement (`keyword_disagrees`). Evidence only; writes no flag.
@@ -246,15 +247,18 @@ def curation_candidates(
     typer.echo("Stage 1 on the curated devices (ADR 0007; finding 0014 is the baseline):")
     for line in report.agreement.lines():
         typer.echo(f"  {line}")
+    by_language = sum(c.scope == "statement" for c in report.candidates)
     typer.echo(
-        f"\n{len(report.candidates)} candidate(s) among {report.devices_in_scope} "
-        f"cardiometabolic device(s), {report.in_scope_with_statement} with a statement read:"
+        f"\n{len(report.candidates)} candidate(s): {len(report.candidates) - by_language} among "
+        f"{report.devices_in_scope} cardiometabolic device(s) "
+        f"({report.in_scope_with_statement} with a statement read), {by_language} from "
+        "another specialty by cardiovascular language:"
     )
     for c in report.candidates[:limit]:
         when = f"{c.decision_date:%Y-%m-%d}" if c.decision_date else "----------"
         pages = ",".join(map(str, c.intended_use_pages))
         typer.echo(
-            f"  {c.submission_number:<10} {when}  {c.specialty_category:<14} "
+            f"  {c.submission_number:<10} {when}  {c.specialty_category:<14} {c.scope:<9} "
             f"[{', '.join(c.keyword_hits)}]  {c.device_name[:50]}"
         )
         typer.echo(f"      {c.intended_use_basis} p{pages}  {c.source_url or ''}")

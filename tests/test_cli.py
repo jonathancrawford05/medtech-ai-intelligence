@@ -310,6 +310,7 @@ class TestCurationCandidates:
                 intended_use_pages=[3],
                 intended_use_text="Predicts in-hospital mortality.",
                 source_url=f"https://example.test/K70000{i}.pdf",
+                scope="statement" if i == 0 else "specialty",
             )
             for i in range(n)
         ]
@@ -327,8 +328,9 @@ class TestCurationCandidates:
         out = self._invoke(monkeypatch, self._report(3))
         assert out.exit_code == 0, out.output
         assert "keyword_disagrees" in out.output
-        assert "3 candidate(s) among 160 cardiometabolic device(s), 150 with a statement" in (
-            out.output
+        assert (
+            "3 candidate(s): 2 among 160 cardiometabolic device(s) (150 with a statement read), "
+            "1 from another specialty by cardiovascular language" in " ".join(out.output.split())
         )
         assert "K700000" in out.output and "[mortality]" in out.output
         assert "form_3881 p3  https://example.test/K700000.pdf" in out.output

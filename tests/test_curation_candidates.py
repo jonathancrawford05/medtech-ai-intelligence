@@ -82,7 +82,7 @@ class TestCandidates:
         statements = _rows(
             ("K1", "Estimates the risk of death."),
             ("K2", "Predicts hemodynamic instability."),
-            ("K3", "Predicts mortality."),  # radiology: out of scope
+            ("K3", "Predicts mortality."),  # radiology, no cardiovascular language
             ("K4", "Detects atrial fibrillation."),  # no stage-1 term
             ("K5", "Predicts mortality."),  # already curated
         )
@@ -90,6 +90,27 @@ class TestCandidates:
         assert [c.submission_number for c in found] == ["K2", "K1"]
         assert found[0].keyword_hits == ["hemodynamic instability"]
         assert found[1].keyword_hits == ["risk of death"]
+        assert {c.scope for c in found} == {"specialty"}
+
+    def test_cardiovascular_language_brings_in_other_specialties(self):
+        """Finding 0022: 18 coronary-plaque tools are cleared through Radiology, so a
+        specialty-only scope never offered them. Their statement says "coronary"."""
+        statements = _rows(
+            ("K3", "Quantifies coronary artery plaque from CCTA."),  # in, by language
+        )
+        (only,) = self._build(statements)
+        assert (only.submission_number, only.scope) == ("K3", "statement")
+        assert only.keyword_hits == ["plaque"]
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Detects dental plaque and caries on intraoral scans.",  # TRIOS Dx shape
+            "Flags intracranial hemorrhage risk on head CT.",  # stage-1 hit, no heart
+        ],
+    )
+    def test_other_specialties_need_cardiovascular_language(self, text):
+        assert self._build(_rows(("K3", text))) == []
 
     def test_each_candidate_carries_its_evidence(self):
         statements = {"K2": {**_statement("K232699"), "intended_use_text": "Predicts death."}}

@@ -118,15 +118,27 @@ radiology devices. Two stage-1 terms account for 63 of the 70:
 70 new flags are devices curation would want to read: the coronary plaque tools. About
 50 are noise, 44 of them from the hemorrhage term. Stage 1 never filters the mart
 (ADR 0014), so nothing here is wrong. But in the leads, ICH triage would now be the
-largest group tagged `mortality_language`. Two follow-ups, both outside 4C's scope:
+largest group tagged `mortality_language`. **Both follow-ups were folded into this PR
+(2026-10-12, at the maintainer's request):**
 
-1. **Narrow `h(?:ae|e)morrhag\w*` from evidence**, the way finding 0014 widened it. For
-   example, require a risk or prognosis frame ("risk of hemorrhage", "hemorrhage risk"),
-   or drop it in favour of the phrasing `K233249` actually uses. The check is finding
-   0014's: 0 / 11 confirmed still caught, with the 44 ICH tools no longer flagged.
-2. **Scope the curation report by language, not only by specialty.** Add radiology
-   devices whose statement hits a cardiovascular term (plaque, coronary) so that the 18
-   plaque tools reach the next batch.
+1. **The hemorrhage term is narrowed to a risk frame:** `h(?:ae|e)morrhag\w* risk |
+   risk (?:of|for) h(?:ae|e)morrhag\w*`. The evidence is the same kind finding 0014
+   used. Across the 133 curated excerpts, the bare term hit exactly one device,
+   `K233249`, and only as "hemorrhage risk". That device still matches; the
+   ICH-detection phrasings do not (`test_mortality_seed.py`). The finding 0014 baseline
+   on the committed seed still holds: 0 / 11 confirmed missed, 1 negative (`K192732`)
+   flagged.
+2. **The curation report now scopes by language as well as specialty.** A device from
+   any specialty is in scope when its statement names the heart (coronary, cardiac,
+   cardio…, heart, myocard…, atheroscler…), and each row says why (`scope`:
+   `specialty` | `statement`). The stage-1 hit is still required. So the coronary-plaque
+   tools come in, while dental plaque and head-CT hemorrhage tools stay out
+   (`test_curation_candidates.py`).
+
+**Measures (2) and (3) above were taken before this change.** Re-run on the Mac
+(`inspect`, `curation-candidates`). Expected: newly flagged drops from 70 to about 26
+(the 44 hemorrhage hits go), and candidates rise from 5 to about 23 (the 18 radiology
+plaque tools join, provided their statements say "coronary"/"cardiac").
 
 ### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
 
