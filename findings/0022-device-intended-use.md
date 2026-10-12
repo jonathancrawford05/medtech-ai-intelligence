@@ -76,7 +76,7 @@ uv run registry curation-candidates --csv candidates.csv   # (3) keyword_disagre
 | (3) curated devices with a statement read | — | **132 / 133** |
 | (3) `keyword_disagrees` on the 11 confirmed | 0 / 11 on the curated excerpt (finding 0014) | **0 / 11** on the device statement; every confirmed device has one |
 | (3) negatives flagged, of 122 | 1 (`K192732`) on the curated excerpt | **2** on the device statement: `K192732`, **`K243349`** (new) |
-| (3) curation candidates | — | **5** among 168 cardiometabolic devices (154 with a statement read) |
+| (3) curation candidates | — | **5** among 168 cardiometabolic devices (154 with a statement read); **28** after the scope and hemorrhage changes (5 `specialty` + 23 `statement`) |
 
 ### Measures (1) and (2), read (maintainer's Mac, 2026-10-12, `extract-intended-use -v` and `inspect`)
 
@@ -135,10 +135,46 @@ largest group tagged `mortality_language`. **Both follow-ups were folded into th
    tools come in, while dental plaque and head-CT hemorrhage tools stay out
    (`test_curation_candidates.py`).
 
-**Measures (2) and (3) above were taken before this change.** Re-run on the Mac
-(`inspect`, `curation-candidates`). Expected: newly flagged drops from 70 to about 26
-(the 44 hemorrhage hits go), and candidates rise from 5 to about 23 (the 18 radiology
-plaque tools join, provided their statements say "coronary"/"cardiac").
+**Measures (2) and (3) above were taken before this change.** The candidates have
+been re-run (below). The `inspect` source shift has not; the expectation is that newly
+flagged drops from 70 to about 26 as the 44 hemorrhage hits go.
+
+### The candidates after the change (maintainer's Mac, 2026-10-12, `candidates.csv`)
+
+There are **28 candidates, against the 5 before.** I had expected about 23; the
+difference is 5 devices.
+
+- **`specialty` 5:** the same five as before. `K231038` (GHI) and the four Tissue of
+  Origin tests, whose statements say they are *not* intended "to predict disease course
+  or survival". The "survival" hit is a negation; curating them as negatives retires
+  them.
+- **`statement` 23:**
+  - **22 coronary plaque / calcium tools.** These are the 18 plaque tools from the 70,
+    plus 4 whose *name* already said "Plaque" and so were not "newly flagged": DEEPVESSEL
+    Plaque `K260497`, cvi42 Coronary Plaque `K251027`, Salix Coronary Plaque `K251837`
+    and CaRi-Plaque `K242240`. All are in scope by finding 0012's plaque rule. The
+    strongest for the seed are the two AVIEW CAC clearances (`K243696`, `K233211`): "risk
+    stratification based on calcium score, gender, and age". Next come HealthCCS /
+    HealthCCSng and BriefCase-Quantification: "calcified plaques …, which present a risk
+    for coronary artery disease".
+  - **`K201103` Xeleris V:** noise. It hits "death" on "Brain death" and is in scope
+    because its Alcyone CFR module names "Coronary" / "Myocardial".
+- **Out, as designed:** dental `K260082` (no heart language), and every
+  intracranial-hemorrhage tool (the narrowed term).
+
+**Extraction quality, seen in the batch.** All of these statements are verbatim, but
+three are noisy in ways a follow-up could tighten:
+
+- **`K260497` (eSTAR):** the text layer puts the form's field prompts before the
+  statement. The eSTAR span between "Please provide your Indications for Use below."
+  and "Please select the types of uses" is therefore empty, so the extractor fell back
+  to the Summary section. That section carries the prompts and "He lp Te xt" debris.
+- **`K243038`:** a 3881 form whose number field reads "Submission Number (if known)" and
+  whose page lacks "FORM FDA 3881". 4B classed the page as Summary, so the whole form,
+  boilerplate included, came through as `summary_section`.
+- **`K231038`, `K080896`:** the statement breaks across a page without a full stop, so
+  the next page's opening came along (by design, for `K203469`-style breaks).
+
 
 ### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
 
