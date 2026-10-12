@@ -21,11 +21,12 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0013](0013-openfda-enrichment-architecture.md) | openFDA enrichment: a separate two-tier table; what the API cannot give | Accepted; Decision 4 superseded by [0019](0019-deterministic-summary-extraction.md) |
 | [0014](0014-gold-mortality-mart.md) | The gold mortality mart filters on the confirmed flag alone | Accepted |
 | [0015](0015-silver-snapshot-pairing.md) | Pair adjacent silver builds by content snapshot, via Delta time travel | Accepted (amended); "Reading history" superseded by [0017](0017-leads-output-surface.md) |
-| [0016](0016-leads-filter-pre-curation-signals.md) | Leads are filtered on pre-curation signals, never the confirmed flag | Accepted; Decision 3's PCCP deferral superseded by [0020](0020-pccp-lead-category.md) |
+| [0016](0016-leads-filter-pre-curation-signals.md) | Leads are filtered on pre-curation signals, never the confirmed flag | Accepted; Decision 3's PCCP deferral superseded by [0020](0020-pccp-lead-category.md); Decision 2's `mortality_language` text precedence superseded by [0021](0021-device-intended-use.md) |
 | [0017](0017-leads-output-surface.md) | Leads output: append-only gold table, `registry monitor`, fail-safe history walk | Accepted |
 | [0018](0018-summary-document-acquisition.md) | 510(k) Summary acquisition: per-page text in append-only bronze; PDFs optional on disk; K-numbers only | Accepted |
 | [0019](0019-deterministic-summary-extraction.md) | Deterministic Summary extraction: predicates (all + primary), cybersecurity presence, `has_pccp` from the FDA clearance letter | Accepted |
 | [0020](0020-pccp-lead-category.md) | PCCP becomes a lead category: a signal from silver's `has_pccp`, never a trigger; PCCP share by year in `inspect` | Accepted |
+| [0021](0021-device-intended-use.md) | Device-level intended use read verbatim from the Summary (reusing 4B's page roles); first in `mortality_language`'s precedence; a tag, never a movement; curation candidates | Accepted |
 
 ## Writing a new one
 

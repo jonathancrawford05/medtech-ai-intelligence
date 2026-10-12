@@ -26,6 +26,7 @@ def _ctx(**overrides):
         "definitions": {},
         "life_sustaining": {"DEN1000": True},
         "intended_use": {},
+        "summary_intended_use": {},
     }
     base.update(overrides)
     return leads.LeadContext(**base)
@@ -223,6 +224,83 @@ class TestPccpSignal:
         lead = {r.submission_number: r for r in leads_}["K800"]
         assert lead.categories == ["new_submission"]
         assert lead.signal_pccp is False
+
+
+# Every device's own Summary statement says "mortality": the most a populated
+# `silver_intended_use` could ever push into the keyword pass.
+_MORTAL = "Software that estimates the risk of in-hospital mortality."
+
+
+def _statements(keys) -> dict[str, str]:
+    return dict.fromkeys(keys, _MORTAL)
+
+
+class TestSummaryIntendedUse:
+    """ADR 0021: the device's own intended use (PR 4C) is the first text the
+    stage-1 pass reads, and -- derived from the document, read at build time, never
+    a silver_devices column -- it tags a movement and never makes one."""
+
+    ALL = ("K100", "K200", "K300", "K400", "K500", "K600", "K700", "K800", "K900", "DEN1000")
+
+    def test_populating_it_for_existing_devices_records_no_leads(self):
+        """The first `extract-intended-use` run reads ~1,537 statements at once, and
+        the next silver build is content-identical (the statement is not a silver
+        column). That is our pipeline catching up, not the FDA moving: no leads,
+        however much mortality language the statements carry."""
+        p, c = _versions()
+        before = prev_rows()
+        after = [{**r, "source_snapshot_id": CURR} for r in prev_rows()]
+        moves = differ.classify(before, after, PREV, CURR)
+        assert moves == []
+        ctx = _ctx(summary_intended_use=_statements(self.ALL))
+        assert leads.build_leads(moves, ctx, prev=p, curr=c, detected_at=DETECTED) == []
+
+    def test_it_never_turns_stock_into_a_lead(self):
+        """Over the real fixture pair: with a statement for every device, the leads
+        are exactly the movements -- K100/K200 (unmoved) stay out; only K600 (a
+        removal with no other signal) gains a lead, from its own text."""
+        without = _summary(_build())
+        with_text = _summary(_build(ctx=_ctx(summary_intended_use=_statements(self.ALL))))
+        assert not {k for k, _ in with_text} & {"K100", "K200"}
+        assert set(with_text) - set(without) == {("K600", "removed")}
+        assert all("mortality_language" in cats for cats in with_text.values()), (
+            "every movement carries the statement's language"
+        )
+
+    def test_it_is_not_a_silver_column(self):
+        """Structural half of the no-flood rule: the differ cannot see it."""
+        from registry.schemas import DeviceRecord
+
+        assert not any("intended_use" in f for f in DeviceRecord.model_fields)
+        assert not any("intended_use" in f for f in differ.SOURCE_FIELDS)
+
+    def test_it_outranks_every_other_source(self):
+        ctx = _ctx(
+            summary_intended_use={"K900": "Predicts death within 30 days."},
+            intended_use={"K900": "Estimates 30-day mortality."},
+            definitions={"K900": "Software to predict the risk of death."},
+        )
+        lead = {r.submission_number: r for r in _build(ctx=ctx)}["K900"]
+        assert lead.mortality_language_source == "summary_intended_use"
+
+    def test_a_statement_without_the_language_falls_through(self):
+        """Precedence picks the first text that *hits*: K900's statement says nothing
+        about death, so its name still carries the signal."""
+        ctx = _ctx(summary_intended_use={"K900": "Analyses ECG recordings."})
+        lead = {r.submission_number: r for r in _build(ctx=ctx)}["K900"]
+        assert lead.mortality_language_source == "device_name"
+
+    def test_the_source_shift_measure(self):
+        """The 4C measure: which rows' source moves to the device's own text."""
+        rows = [r for r in curr_rows() if r["submission_number"] in ("K100", "K900", "K800")]
+        ctx = _ctx(
+            summary_intended_use={"K100": _MORTAL, "K900": _MORTAL, "K800": "Analyses ECGs."},
+        )
+        assert leads.language_source_shift(rows, ctx) == {
+            (None, "summary_intended_use"): 1,  # K100: newly flagged
+            ("device_name", "summary_intended_use"): 1,  # K900: moves
+            (None, None): 1,  # K800: read, no language
+        }
 
 
 class TestTheConfirmedFlagIsNeverTheGate:
@@ -446,6 +524,41 @@ class TestRun:
         assert by_key["K800"].categories == ["new_submission", "mortality_language"]
         assert by_key["K800"].mortality_language_source == "intended_use_text"
         assert by_key["DEN1000"].categories == ["new_submission", "life_sustaining"]
+
+    def test_the_summary_statement_is_read_and_floods_nothing(self, spark, lakehouse):
+        """`silver_intended_use` is read by table: K900's statement becomes its source,
+        and statements for the unmoved K100/K200 record nothing."""
+        from registry import tables
+        from registry.schemas import IntendedUseRecord, spark_schema_for
+        from registry.transform import intended_use
+
+        self._two_snapshots(spark, lakehouse)
+        statements = [
+            IntendedUseRecord(
+                submission_number=key,
+                extractor_version=intended_use.INTENDED_USE_VERSION,
+                extracted_at=DETECTED,
+                source_content_sha256="ab" * 32,
+                segmentation_version="4b.2",
+                intended_use_text=_MORTAL,
+                intended_use_basis="form_3881",
+                intended_use_pages=[3],
+            ).model_dump()
+            for key in ("K100", "K200", "K900")
+        ]
+        tables.write_table(
+            spark.createDataFrame(statements, spark_schema_for(IntendedUseRecord)),
+            lakehouse,
+            intended_use.INTENDED_USE_TABLE,
+            mode="overwrite",
+        )
+
+        result = leads.run(spark, lakehouse, now=DETECTED)
+
+        by_key = {r.submission_number: r for r in result.leads}
+        assert not {"K100", "K200"} & set(by_key)
+        assert by_key["K900"].mortality_language_source == "summary_intended_use"
+        assert len(result.leads) == 7  # the same seven movements as without statements
 
     def test_a_truncated_pull_suppresses_removals(self, spark, lakehouse):
         """Independent review of PR #13: the row-vs-commit mismatch flags every

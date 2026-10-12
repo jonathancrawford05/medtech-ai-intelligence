@@ -187,6 +187,32 @@ class TestStage1KeywordCoverage:
     def test_does_not_flag_routine_diagnostic_or_monitoring_text(self, text):
         assert mortality_seed.keyword_flag(text) is False
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # Synthetic, in the shape of the 44 intracranial-hemorrhage triage and
+            # ASPECTS tools finding 0022 found the bare term flagging: they detect a
+            # bleed, they do not stratify mortality risk.
+            "analyze non-contrast CT images for findings suggestive of intracranial hemorrhage",
+            "flag cases with suspected acute subdural haemorrhage for prioritisation",
+            "not intended for patients with hemorrhagic stroke",
+            "detection of hemorrhages in the brain parenchyma",
+        ],
+    )
+    def test_bleed_detection_is_not_hemorrhage_risk(self, text):
+        assert mortality_seed.keyword_flag(text) is False
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "screen U.S. Service members for hemorrhage risk",  # APPRAISE-HRI, verbatim
+            "estimates the risk of hemorrhage after surgery",
+            "patients at risk for haemorrhage",
+        ],
+    )
+    def test_hemorrhage_in_a_risk_frame_still_flags(self, text):
+        assert mortality_seed.keyword_flag(text) is True
+
     def test_the_original_terms_still_match(self):
         assert mortality_seed.keyword_flag("aggregate statistical mortality risk") is True
         assert mortality_seed.keyword_flag("risk of a major adverse cardiac event") is True

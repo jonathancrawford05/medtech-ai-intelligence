@@ -46,7 +46,11 @@ _MORTALITY_KEYWORDS = re.compile(
     # stays a cheap, recall-oriented lead flag -- never the mart filter (ADR 0014),
     # so widening it only shrinks the keyword_disagrees gap.
     r"hemodynamic instabilit\w*|hypotens\w*|hypoperfus\w*|"
-    r"loss of pulse|h(?:ae|e)morrhag\w*|deteriorat\w*|plaque\w*"
+    r"loss of pulse|deteriorat\w*|plaque\w*|"
+    # Hemorrhage only as a *risk* (APPRAISE-HRI, "hemorrhage risk"). The bare term
+    # flagged 44 intracranial-hemorrhage triage tools once device statements were
+    # read (finding 0022): they detect a bleed, they do not stratify mortality.
+    r"h(?:ae|e)morrhag\w* risk|risk (?:of|for) h(?:ae|e)morrhag\w*"
     r")\b",
     re.IGNORECASE,
 )
@@ -55,6 +59,19 @@ _MORTALITY_KEYWORDS = re.compile(
 def keyword_flag(intended_use_text: str) -> bool:
     """Stage 1. Deterministic, cheap, and safe to re-run at any time."""
     return bool(_MORTALITY_KEYWORDS.search(intended_use_text or ""))
+
+
+def keyword_hits(text: str) -> list[str]:
+    """The distinct stage-1 terms ``text`` contains, lowercased, in order.
+
+    The evidence behind a `keyword_flag` hit, for a curator to check.
+    """
+    hits: list[str] = []
+    for match in _MORTALITY_KEYWORDS.finditer(text or ""):
+        term = match.group(0).lower()
+        if term not in hits:
+            hits.append(term)
+    return hits
 
 
 def _require(entry: dict[str, Any], field: str, submission: str) -> str:
