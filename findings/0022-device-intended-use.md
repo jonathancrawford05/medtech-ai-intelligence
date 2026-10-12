@@ -1,6 +1,6 @@
 # 0022 — Device-level intended use (PR 4C): built and verified on the real slice; full-scale measures open
 
-**Date:** 2026-10-11 · **Status:** Built; verified on the 21 recorded Summaries and the committed seed in a cloud session. **The three full-scale measures need a run on the maintainer's Mac** (the lakehouse lives there) · **Component:** Issue 4 PR 4C, `transform/intended_use.py`, `mart/curation_candidates.py`, `mart/leads.py`, `lakehouse_report.py`, `registry extract-intended-use` / `curation-candidates` ([ADR 0021](../docs/adr/0021-device-intended-use.md))
+**Date:** 2026-10-11 · **Status:** Built; verified on the 21 recorded Summaries and the committed seed in a cloud session. **Measure (3) verified at full scale on the maintainer's Mac 2026-10-12; measures (1) and (2) still need a run there** · **Component:** Issue 4 PR 4C, `transform/intended_use.py`, `mart/curation_candidates.py`, `mart/leads.py`, `lakehouse_report.py`, `registry extract-intended-use` / `curation-candidates` ([ADR 0021](../docs/adr/0021-device-intended-use.md))
 
 The code was written in a cloud session that cannot reach `accessdata.fda.gov` or the
 maintainer's lakehouse. So this finding separates what ran here, against committed
@@ -73,11 +73,40 @@ uv run registry curation-candidates --csv candidates.csv   # (3) keyword_disagre
 | (1) by basis | — | _pending_ (`form_3881` / `form_estar` / `summary_section` / `not_found` / `no_text`) |
 | (2) `mortality_language_source` moves to `summary_intended_use`, every silver device as a lead | before: device text did not exist | _pending_ (and from which source; how many newly flagged) |
 | (2) … over the leads already recorded | `gold_device_leads` (finding 0017: one snapshot, likely empty) | _pending_ |
-| (3) `keyword_disagrees` on the 11 confirmed | 0 / 11 on the curated excerpt (finding 0014) | _pending_ on the device statement |
-| (3) negatives flagged, of 122 | 1 (`K192732`) on the curated excerpt | _pending_ on the device statement |
-| (3) curation candidates | — | _pending_ (count; the 21 omitted in finding 0012 are expected among them if their statements hit) |
+| (3) curated devices with a statement read | — | **132 / 133** |
+| (3) `keyword_disagrees` on the 11 confirmed | 0 / 11 on the curated excerpt (finding 0014) | **0 / 11** on the device statement; every confirmed device has one |
+| (3) negatives flagged, of 122 | 1 (`K192732`) on the curated excerpt | **2** on the device statement: `K192732`, **`K243349`** (new) |
+| (3) curation candidates | — | **5** among 168 cardiometabolic devices (154 with a statement read) |
 
-Paste the three outputs into this table, and read a sample of the candidates and of
+### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
+
+**Stage 1 holds on the full statements.** The confirmed devices are still all caught
+(0 / 11 `keyword_disagrees`), and the cost of more text on the 122 negatives is one
+extra flag, `K243349`. Read its statement before the next batch to see which term
+fired and whether the caveat reading (ADR 0021 Consequences) is the cause.
+
+**The 5 candidates:**
+
+| Submission | Decided | Category | Terms | Source | Reading |
+|---|---|---|---|---|---|
+| `K231038` | 2023-07-26 | cardiovascular | hypoperfusion, hemodynamic instability, deterioration, hypotension | `summary_section` p5–6 | Global Hypoperfusion Index (Edwards). Finding 0012 **omitted** it for want of a clean statement and flagged it for manual review; 4C now supplies the statement. The one real candidate. |
+| `K173839` | 2018-03-15 | metabolic | survival | `form_3881` p3 | Tissue of Origin test (Cancer Genetics) |
+| `K120489` | 2012-05-17 | metabolic | survival | `form_3881` p11 | Pathwork Tissue of Origin, FFPE |
+| `K092967` | 2010-06-08 | metabolic | survival | `form_3881` p17 | Pathwork Tissue of Origin, FFPE |
+| `K080896` | 2008-07-30 | metabolic | survival | `summary_section` p2–3 | Pathwork Tissue of Origin, fresh-frozen |
+
+The four Tissue of Origin tests are the same family. They are "metabolic" only because
+their panel is Clinical Chemistry (`config/specialty_taxonomy.yaml`), and "survival"
+is the only term they hit. They are probably not mortality-risk devices, but a
+curator should confirm that and record them as negatives, so that they stop
+reappearing as candidates.
+
+**Assumed, not yet checked:** that the other 20 devices finding 0012 omitted are absent
+from the list because their statements trip no stage-1 term, not because no statement
+was read. 14 of the 168 in-scope devices have no statement; the candidates CSV does not
+list them.
+
+Paste the remaining two outputs into this table, and read a sample of the candidates and of
 any newly flagged negatives before the next curation batch.
 
 ## Assumed
