@@ -102,22 +102,39 @@ definition does. The other **70 are newly flagged**: their name, product-code de
 and curated text never hit, and their statement does. That raises the share of devices
 carrying the signal from 26 to 96 (1.6% → 5.9%).
 
-**Assumed, not yet checked: what the 70 are.** They are spread across all panels, not
-just the 168 cardiometabolic devices, because the curation report found only 5
-unreviewed cardiometabolic hits. The likely bulk is radiology triage for intracranial
-**hemorrhage**: `h(?:ae|e)morrhag\w*` was added in finding 0014 for `K233249`
-(hemorrhage *risk*), and it also matches every ICH-detection device. Stage 1 is
-recall-oriented and never filters the mart (ADR 0014), so this is not wrong. But if
-most of the 70 are ICH triage, `mortality_language` will be dominated by them in the
-leads, and the term may want narrowing. To check, count the matched terms over the
-70 (see How to re-check).
+**What the 70 are (maintainer's Mac, 2026-10-12, the snippet in How to re-check).** 63 are
+radiology devices. Two stage-1 terms account for 63 of the 70:
+
+| Term | Devices | What they are | Reading |
+|---|---|---|---|
+| `hemorrhag…` | **44**, all radiology | Intracranial-hemorrhage / subdural triage (Viz ICH, Rapid ICH, BriefCase, qER, CINA, Brainomix 360 Triage ICH, JLK-ICH, …) and stroke ASPECTS tools whose statement excludes "hemorrhagic" cases | **Noise for this purpose.** They detect a bleed; they do not stratify mortality risk. Finding 0012's rule records detect/diagnose devices as negatives. The term was added in finding 0014 for `K233249` (hemorrhage *risk*), and it matches every bleed detector. |
+| `plaque…` | **19**: 18 radiology, 1 dental | Coronary plaque / calcium quantification (Cleerly Labs ×3, CardIQ Suite ×3, AVIEW CAC ×2, HealthCCS ×3, Autoplaque, TeraRecon Calcification, Salix Central, cvi42, Careverse CoronaryDoc, uOmnispace.CT, BriefCase-Quantification); `K260082` TRIOS Dx is **dental** plaque | **Real signal, mostly.** Finding 0012 put coronary plaque quantification in scope (HeartFlow `K213857`/`K250902` are confirmed). These are the "cardiovascular-risk tool cleared through Radiology" ADR 0016 warned about. The curation report misses them because it is scoped to cardiometabolic *specialty*. The dental hit is a false positive. |
+| `survival` | 4, metabolic | Tissue of Origin tests (the 4 non-`K231038` curation candidates) | Noise |
+| `mace` | 1, neurology | `K143643` Brainscope Ahead 200 | Almost certainly the Military Acute Concussion Evaluation, not major adverse cardiac events. Noise. |
+| `death` | 1, radiology | `K201103` Xeleris V | Unread; likely incidental |
+| `life threatening` | 1, cardiovascular | `K243349` BodyGuardian Remote Monitoring | The curated negative newly flagged by measure (3). An arrhythmia monitor whose statement mentions life-threatening arrhythmias. Detects rather than stratifies, so the curator's `false` stands. |
+
+**So `mortality_language` got broader, but not better, in proportion.** About 18 of the
+70 new flags are devices curation would want to read: the coronary plaque tools. About
+50 are noise, 44 of them from the hemorrhage term. Stage 1 never filters the mart
+(ADR 0014), so nothing here is wrong. But in the leads, ICH triage would now be the
+largest group tagged `mortality_language`. Two follow-ups, both outside 4C's scope:
+
+1. **Narrow `h(?:ae|e)morrhag\w*` from evidence**, the way finding 0014 widened it. For
+   example, require a risk or prognosis frame ("risk of hemorrhage", "hemorrhage risk"),
+   or drop it in favour of the phrasing `K233249` actually uses. The check is finding
+   0014's: 0 / 11 confirmed still caught, with the 44 ICH tools no longer flagged.
+2. **Scope the curation report by language, not only by specialty.** Add radiology
+   devices whose statement hits a cardiovascular term (plaque, coronary) so that the 18
+   plaque tools reach the next batch.
 
 ### Measure (3), read (maintainer's Mac, 2026-10-12, `registry curation-candidates --csv candidates.csv`)
 
 **Stage 1 holds on the full statements.** The confirmed devices are still all caught
 (0 / 11 `keyword_disagrees`), and the cost of more text on the 122 negatives is one
-extra flag, `K243349`. Read its statement before the next batch to see which term
-fired and whether the caveat reading (ADR 0021 Consequences) is the cause.
+extra flag, `K243349` (BodyGuardian): its statement mentions "life threatening"
+arrhythmias. That is the caveat reading ADR 0021 anticipated, and the curator's `false`
+stands.
 
 **The 5 candidates:**
 
