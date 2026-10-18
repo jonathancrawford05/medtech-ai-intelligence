@@ -236,7 +236,12 @@ findings/                        what was actually verified, and what was not
    [finding 0022](findings/0022-device-intended-use.md)). **Maintainer step:** the three
    full-scale measures in finding 0022 (`extract-intended-use`, `inspect`,
    `curation-candidates`) on the Mac. **Next: PR 4D** (LLM-assisted study facts; gold set
-   first). Handoff: `docs/handoffs/issue-4-document-pass.md`.
+   first). Handoff: `docs/handoffs/issue-4-document-pass.md`. **4D spike (153 / 153
+   cardiovascular/metabolic Summaries, local `qwen3:14b`, 5.9 h model time):** with the
+   deterministic quote checks, 8% of metrics and 6% of scalar values are rejected, and every
+   fabrication seen is among them; 10% of accepted metrics carry the wrong measure name. The
+   endpoint field finds 9 / 11 confirmed devices as risk outputs plus 6 curation leads. Gold
+   set pending ([finding 0023](findings/0023-local-llm-extraction-spike.md)).
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
    `pypdf` vs pdf.js glyph splitting to be read from the fixture manifest.
    **Roadmap follow-up (PR #11 review nit) — done in PR 4B as [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md):** PR 4B adds a new ADR amending **ADR 0013 Decision 4** to record that PCCP
