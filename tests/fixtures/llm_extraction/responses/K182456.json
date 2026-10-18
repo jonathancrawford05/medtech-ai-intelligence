@@ -1,0 +1,17 @@
+{
+ "submission_number": "K182456",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 4605,
+ "eval_count": 1069,
+ "wall_seconds": 193.1,
+ "gen_tok_s": 8.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"2C@ 1OP?T 5<O>C PN@N < <NTNO@H RC@M@=T #!% ?<O< DN >JGG@>O@? =T OC@ R@<M<=G@ R<O>C <I? DN OC@I OM<INA@MM@? OJ 4@MDGTaN 1OP?T &P= ?@QD>@ QD< < 31  >JII@>ODJI OJ OC@ DI>GP?@? >C<MBDIB ?J>F  !M<?G@\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"Accuracy\", \"context\": \"NTNO@H RC@M@=T #!% ?<O<\", \"setting\": \"standalone\", \"value\": 98.1, \"ci_low\": 97.3, \"ci_high\": 98.7, \"quote\": \"2C@ 1OP?T 5<O>C PN@N < <NTNO@H RC@M@=T #!% ?<O< DN >JGG@>O@? =T OC@ R@<M<=G@ R<O>C <I? DN OC@I OM<INA@MM@? OJ 4@MDGTaN 1OP?T &P= ?@QD>@ QD< < 31  >JII@>ODJI OJ OC@ DI>GP?@? >C<MBDIB ?J>F  !M<?G@\"}, {\"metric\": \"other\", \"label\": \"Sensitivity\", \"context\": \"NTNO@H RC@M@=T #!% ?<O<\", \"setting\": \"standalone\", \"value\": 98.1, \"ci_low\": 97.3, \"ci_high\": 98.7, \"quote\": \"2C@ 1OP?T 5<O>C PN@N < <NTNO@H RC@M@=T #!% ?<O< DN >JGG@>O@? =T OC@ R@<M<=G@ R<O>C <I? DN OC@I OM<INA@MM@? OJ 4@MDGTaN 1OP?T &P= ?@QD>@ QD< < 31  >JII@>ODJI OJ OC@ DI>GP?@? >C<MBDIB ?J>F  !M<?G@\"}, {\"metric\": \"other\", \"label\": \"Specificity\", \"context\": \"NTNO@H RC@M@=T #!% ?<O<\", \"setting\": \"standalone\", \"value\": 98.1, \"ci_low\": 97.3, \"ci_high\": 98.7, \"quote\": \"2C@ 1OP?T 5<O>C PN@N < <NTNO@H RC@M@=T #!% ?<O< DN >JGG@>O@? =T OC@ R@<M<=G@ R<O>C <I? DN OC@I OM<INA@MM@? OJ 4@MDGTaN 1OP?T &P= ?@QD>@ QD< < 31  >JII@>ODJI OJ OC@ DI>GP?@? >C<MBDIB ?J>F  !M<?G@\"}], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"2C@ 1OP?T 5<O>C PN@N < <NTNO@H RC@M@=T #!% ?<O< DN >JGG@>O@? =T OC@ R@<M<=G@ R<O>C <I? DN OC@I OM<INA@MM@? OJ 4@MDGTaN 1OP?T &P= ?@QD>@ QD< < 31  >JII@>ODJI OJ OC@ DI>GP?@? >C<MBDIB ?J>F  !M<?G@\"}}"
+}
