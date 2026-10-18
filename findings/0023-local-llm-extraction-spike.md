@@ -1,8 +1,8 @@
 # 0023 — 4D spike: study-evidence extraction with a local LLM (153 cardiometabolic Summaries)
 
 **Date:** 2026-10-15, full run completed 2026-10-16 · **Status:** Run complete, 153 / 153
-documents. No hand-checked gold set yet: every figure below is a deterministic-check figure,
-not a precision figure.
+documents. First gold set (58 rows): labelled by an independent agent, reviewed and accepted
+by the maintainer 2026-10-18; the gold-set section gives the first precision figures.
 · **Component:** Issue 4 PR 4D (LLM-assisted extraction), provider decision in
 [the 4D handoff](../docs/handoffs/issue-4-document-pass.md) §3 rule 5 (PR #22)
 
@@ -154,6 +154,55 @@ and the loop stalls. Full scale (1,519 readable Summaries) would be about 70 hou
 time on this machine — overnight runs over a week, which is why this spike covered the
 cardiovascular/metabolic subset that feeds the mortality leads.
 
+## Gold set, first pass (2026-10-18)
+
+58 rows were sampled from the review file (seed 20261018), deliberately over-weighting the
+rows most likely to be wrong: 24 metrics (8 plain accepts, 6 whose quote never names the
+measure, 5 accepted across a page break, 5 accepted from table numbers), 19 scalar values
+and 15 endpoints (the 9 that disagree with the curated seed, the 2 unreviewed risk devices,
+4 agreeing negatives). An independent Claude agent labelled every row against the full
+Summary text, blind to the check status and the sampling reason, and found the evidence
+itself rather than trusting the model's quote. The labels are
+`review_method=llm_assisted`; the maintainer reviewed the 29 flagged rows (every n / partly /
+unsure plus 8 random y) and accepted them on 2026-10-18. The set is committed as
+`tests/fixtures/llm_extraction/gold_set_v1.csv` with the documents and recorded responses.
+
+| Stratum | Rows | Correct | Reading |
+|---|---|---|---|
+| Metric, plain accept | 8 | 8 | the verbatim check plus a named measure is reliable |
+| Metric, quote never names the measure | 6 | 0 (1 partly) | the misname heuristic is itself a reliable reject rule |
+| Metric, gapped quote | 5 | 2 | the 3 wrong are PPVs and a false-positive reduction filed as specificity |
+| Metric, table numbers | 5 | 4 | the 1 wrong is a "0 (0–0)" built from a "-" cell |
+| Sample size | 6 | 5 (+1 unsure: several test sets, no single primary) | |
+| Study design | 5 | 4 | "retrospective and prospective" flattened to retrospective |
+| Demographics disclosed | 5 | 4 | a `false` inferred from "Clinical Performance: Not Applicable" |
+| Multi-site | 3 | 3 | |
+| Endpoint, disagrees with seed | 9 | 3 (+1 unsure) | the seed was right more often than the model |
+| Endpoint, unreviewed risk | 2 | 1 | GHI K231038 right; SOZO K172507 is monitoring |
+| Endpoint, agrees with negative | 4 | 3 | |
+
+**Population estimate for metrics.** Weighting each stratum by its share of the 428
+accepted metrics (about 297 plain and named, 38 misnamed, 48 gapped, 44 table numbers)
+gives roughly **82% correct** as accepted today, and roughly **90%** once the misname
+heuristic becomes a reject rule. The plain stratum is only 8 rows (8/8 still allows a true
+rate near 70%), so treat both as indicative until a larger draw.
+
+**What the labels add to the failure modes.**
+
+- **Subject vs predicate.** A predicate device's specificity (99.6%, IRNF 2.0) was credited
+  to the subject device (K213971), and an original device's column read as the modified
+  kit's (K173839). The schema needs to say which device a figure belongs to.
+- **A threshold read as a result.** "±3 BPM" in a stated hypothesis became `accuracy = 3`
+  (K241633); the achieved value is not in the document.
+- **Agreement is not accuracy.** Method-to-method concordance (90.8%) was filed as accuracy.
+- **The endpoint over-calls risk.** Words such as "risk assessment", "monitoring" or a
+  trial's outcome endpoint pulled HeartFlow, FFRangio, Biovitals, SOZO and Volta into
+  `deterioration_risk`. The genuine future-event devices (SignalHF: heart failure within
+  30 days; GHI: hypoperfusion within 10–15 minutes; Tempus: AF within 12 months) were right.
+  Of the 6 "curation leads" listed above, 3 survive (SignalHF, Tempus ECG-AF, GHI); VISENSIA
+  is unsure; Biovitals and SOZO do not. CT-derived FFR devices need one written rule
+  (measurement vs detection).
+
 ## What this means for 4D
 
 - The quote check is the design, not a safeguard on the side: page derived from the quote,
@@ -170,15 +219,21 @@ cardiovascular/metabolic subset that feeds the mortality leads.
 - Skip pages 4A's text layer cannot really read: add a cipher/garble test to the text class
   (failure mode 3) before any LLM sees the page.
 - Metric names need the hand-check before any field ships; numbers and quotes are the more
-  reliable part.
+  reliable part. Make "the quote never names the measure" a deterministic reject (or force
+  `other`), and treat `ok_gapped` rows as review-only: in the gold set they were right 2 of 5.
+- Add who the figure belongs to (subject device / predicate / original device) and whether a
+  number is a result or a threshold; reject a "0 (0–0)" triple outright.
+- The endpoint prompt needs a future-event test ("predicts X within a time window") before
+  `deterioration_risk`; without it the field over-calls risk on measurement and monitoring
+  devices.
 
 ## Still to do (this finding is updated when they are)
 
 - [x] Finish the 153 (done 2026-10-16).
-- [ ] Hand-check 40–60 rows from `review-*.csv` (metric names, `ok_gapped` / `ok_numbers`
-      rows, the endpoint disagreements) as the first gold set; report precision per field.
-- [ ] Send the 4 defensible negatives (K230842, K233549, K081140, K183282) and the 2
-      unreviewed risk devices (K231038, K172507) to the next curation batch.
+- [x] Draw the first gold set (58 rows) and pre-label it with an independent agent (2026-10-18).
+- [x] Human check of the 29 flagged rows (accepted 2026-10-18).
+- [ ] Send SignalHF K230842, Tempus ECG-AF K233549, GHI K231038 and (unsure) VISENSIA
+      K081140 to the next curation batch; Biovitals and SOZO dropped after the gold set.
 - [ ] Re-run 10 documents with the same digest and seed to confirm the output repeats.
 - [ ] Compare `gemma4:e4b` (lighter) and `gpt-oss:20b` on the confirmed 11 for the fields that
       fail the gold bar.

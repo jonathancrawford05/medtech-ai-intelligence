@@ -1,0 +1,17 @@
+{
+ "submission_number": "K202527",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 2520,
+ "eval_count": 192,
+ "wall_seconds": 53.3,
+ "gen_tok_s": 8.0,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"No clinical testing was performed in support of this premarket notification.\"}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"null\"}, \"sample_size\": {\"value\": null, \"quote\": \"null\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": \"null\"}, \"demographics_disclosed\": {\"value\": false, \"quote\": \"null\"}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The device is intended to capture, analyze and report symptomatic and asymptomatic cardiac events and continuous electrocardiogram information for long-term monitoring.\"}}"
+}

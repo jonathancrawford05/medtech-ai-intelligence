@@ -1,0 +1,17 @@
+{
+ "submission_number": "K081140",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 2455,
+ "eval_count": 258,
+ "wall_seconds": 47.5,
+ "gen_tok_s": 9.9,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"Clinical data illustrates the effectiveness of Visensia® and the usefulness of he alert function. The data correlates patient deterioration with alerting function.\"}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"null\"}, \"sample_size\": {\"value\": null, \"quote\": \"null\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": \"null\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": \"null\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"Visensia® provides the clinician with a patient status index (Visensia® Index) based on a weighted average of five or four vital signs namely heart rate, respiration rate, temperature, oxygen saturation and blood pressure. The Visensia® Index is a single measure of a patient's condition and represents how different the patient's vital signs are with respect to normality.\"}}"
+}

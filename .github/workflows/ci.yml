@@ -27,7 +27,7 @@ jobs:
   test:
     # Skip on the weekly cron -- that trigger is only for the live-network job.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     steps:
@@ -108,7 +108,7 @@ jobs:
     # links (ADR cross-references, README links) resolve. External URLs are not
     # network-checked here -- that is deliberately out of scope to avoid flakiness.
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -130,7 +130,7 @@ jobs:
     # never on push/PR -- it hits the real fda.gov endpoints. A failure means the
     # export URL, headers, or row count have drifted from ADR 0009's assumptions.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

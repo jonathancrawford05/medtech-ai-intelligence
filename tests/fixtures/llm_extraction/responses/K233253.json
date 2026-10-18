@@ -1,0 +1,17 @@
+{
+ "submission_number": "K233253",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 1988,
+ "eval_count": 942,
+ "wall_seconds": 110.7,
+ "gen_tok_s": 10.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"Test characteristics for both cohorts are shown in\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.87, \"ci_low\": 0.85, \"ci_high\": 0.89, \"quote\": \"AUC-ROC of 0.87 (95% CI: 0.85, 0.89)\"}, {\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.86, \"ci_low\": 0.84, \"ci_high\": 0.88, \"quote\": \"AUC-ROC of 0.86 (95% CI: 0.84, 0.88)\"}, {\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.87, \"ci_low\": 0.85, \"ci_high\": 0.89, \"quote\": \"AUC-ROC of 0.87 (95% CI: 0.85, 0.89)\"}, {\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.86, \"ci_low\": 0.84, \"ci_high\": 0.88, \"quote\": \"AUC-ROC of 0.86 (95% CI: 0.84, 0.88)\"}, {\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.87, \"ci_low\": 0.85, \"ci_high\": 0.89, \"quote\": \"AUC-ROC of 0.87 (95% CI: 0.85, 0.89)\"}, {\"metric\": \"other\", \"label\": \"AUC-ROC\", \"context\": \"retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems\", \"setting\": \"standalone\", \"value\": 0.86, \"ci_low\": 0.84, \"ci_high\": 0.88, \"quote\": \"AUC-ROC of 0.86 (95% CI: 0.84, 0.88)\"}], \"study_design\": {\"value\": \"retrospective\", \"quote\": \"eCART was assessed in retrospective and prospective validation studies with adult ward patients from three geographically distinct health systems.\"}, \"sample_size\": {\"value\": 120000, \"quote\": \"120,000 adult ward patients\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"three geographically distinct health systems\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"eCART is a software product that provides automated risk stratification and early warning for impending patient deterioration, signified as the composite outcome of death or ICU transfer.\"}}"
+}

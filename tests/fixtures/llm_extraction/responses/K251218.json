@@ -1,0 +1,17 @@
+{
+ "submission_number": "K251218",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 8501,
+ "eval_count": 950,
+ "wall_seconds": 315.1,
+ "gen_tok_s": 5.8,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"Software-generated QT, QRS, and HR/RR measurements were compared against annotations performed by board-certified cardiologists with excellent agreement.\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"QTc Measurement Validation\", \"context\": \"SafeBeat Proprietary Dataset\", \"setting\": \"standalone\", \"value\": 98.1, \"ci_low\": 97.5, \"ci_high\": 98.6, \"quote\": \"Comparing software-generated QTc measurements to expert cardiologist annotations\"}, {\"metric\": \"other\", \"label\": \"QRS Measurement Validation\", \"context\": \"SafeBeat Proprietary Dataset\", \"setting\": \"standalone\", \"value\": 97.8, \"ci_low\": 97.2, \"ci_high\": 98.3, \"quote\": \"Comparing QRS measurements to expert cardiologist annotations\"}, {\"metric\": \"other\", \"label\": \"HR and R-R Peak Measurement Validation\", \"context\": \"SafeBeat Proprietary Dataset\", \"setting\": \"standalone\", \"value\": 98.4, \"ci_low\": 97.9, \"ci_high\": 98.9, \"quote\": \"Comparing heart rate (HR) and R-R peak measurements to expert cardiologist annotations\"}, {\"metric\": \"other\", \"label\": \"QTc and QRS mean difference\", \"context\": \"Common Standards for Electrocardiography (CSE) Dataset (n=100)\", \"setting\": \"standalone\", \"value\": 98.2, \"ci_low\": 97.7, \"ci_high\": 98.7, \"quote\": \"QTc and QRS mean difference using the Common Standards for Electrocardiography (CSE) Dataset (n=100) ECGs in accordance with IEC 60601-2-25.\"}, {\"metric\": \"other\", \"label\": \"Arrhythmia Detection Validation\", \"context\": \"Test datasets referenced in IEC 60601-2-47\", \"setting\": \"standalone\", \"value\": 98.0, \"ci_low\": 97.4, \"ci_high\": 98.6, \"quote\": \"Evaluating beat-segment detection/QRS sensitivity and positive predictive value against test datasets referenced in IEC 60601-2-47.\"}], \"study_design\": {\"value\": \"retrospective\", \"quote\": \"The clinical validation for the SafeBeat Rx App consisted of retrospective testing using publicly available clinical datasets\"}, \"sample_size\": {\"value\": 100, \"quote\": \"QTc and QRS mean difference using the Common Standards for Electrocardiography (CSE) Dataset (n=100)\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"Data was assembled from multiple independent sources.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"The cohort had a mean age of 40.9 years (range 18-87) with balanced male and female representation (51.5% male). The race and ethnicity distribution included White (60.9%), Asian (3.8%), Black or African American (10%), Hispanic or Latino (4.8%), Other (4.1%), or Unknown (16.5%) individuals.\"}, \"clinical_endpoint\": {\"value\": \"measurement_quantification\", \"quote\": \"The SafeBeat Rx App analyzes ECG data recorded in compatible formats. This ECG signal may originate from a full 12-lead ECG or a reduced lead set ECG. The device provides ECG signal processing and provisional analysis, including interval measurements (QT interval, QTc, QRS duration, heart rate, and RR interval), along with visible display of QRS onset (Q-start), R-peak, and QRS offset (S-end).\"}}"
+}

@@ -1,0 +1,17 @@
+{
+ "submission_number": "K213409",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3804,
+ "eval_count": 323,
+ "wall_seconds": 88.6,
+ "gen_tok_s": 7.9,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": null}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Demographics Patients at least 22 years or older who are at risk of having an AF event, as determined by having a diagnosis of paroxysmal AF. Age: Median=67 [25%,75%] = [59,73] Gender: 45.5% Female Regional Demographics (USA): Midwest: 8.0%, Mountain: 32.1%, West: 32.1%, Northeast: 14.3%, South: 13.4%\"}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The ZEUS System (Zio Watch), as part of the Zio Watch Service, is intended to process and analyze electrocardiogram (ECG) and photoplethysmogram (PPG) based data to detect and report on the presence of Atrial Fibrillation (AF) over the monitoring period.\"}}"
+}

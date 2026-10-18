@@ -1,0 +1,17 @@
+{
+ "submission_number": "K250902",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 5062,
+ "eval_count": 696,
+ "wall_seconds": 127.1,
+ "gen_tok_s": 10.3,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"Heartflow Analysis (subject) plaque algorithm’s plaque localization sensitivity superiority compared to Heartflow Analysis (predicate) plaque algorithm at point-wise level sensitivity was 0.151 (Goal > 0, p<0.0001).\"}, \"metrics\": [{\"metric\": \"sensitivity\", \"label\": \"sensitivity\", \"context\": \"point-wise level\", \"setting\": \"standalone\", \"value\": 0.151, \"ci_low\": null, \"ci_high\": null, \"quote\": \"Heartflow Analysis (subject) plaque algorithm’s plaque localization sensitivity superiority compared to Heartflow Analysis (predicate) plaque algorithm at point-wise level sensitivity was 0.151 (Goal > 0, p<0.0001).\"}, {\"metric\": \"dice\", \"label\": \"DICE similarity coefficient\", \"context\": \"point-wise level\", \"setting\": \"standalone\", \"value\": 0.8, \"ci_low\": null, \"ci_high\": null, \"quote\": \"Heartflow Analysis (subject) plaque algorithm’s plaque localization performance measured with point-wise level DICE similarity coefficient was 0.8 (Goal > 0.7, p<0.0001), compared to Heartflow Analysis (predicate) plaque algorithm’s DICE similarity coefficient of 0.8.\"}, {\"metric\": \"mean_difference\", \"label\": \"mean volume error difference\", \"context\": \"region-of-interest level\", \"setting\": \"standalone\", \"value\": 8.1, \"ci_low\": null, \"ci_high\": null, \"quote\": \"Heartflow Analysis (predicate) and Heartflow Analysis (subject) plaque quantification mean volume error difference at region-of-interest level was 8.1mm3 (Goal=0 mm3, p<0.0001).\"}], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": 60555, \"quote\": \"Following the process above, 60,555 unique ground truth areas (583 unique lesions from 100 distinct patients) were established on CT DICOM images to calculate the co-primary endpoints for localization and quantification.\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": true, \"quote\": \"Validation data was comprised of 67 different institutions across the United States as outlined per state distribution in Table 6.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Table 4: Performance Assessment Dataset Patient Age Distribution\"}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The Heartflow Analysis is an AI-based medical device software for the clinical quantitative and qualitative analysis of previously acquired Computed Tomography DICOM data for adult patients (ages 22 years and older) with suspected coronary artery disease.\"}}"
+}

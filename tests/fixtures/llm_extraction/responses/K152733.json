@@ -1,0 +1,17 @@
+{
+ "submission_number": "K152733",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 12091,
+ "eval_count": 886,
+ "wall_seconds": 311.5,
+ "gen_tok_s": 7.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The per-vessel sensitivity of FFRCT in the ITD population was 83.5% with a lower one-sided 95% CI of 75.3%. The per-vessel specificity of FFR CT in the ITD population was 85.8% with a lower one-sided 95% CI of 81.5%.\"}, \"metrics\": [{\"metric\": \"sensitivity\", \"label\": \"per-vessel sensitivity\", \"context\": \"HeartFlowNXT study\", \"setting\": \"standalone\", \"value\": 83.5, \"ci_low\": 75.3, \"ci_high\": null, \"quote\": \"The per-vessel sensitivity of FFRCT in the ITD population was 83.5% with a lower one-sided 95% CI of 75.3%.\"}, {\"metric\": \"specificity\", \"label\": \"per-vessel specificity\", \"context\": \"HeartFlowNXT study\", \"setting\": \"standalone\", \"value\": 85.8, \"ci_low\": 81.5, \"ci_high\": null, \"quote\": \"The per-vessel specificity of FFR CT in the ITD population was 85.8% with a lower one-sided 95% CI of 81.5%.\"}, {\"metric\": \"sensitivity\", \"label\": \"per-vessel sensitivity\", \"context\": \"FFR CT v2.0 Clinical Validation\", \"setting\": \"standalone\", \"value\": 84.2, \"ci_low\": 75.8, \"ci_high\": null, \"quote\": \"The per-vessel sensitivity of FFRCT in the ITD population was 84.2% with a lower one-sided 95% CI of 75.8%.\"}, {\"metric\": \"specificity\", \"label\": \"per-vessel specificity\", \"context\": \"FFR CT v2.0 Clinical Validation\", \"setting\": \"standalone\", \"value\": 84.9, \"ci_low\": 80.4, \"ci_high\": null, \"quote\": \"The per-vessel specificity of FFRCT in the ITD population was 84.9%. The lower one-sided 95% CI was 80.4%.\"}], \"study_design\": {\"value\": \"prospective\", \"quote\": \"HeartFlow analysis of coronary blood flow using coronary CT angiography: NeXt sTeps (the HeartFlowNXT or HFNXT study) was a prospective, multicenter, non-randomized study.\"}, \"sample_size\": {\"value\": 276, \"quote\": \"276 subjects enrolled.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"conducted at 11 sites in 8 countries in Canada, Europe and Asia.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Subjects had an overall mean age of 63.7 years and 63.8% were men. A total of 22.8% had diabetes mellitus, 68.5% had hypertension, 78.7% had hyperlipidemia, 57.1% were current or former smokers.\"}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The overall objective of the HFNXT study was to determine the diagnostic performance of FFRCT, as compared to cCTA alone, for the non-invasive determination of the presence of a hemodynamically significant coronary lesions using direct measurement of FFR ( ≤0.80) during cardiac catheterization as the reference standard.\"}}"
+}

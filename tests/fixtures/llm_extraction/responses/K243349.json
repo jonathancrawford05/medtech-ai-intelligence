@@ -1,0 +1,17 @@
+{
+ "submission_number": "K243349",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3710,
+ "eval_count": 475,
+ "wall_seconds": 189.9,
+ "gen_tok_s": 6.9,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"The clinical validation results met all predefined acceptance criteria and demonstrated substantially equivalent performance for BeatLogic.\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"Sensitivity\", \"context\": \"key rhythms across different patient subgroups\", \"setting\": \"standalone\", \"value\": 0.1, \"ci_low\": 0.1, \"ci_high\": 0.1, \"quote\": \"Performance of the algorithm was assessed by evaluating the Sensitivity and Positive Predictive value (PPV) for key rhythms across different patient subgroups.\"}, {\"metric\": \"other\", \"label\": \"Positive Predictive Value (PPV)\", \"context\": \"key rhythms across different patient subgroups\", \"setting\": \"standalone\", \"value\": 0.1, \"ci_low\": 0.1, \"ci_high\": 0.1, \"quote\": \"Performance of the algorithm was assessed by evaluating the Sensitivity and Positive Predictive value (PPV) for key rhythms across different patient subgroups.\"}], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"null\"}, \"sample_size\": {\"value\": null, \"quote\": \"null\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": \"null\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"The validation dataset consisted of 48.6% Female, 39.2% Male, 12.2% unknown gender and 50.1% < 65 years of age, 49.8% ≥65 years of age, 0.1% unknown age.\"}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The BodyGuardian™ Remote Monitoring System detects and monitors cardiac arrhythmias in ambulatory patients, when prescribed by a physician or other qualified healthcare professional.\"}}"
+}

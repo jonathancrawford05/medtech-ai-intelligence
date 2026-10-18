@@ -1,0 +1,245 @@
+{
+ "prompt_version": "4d-spike-4",
+ "system": "You extract facts from FDA 510(k)/De Novo summary documents for AI medical devices.\nRules:\n- Use ONLY the document text given. Never write a figure, name or sentence that is not in the\n  document. These instructions are not part of the document: never quote them.\n- Every non-null value needs a quote: ONE contiguous passage copied exactly, character for\n  character, from one place in the text, with its spacing and punctuation. Never add a label\n  or heading in front of it, never join pieces from different places, never fix typos.\n  Keep quotes short (one sentence or one table row, under 300 characters). The quote must\n  itself contain the value it supports, written as the document writes it.\n- If the document does not state something, use null (or \"not_stated\") with quote null.\n  Unknown is not false: use false only when the text explicitly says so.\n- performance_reported: true if the summary reports quantitative performance from standalone\n  device testing or a clinical/reader study.\n- metrics: each distinct performance figure the document states, once; an empty list if there\n  are none. value, ci_low and ci_high are copied exactly as the document writes them (98.1%\n  stays 98.1, never 0.981). label = the measure's name as the document writes it. metric =\n  the matching name from the list, and only a name the document itself uses for that measure;\n  otherwise \"other\". context = the dataset, subgroup, model or threshold the figure belongs\n  to, as the document names it (for example a dataset name above a list of results), or null.\n  Skip read times, lead times, targets and other non-accuracy figures.\n  setting: \"standalone\" for the device alone, \"reader_with_device\" / \"reader_without_device\"\n  for clinicians in a reader study.\n- study_design / sample_size / sample_unit / multi_site describe the primary performance test\n  dataset. sample_size counts patients, recordings, images, studies or cases in that test,\n  never sites, hospitals, units or readers.\n- demographics_disclosed: true only with a quote that reports the test data by age, sex,\n  race/ethnicity or similar subgroups; false only with a quote saying they were not reported;\n  otherwise null.\n- clinical_endpoint: what the device's output is about; quote its indication or intended-use\n  sentence. An index, score or alert of a patient's risk or likelihood of a future event\n  (hypotension, haemorrhage, instability, deterioration) is deterioration_risk; use mortality,\n  mace or hospitalisation when the output names that outcome. detection_diagnosis: finds or\n  classifies a condition present now. measurement_quantification: measures anatomy or\n  physiology. monitoring: displays or tracks signals with no risk or diagnostic output.\n  triage_notification: prioritises a worklist or notifies a specialist.",
+ "schema": {
+  "type": "object",
+  "properties": {
+   "performance_reported": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": [
+       "boolean",
+       "null"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   },
+   "metrics": {
+    "type": "array",
+    "items": {
+     "type": "object",
+     "properties": {
+      "metric": {
+       "type": "string",
+       "enum": [
+        "sensitivity",
+        "specificity",
+        "auc",
+        "ppv",
+        "npv",
+        "accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "dice",
+        "kappa",
+        "icc",
+        "correlation",
+        "mean_difference",
+        "other"
+       ]
+      },
+      "label": {
+       "type": "string"
+      },
+      "context": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "setting": {
+       "type": "string",
+       "enum": [
+        "standalone",
+        "reader_with_device",
+        "reader_without_device",
+        "other"
+       ]
+      },
+      "value": {
+       "type": "number"
+      },
+      "ci_low": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "ci_high": {
+       "type": [
+        "number",
+        "null"
+       ]
+      },
+      "quote": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "metric",
+      "label",
+      "context",
+      "setting",
+      "value",
+      "ci_low",
+      "ci_high",
+      "quote"
+     ]
+    }
+   },
+   "study_design": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": "string",
+      "enum": [
+       "retrospective",
+       "prospective",
+       "mixed",
+       "not_stated"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   },
+   "sample_size": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   },
+   "sample_unit": {
+    "type": "string",
+    "enum": [
+     "patients",
+     "images",
+     "studies",
+     "cases",
+     "recordings",
+     "other",
+     "not_stated"
+    ]
+   },
+   "multi_site": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": [
+       "boolean",
+       "null"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   },
+   "demographics_disclosed": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": [
+       "boolean",
+       "null"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   },
+   "clinical_endpoint": {
+    "type": "object",
+    "properties": {
+     "value": {
+      "type": "string",
+      "enum": [
+       "mortality",
+       "mace",
+       "hospitalisation",
+       "deterioration_risk",
+       "detection_diagnosis",
+       "measurement_quantification",
+       "monitoring",
+       "triage_notification",
+       "image_quality",
+       "other",
+       "not_stated"
+      ]
+     },
+     "quote": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    },
+    "required": [
+     "value",
+     "quote"
+    ]
+   }
+  },
+  "required": [
+   "performance_reported",
+   "metrics",
+   "study_design",
+   "sample_size",
+   "sample_unit",
+   "multi_site",
+   "demographics_disclosed",
+   "clinical_endpoint"
+  ]
+ },
+ "user_template": "Device: {device_name} ({submission_number})\\n\\n then for each page: === PAGE {n} ===\\n{text}"
+}

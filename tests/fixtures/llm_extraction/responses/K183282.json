@@ -1,0 +1,17 @@
+{
+ "submission_number": "K183282",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 4035,
+ "eval_count": 349,
+ "wall_seconds": 71.0,
+ "gen_tok_s": 10.6,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The testing showed that the BI was correlated to the changes in relationship among vital sign parameters, with a lower bound of the 95% confidence interval of the positive percent agreement (PPA) greater than 0.7.\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"positive percent agreement (PPA)\", \"context\": \"clinical testing with 50 subjects\", \"setting\": \"standalone\", \"value\": 0.7, \"ci_low\": null, \"ci_high\": null, \"quote\": \"with a lower bound of the 95% confidence interval of the positive percent agreement (PPA) greater than 0.7.\"}], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": 50, \"quote\": \"Clinical testing was performed with the BA Engine to evaluate the performance of the Biovitals Index. The testing was performed on a total of 50 subjects presenting at an Emergency Department,\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The BI is intended for daily intermittent, retrospective review by a qualified practitioner.\"}}"
+}

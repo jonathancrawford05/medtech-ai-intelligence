@@ -1,0 +1,17 @@
+{
+ "submission_number": "K191370",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 5379,
+ "eval_count": 296,
+ "wall_seconds": 111.7,
+ "gen_tok_s": 7.8,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": null}, \"metrics\": [], \"study_design\": {\"value\": \"retrospective\", \"quote\": \"Additional retrospective clinical study were performed to evaluate physicians’ strategies of adjustment of insulin pump settings based on glucometer and pump data alone for patients with type 1 diabetes and to compare results to automated recommendations given by the DreaMed Advisor Pro.\"}, \"sample_size\": {\"value\": 15, \"quote\": \"The study involved 17 experts which reviewed data set of 15 patients.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": false, \"quote\": null}, \"demographics_disclosed\": {\"value\": false, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"measurement_quantification\", \"quote\": \"DreaMed Advisor Pro is a decision-support software intended for assisting healthcare professionals in the management of patients with Type 1 diabetes who: • use insulin pumps as their insulin delivery therapy; • monitor their glucose levels using CGM and/or self-management blood glucose meter; • are above the age of 6 and under 65 years old; and • use rapid acting U-100 insulin analogs in their pump.\"}}"
+}

@@ -1,0 +1,17 @@
+{
+ "submission_number": "K233549",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 4798,
+ "eval_count": 879,
+ "wall_seconds": 182.1,
+ "gen_tok_s": 7.6,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"Study endpoints of sensitivity and specificity were met, with an observed sensitivity of 31% (95% CI of 25% - 37%) and specificity of 92% (95% CI of 91%-92%).\"}, \"metrics\": [{\"metric\": \"sensitivity\", \"label\": \"sensitivity\", \"context\": null, \"setting\": \"standalone\", \"value\": 31, \"ci_low\": 25, \"ci_high\": 37, \"quote\": \"Study endpoints of sensitivity and specificity were met, with an observed sensitivity of 31% (95% CI of 25% - 37%) and specificity of 92% (95% CI of 91%-92%).\"}, {\"metric\": \"specificity\", \"label\": \"specificity\", \"context\": null, \"setting\": \"standalone\", \"value\": 92, \"ci_low\": 91, \"ci_high\": 92, \"quote\": \"Study endpoints of sensitivity and specificity were met, with an observed sensitivity of 31% (95% CI of 25% - 37%) and specificity of 92% (95% CI of 91%-92%).\"}, {\"metric\": \"ppv\", \"label\": \"positive predictive value\", \"context\": null, \"setting\": \"standalone\", \"value\": 19, \"ci_low\": 15, \"ci_high\": 23, \"quote\": \"The positive predictive value (PPV) observed in the study was 19% (95% CI of 15% - 23%) and the negative predictive value (NPV) was 95% (95% CI of 95% - 96%).\"}, {\"metric\": \"npv\", \"label\": \"negative predictive value\", \"context\": null, \"setting\": \"standalone\", \"value\": 95, \"ci_low\": 95, \"ci_high\": 96, \"quote\": \"The positive predictive value (PPV) observed in the study was 19% (95% CI of 15% - 23%) and the negative predictive value (NPV) was 95% (95% CI of 95% - 96%).\"}], \"study_design\": {\"value\": \"retrospective\", \"quote\": \"Clinical performance of Tempus ECG-AF for analysis of ECG tracings to identify signs associated with a clinical diagnosis of AF in the next 12 months was validated in a retrospective observational cohort study.\"}, \"sample_size\": {\"value\": 4017, \"quote\": \"The total study size was 4017 patients, with one ECG analyzed per patient.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"The model was locked prior to clinical performance validation in an independent real-world dataset derived from 3 geographically distinct clinical sites.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"The racial distribution of the study population was 82% White, 11% Black, 3% Asian, and 5% Other/Unknown.\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"Tempus ECG-AF is intended for use to analyze recordings of 12-lead ECG devices and detect signs associated with a patient experiencing atrial ﬁbrillation and/or atrial ﬂutter (collectively referred to as AF) within the next 12 months.\"}}"
+}

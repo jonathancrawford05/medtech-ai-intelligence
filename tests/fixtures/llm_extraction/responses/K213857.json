@@ -1,0 +1,17 @@
+{
+ "submission_number": "K213857",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3130,
+ "eval_count": 168,
+ "wall_seconds": 52.8,
+ "gen_tok_s": 10.9,
+ "content": "{\"performance_reported\": {\"value\": null, \"quote\": null}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The HeartFlow Analysis is intended to support the risk assessment and functional evaluation of coronary artery disease.\"}}"
+}

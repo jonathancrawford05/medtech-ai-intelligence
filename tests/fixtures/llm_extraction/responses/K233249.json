@@ -1,0 +1,17 @@
+{
+ "submission_number": "K233249",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3689,
+ "eval_count": 676,
+ "wall_seconds": 116.6,
+ "gen_tok_s": 9.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"As shown in Table 1, the primary endpoint results demonstrate that the key test statistics, the Likelihood Ratios of the APPRAISE-HRI Levels, met the success criteria\"}, \"metrics\": [{\"metric\": \"other\", \"label\": \"Likelihood Ratio [95% CI*]\", \"context\": \"HRI Level I\", \"setting\": \"standalone\", \"value\": 0.18, \"ci_low\": 0.12, \"ci_high\": 0.26, \"quote\": \"HRI Level I 25 1,347 1,372 0.18 [0.12, 0.26]\"}, {\"metric\": \"other\", \"label\": \"Likelihood Ratio [95% CI*]\", \"context\": \"HRI Level II\", \"setting\": \"standalone\", \"value\": 0.7, \"ci_low\": 0.63, \"ci_high\": 0.76, \"quote\": \"HRI Level II 257 3,631 3,888 0.70 [0.63, 0.76]\"}, {\"metric\": \"other\", \"label\": \"Likelihood Ratio [95% CI*]\", \"context\": \"HRI Level III\", \"setting\": \"standalone\", \"value\": 6.88, \"ci_low\": 6.04, \"ci_high\": 7.84, \"quote\": \"HRI Level III 261 374 635 6.88 [6.04, 7.84]\"}], \"study_design\": {\"value\": \"prospective\", \"quote\": \"This “prospectively, retrospectively” design study prospectively validated the APPRAISE-HRI device using retrospectively collected vital-sign data\"}, \"sample_size\": {\"value\": 5895, \"quote\": \"Total 543 5,352 5,895\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"during transport of trauma patients from the point of injury to the receiving hospital (eight sites) and at a hospital’s Emergency Department (one site)\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"the targeted population for the APPRAISE-HRI is adult trauma patients (patient age range is ≥18 and ≤90 years)\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The APPRAISE-HRI is a mobile health app intended to provide a means for military healthcare providers to screen U.S. Service members for hemorrhage risk after a physically traumatic event\"}}"
+}

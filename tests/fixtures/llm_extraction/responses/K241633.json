@@ -1,0 +1,17 @@
+{
+ "submission_number": "K241633",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 4102,
+ "eval_count": 437,
+ "wall_seconds": 111.7,
+ "gen_tok_s": 7.5,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The hypothesis that the IVC App can measure PR within ± 3 BPM ARMS is accepted.\"}, \"metrics\": [{\"metric\": \"accuracy\", \"label\": \"average root mean square (ARMS)\", \"context\": \"primary endpoint\", \"setting\": \"standalone\", \"value\": 3, \"ci_low\": null, \"ci_high\": null, \"quote\": \"The hypothesis that the IVC App can measure PR within ± 3 BPM ARMS is accepted.\"}], \"study_design\": {\"value\": \"prospective\", \"quote\": \"A multicenter, prospective, open- label clinical study was conducted on the IVC App\"}, \"sample_size\": {\"value\": 67, \"quote\": \"Subjects Total 67\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"The study recruited subjects from six study sites located in the United States.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Age 22-29 6 30-39 16 40-49 9 50-59 10 60-69 20 70-77 6 Gender Males 30 Females 37 Race/Ethnicity American Indian or Alaska Native 1 American Indian or Alaska Native/Black or African American 1 Asian 5 Black/African American 18 Pacific Islander 1 White 40 Other 1\"}, \"clinical_endpoint\": {\"value\": \"measurement_quantification\", \"quote\": \"The Informed Vital Core Application (IVC App) is intended for non-invasive spot measurement of pulse rate of adult patients in home use, hospitals, clinics, and long-term care settings.\"}}"
+}

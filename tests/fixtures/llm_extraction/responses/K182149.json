@@ -1,0 +1,17 @@
+{
+ "submission_number": "K182149",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 5680,
+ "eval_count": 643,
+ "wall_seconds": 128.8,
+ "gen_tok_s": 10.1,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The per vessel sensitivity of FFRangio™ was 93.5% with a lower one-sided 95% CI of 87.8%. The per-vessel specificity of FFRangio™ was 91.2% with a lower one-sided 95% CI of 86.0%.\"}, \"metrics\": [{\"metric\": \"sensitivity\", \"label\": \"sensitivity\", \"context\": \"per vessel\", \"setting\": \"standalone\", \"value\": 93.5, \"ci_low\": 87.8, \"ci_high\": 96.6, \"quote\": \"The per vessel sensitivity of FFRangio™ was 93.5% with a lower one-sided 95% CI of 87.8%.\"}, {\"metric\": \"specificity\", \"label\": \"specificity\", \"context\": \"per vessel\", \"setting\": \"standalone\", \"value\": 91.2, \"ci_low\": 86.0, \"ci_high\": 94.6, \"quote\": \"The per-vessel specificity of FFRangio™ was 91.2% with a lower one-sided 95% CI of 86.0%.\"}, {\"metric\": \"correlation\", \"label\": \"Correlation Coefficient (R)\", \"context\": null, \"setting\": \"standalone\", \"value\": 0.8, \"ci_low\": 0.65, \"ci_high\": null, \"quote\": \"Correlation Coefficient (R) 0.80\"}], \"study_design\": {\"value\": \"prospective\", \"quote\": \"FAST-FFR was a prospective, multicenter, international trial\"}, \"sample_size\": {\"value\": 382, \"quote\": \"382 subjects enrolled of which 30 were roll-in subjects and 352 were study subjects.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"conducted at 10 sites in 5 countries in the United States, Europe and Israel\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Subjects had an overall mean age of 64.9 ± (9.9) years and 74.6% were men. 92.5% were white and the remaining from other races.\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The results of this analysis are provided as a supportive aid for qualified clinicians in the evaluation and assessment of coronary arteries physiology.\"}}"
+}

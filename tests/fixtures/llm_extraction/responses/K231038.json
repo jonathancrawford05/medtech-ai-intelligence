@@ -1,0 +1,17 @@
+{
+ "submission_number": "K231038",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 2429,
+ "eval_count": 233,
+ "wall_seconds": 42.9,
+ "gen_tok_s": 10.8,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"No clinical trial was performed in support of the subject 510(k).  However, patient waveforms were collected in support of the development and validation of the GHI algorithm.\"}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"null\"}, \"sample_size\": {\"value\": null, \"quote\": \"null\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": \"null\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": \"null\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The GHI algorithm provides the risk of a global hypoperfusion event (defined as SvO2 ≤ 60% for at least 1 minute) occurring in the next 10-15 minutes.\"}}"
+}

@@ -1,0 +1,17 @@
+{
+ "submission_number": "K223073",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3017,
+ "eval_count": 400,
+ "wall_seconds": 69.4,
+ "gen_tok_s": 10.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The results of the study demonstrate that Alio can accurately assess abnormal potassium levels and measure hemoglobin (Hgb) and hematocrit (Hct) when placed on an arteriovenous access site in patients with ESKD.\"}, \"metrics\": [{\"metric\": \"accuracy\", \"label\": \"accuracy of Alio in the assessment of abnormal potassium levels\", \"context\": \"clinical validation study\", \"setting\": \"standalone\", \"value\": 125, \"ci_low\": null, \"ci_high\": null, \"quote\": \"The results of the study demonstrate that Alio can accurately assess abnormal potassium levels and measure hemoglobin (Hgb) and hematocrit (Hct) when placed on an arteriovenous access site in patients with ESKD.\"}], \"study_design\": {\"value\": \"prospective\", \"quote\": \"Alio was studied in a multi-center, prospective study with 125 subjects.\"}, \"sample_size\": {\"value\": 125, \"quote\": \"Alio was studied in a multi-center, prospective study with 125 subjects.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"Alio was studied in a multi-center, prospective study with 125 subjects.\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The data also include a qualitative indicator of abnormal levels of potassium derived from relative variability of photoplethysmography waveforms and medically accepted threshold values.\"}}"
+}

@@ -1,0 +1,17 @@
+{
+ "submission_number": "K201298",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 5682,
+ "eval_count": 558,
+ "wall_seconds": 146.8,
+ "gen_tok_s": 7.4,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The study demonstrated that the expert readers both strongly agreed with one another as to the presence or absence of dispersed intra-cardiac atrial electrograms in the evaluated electrogram recordings and that they, similarly, independently agreed with the VX1 adjudication of the presence or absence of intra-cardiac atrial DEs.\"}, \"metrics\": [{\"metric\": \"accuracy\", \"label\": \"accuracy\", \"context\": \"5-fold cross validation on the model\", \"setting\": \"standalone\", \"value\": 89, \"ci_low\": null, \"ci_high\": null, \"quote\": \"5-fold cross validation was performed on the model with a resulting accuracy of over 89%.\"}, {\"metric\": \"accuracy\", \"label\": \"agreement with annotating experts\", \"context\": \"limited time annotation testing\", \"setting\": \"reader_with_device\", \"value\": 17, \"ci_low\": null, \"ci_high\": null, \"quote\": \"The cardiac electrophysiologists each classified 1,020 electrograms as either dispersed or non-dispersed with 17 seconds allotted for each classification.\"}], \"study_design\": {\"value\": \"mixed\", \"quote\": \"The study was aimed at evaluating the usability and efficacy of VX1 for detecting DEs and involved 8 centers, 18 operators, and 300 patients.\"}, \"sample_size\": {\"value\": 300, \"quote\": \"The study was aimed at evaluating the usability and efficacy of VX1 for detecting DEs and involved 8 centers, 18 operators, and 300 patients.\"}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"The study was aimed at evaluating the usability and efficacy of VX1 for detecting DEs and involved 8 centers, 18 operators, and 300 patients.\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The VX1 assists operators in the real-time manual annotation of 3D anatomical and electrical maps of human atria for the presence of multipolar intra-cardiac atrial electrograms exhibiting spatiotemporal dispersion during atrial fibrillation or atrial tachycardia.\"}}"
+}
