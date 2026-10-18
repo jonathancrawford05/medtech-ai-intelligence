@@ -15,6 +15,11 @@ What finding 0011 measured, and this module encodes:
 - **Text vs image.** A page with fewer than 100 non-whitespace characters is an
   image page; a document is ``text`` (all pages over), ``image`` (none) or
   ``mixed``. Stored per page so the rule can be re-applied later.
+- **Garbled pages.** A page can have plenty of characters and still no text: a
+  font-encoded layer that pypdf decodes as a substitution cipher ("2C@ 1OP?T
+  5<O>C", K182456). `page_text_class` flags it (finding 0023, ADR 0022). It is a
+  read-time test over the stored text, not a bronze column, so every stored fetch
+  is judged by the same rule.
 - **Citizenship.** ~1 request/second across every request, and a 429 or 403
   **stops the pass** (after flushing what was fetched) rather than retrying into
   a block. 5xx and network errors are retried with the shared backoff.
@@ -35,6 +40,7 @@ import os
 import re
 import tempfile
 import time
+import unicodedata
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -45,7 +51,7 @@ import httpx
 import pypdf
 
 from registry.config.settings import Settings, get_settings
-from registry.schemas import BronzeSummaryDocumentRecord, TextClass
+from registry.schemas import BronzeSummaryDocumentRecord, PageTextClass, TextClass
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +136,50 @@ def classify_pages(char_counts: Iterable[int]) -> TextClass | None:
     if text_pages == len(counts):
         return "text"
     return "image" if text_pages == 0 else "mixed"
+
+
+# The garble test (finding 0023, failure mode 3). Real pages, tables included, carry
+# no control characters, under 1.3% of these cipher symbols, and at least 3% common
+# English function words; K182456's cipher pages carry 17-19% control characters,
+# 25-27% symbols and ~1-2% function words. Each threshold alone separates every
+# recorded page; either one flags a page.
+_CIPHER_SYMBOLS = frozenset("<>?@=\\^`{}|~")
+_GARBLED_CONTROL_SHARE = 0.05
+_GARBLED_SYMBOL_SHARE = 0.05
+# The function-word rule needs enough words to mean anything (a short table page
+# can have few), and stays well below the lowest real page (4.3% at >= 100 words).
+_FUNCTION_WORDS = frozenset(
+    re.findall(
+        r"\w+",
+        "the of and to in for with is a or on by be as are that this was were from an at not",
+    )
+)
+_GARBLED_MIN_WORDS = 100
+_GARBLED_FUNCTION_SHARE = 0.02
+
+
+def page_is_garbled(text: str) -> bool:
+    """True when a page has characters but no readable words (a font cipher)."""
+    chars = [c for c in text if not c.isspace()]
+    if not chars:
+        return False
+    control = sum(1 for c in chars if unicodedata.category(c) == "Cc")
+    if control / len(chars) >= _GARBLED_CONTROL_SHARE:
+        return True
+    if sum(1 for c in chars if c in _CIPHER_SYMBOLS) / len(chars) >= _GARBLED_SYMBOL_SHARE:
+        return True
+    words = re.findall(r"[A-Za-z]+", text)
+    if len(words) < _GARBLED_MIN_WORDS:
+        return False
+    function = sum(1 for w in words if w.lower() in _FUNCTION_WORDS)
+    return function / len(words) < _GARBLED_FUNCTION_SHARE
+
+
+def page_text_class(text: str) -> PageTextClass:
+    """``image`` (no text layer), ``garbled`` (a cipher layer) or ``text``, for one page."""
+    if char_count(text) < IMAGE_PAGE_MAX_CHARS:
+        return "image"
+    return "garbled" if page_is_garbled(text) else "text"
 
 
 @dataclass(slots=True)

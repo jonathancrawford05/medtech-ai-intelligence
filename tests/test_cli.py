@@ -356,3 +356,56 @@ class TestCurationCandidates:
         out = CliRunner().invoke(cli.app, ["curation-candidates"])
         assert out.exit_code == 1
         assert "extract-intended-use" in out.output
+
+
+class TestLlmEvidence:
+    """PR 4D (ADR 0022): the three commands an operator runs on the Mac."""
+
+    def test_extract_evidence_refuses_an_unscoped_run_before_starting_spark(self, monkeypatch):
+        import registry.spark_session
+
+        def no_spark(settings):
+            raise AssertionError("Spark must not start for a refused run")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", no_spark)
+        out = CliRunner().invoke(cli.app, ["extract-evidence"])
+        assert out.exit_code == 1
+        assert "--only" in out.output and "--limit" in out.output
+
+    def test_extract_evidence_reports_a_stopped_run_and_the_yields(self, monkeypatch):
+        import registry.spark_session
+        from registry.llm_extraction import run as llm_run
+
+        outcome = llm_run.RunOutcome("4d.1-qwen3_14b-20261018T090000Z", stopped="too hot")
+        outcome.records = [object()]  # type: ignore[list-item]
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(llm_run, "extract_run", lambda *a, **k: outcome)
+        monkeypatch.setattr(llm_run.RunOutcome, "statuses", property(lambda self: {"ok": 1}))
+        monkeypatch.setattr(
+            llm_run,
+            "build_evidence",
+            lambda spark, settings: llm_run.EvidenceBuild(3, llm_run.EvidenceYields(responses=1)),
+        )
+        out = CliRunner().invoke(cli.app, ["extract-evidence", "--limit", "1"])
+        assert out.exit_code == 0, out.output
+        assert "1 document(s) (ok 1)" in out.output
+        assert "Stopped early: too hot" in out.output
+        assert "Wrote 3 row(s)" in out.output
+
+    def test_score_gold_on_the_recorded_responses(self, fixtures_dir):
+        out = CliRunner().invoke(
+            cli.app,
+            [
+                "score-gold",
+                "--gold",
+                str(fixtures_dir / "llm_extraction" / "gold_set_v1.csv"),
+                "--recorded",
+                str(fixtures_dir / "llm_extraction"),
+                "--bar",
+                "0.9",
+            ],
+        )
+        assert out.exit_code == 0, out.output
+        assert "58 row(s)" in out.output and "4d-spike-4" in out.output
+        assert "BY FIELD" in out.output and "BY CHECK STATUS" in out.output
+        assert "precision  87.5%" in out.output  # metrics

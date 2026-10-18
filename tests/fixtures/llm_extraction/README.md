@@ -23,5 +23,9 @@ The eCART image-table fabrication (`K233253`) is in the gold set itself.
 Sampling: seed 20261018, over-weighting likely errors (see `why_sampled`), so per-row
 accuracy here is not a population rate; finding 0023 gives the weighted estimate.
 
+PR 4D's tests read these files directly (`tests/test_llm_*.py`), and
+`uv run registry score-gold --recorded tests/fixtures/llm_extraction` scores the recorded
+run with the current checks (ADR 0022, finding 0024).
+
 The model was run on the maintainer's Mac (Ollama, temperature 0, seed 42, `think: false`,
 `num_ctx` 16384). Do not regenerate these files in CI; record new ones on the Mac.

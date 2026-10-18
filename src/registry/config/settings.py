@@ -15,6 +15,7 @@ import re
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -92,6 +93,26 @@ class Settings(BaseSettings):
     # different text extractor can be re-run without refetching (ADR 0018). Never
     # in git and never in Delta; None (the default) keeps no bytes at all.
     summary_pdf_archive_dir: str | None = None
+
+    # ---- LLM-assisted extraction (Issue 4 PR 4D, ADR 0022) ----------------
+    # A local Ollama server; only the maintainer's Mac runs one (finding 0023).
+    ollama_base_url: str = "http://localhost:11434"
+    llm_model: str = "qwen3:14b"
+    llm_seed: int = 42
+    llm_num_ctx: int = Field(default=16384, ge=1024)
+    # The output cap: the spike's runaway documents wrote 4,000-9,258 tokens.
+    llm_num_predict: int = Field(default=3000, ge=256)
+    # Ollama's top-level `think`: qwen3 must be told "false"; gpt-oss takes a level
+    # ("low" / "medium" / "high"); "omit" sends no field at all.
+    llm_think: Literal["false", "true", "low", "medium", "high", "omit"] = "false"
+    # Per request: 3,000 tokens at a throttled 5 tok/s plus prompt evaluation.
+    llm_timeout_seconds: float = Field(default=900.0, gt=0)
+    # Inputs past this keep their study-bearing pages (the spike's 40k rule).
+    llm_max_input_chars: int = Field(default=40_000, ge=1000)
+    # Thermal pacing on the fanless Air: rest after every batch, stop when slow.
+    llm_batch_size: int = Field(default=5, ge=1)
+    llm_rest_seconds: float = Field(default=300.0, ge=0)
+    llm_min_tok_s: float = Field(default=6.0, ge=0)
 
     # ---- HTTP behaviour --------------------------------------------------
     http_timeout_seconds: float = 30.0

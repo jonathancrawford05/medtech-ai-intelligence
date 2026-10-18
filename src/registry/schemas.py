@@ -32,6 +32,8 @@ ReviewMethod = t.Literal["human", "llm_assisted"]
 Movement = t.Literal["added", "changed", "removed"]
 # How much of a 510(k) Summary has a text layer (finding 0011's per-page rule).
 TextClass = t.Literal["text", "mixed", "image"]
+# One page, read at extraction time (ADR 0022): `garbled` has characters but no words.
+PageTextClass = t.Literal["text", "garbled", "image"]
 # How a predicate number was found in a Summary (ADR 0019), strongest first.
 PredicateMethod = t.Literal["table", "section", "sentence"]
 # Why one predicate was chosen as primary: the Summary says so ("is the primary
@@ -55,6 +57,41 @@ IntendedUseBasis = t.Literal[
     "summary_section",  # the Summary's "Indications for Use" / "Intended Use" section
     "not_found",  # readable form or Summary pages, no statement found -> text None
     "no_text",  # no readable form or Summary page at all -> text None
+]
+
+# LLM-assisted extraction (ADR 0022). One model call's outcome per document.
+LlmResponseStatus = t.Literal[
+    "ok",
+    "skipped_output_cap",  # hit num_predict on both attempts
+    "skipped_invalid",  # not JSON / not the schema on both attempts
+    "skipped_error",  # the server failed on both attempts
+    "skipped_no_pages",  # every located page garbled or empty: never sent
+]
+EvidenceField = t.Literal[
+    "metric",
+    "performance_reported",
+    "study_design",
+    "sample_size",
+    "multi_site",
+    "demographics_disclosed",
+    "clinical_endpoint",
+]
+# The deterministic checks' verdict on one value (`llm_extraction.checks`).
+CheckStatus = t.Literal[
+    "ok",  # accept
+    "ok_loose",  # accept
+    "absent",  # accept: performance_reported=false with no metrics
+    "ok_gapped",  # accept, flagged for review
+    "ok_numbers",  # accept, flagged for review
+    "ok_rescaled",  # accept, flagged for review
+    "quote_not_found",  # reject
+    "value_not_in_quote",  # reject
+    "no_quote",  # reject
+    "not_a_result",  # reject
+    "ci_inconsistent",  # reject
+    "zero_triple",  # reject
+    "measure_not_named",  # reject
+    "duplicate",  # dropped
 ]
 
 # The live lead categories (ADR 0016; `pccp` added by ADR 0020 once the document
@@ -199,6 +236,54 @@ class BronzeSummaryDocumentRecord(BaseModel):
             )
         if self.text_class is not None and self.content_sha256 is None:
             raise ValueError("text_class describes a document; it needs content_sha256")
+        return self
+
+
+class BronzeLlmResponseRecord(BaseModel):
+    """One model call about one document, verbatim (`bronze_llm_responses`; ADR 0022).
+
+    Append-only like every bronze table. The model's raw ``content`` is stored, not
+    the parsed values: the calls are the expensive input (~2 minutes a document on
+    the Mac), so silver re-scores them offline whenever a check changes. A skipped
+    document is a row too, so a run's coverage is auditable. Provenance on every row:
+    the full model digest, the prompt version, the options and the run id.
+    """
+
+    run_id: str
+    submission_number: str
+    # Which bronze fetch's text was sent, and which of its pages.
+    source_content_sha256: str
+    pages_sent: list[int] = Field(default_factory=list)
+    pages_garbled: list[int] = Field(default_factory=list)  # dropped before the call
+    pages_trimmed: list[int] = Field(default_factory=list)  # dropped for length
+    model: str
+    model_digest: str | None = None  # None only when nothing was sent
+    prompt_version: str
+    options_json: str  # temperature, seed, num_ctx, num_predict, think
+    status: LlmResponseStatus
+    attempts: int = Field(ge=0)
+    content: str | None = None
+    done_reason: str | None = None
+    eval_count: int | None = None
+    prompt_eval_count: int | None = None
+    wall_seconds: float | None = None
+    gen_tok_s: float | None = None
+    error: str | None = None
+    requested_at: dt.datetime
+    ingested_at: dt.datetime
+    source_snapshot_id: str  # content hash of the response (or of the skip)
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> BronzeLlmResponseRecord:
+        if self.status == "ok" and (self.content is None or self.model_digest is None):
+            raise ValueError("an ok response needs its content and the model digest")
+        if (self.status == "skipped_no_pages") != (not self.pages_sent):
+            raise ValueError("pages_sent is empty exactly when the document was not sent")
         return self
 
 
@@ -518,6 +603,84 @@ class IntendedUseRecord(BaseModel):
         return self
 
 
+class LlmEvidenceRecord(BaseModel):
+    """One study-evidence value proposed by a model and judged by code (`silver_llm_evidence`).
+
+    Issue 4 PR 4D (ADR 0022). Rebuilt from ``bronze_llm_responses`` and the bronze
+    page text by the deterministic checks; every value the model proposed is a row,
+    rejected ones included (``accepted`` says which survive), so a rule change is
+    measurable. The page is where the check found the quote, never the model's word.
+
+    Evidence, never a judgement (ADR 0007): ``review_method`` is always
+    ``llm_assisted``, and a risk ``clinical_endpoint`` is a curation lead
+    (``curation_lead``), never ``mortality_confirmed_flag`` (ADR 0014).
+    """
+
+    submission_number: str  # FK to DeviceRecord
+    # Provenance: which call (run, model digest, prompt) and which rules judged it.
+    run_id: str
+    model: str
+    model_digest: str
+    prompt_version: str
+    checks_version: str
+    review_method: ReviewMethod = "llm_assisted"
+    requested_at: dt.datetime
+    built_at: dt.datetime
+    source_content_sha256: str
+
+    field: EvidenceField
+    # The value: enums and booleans as text, numbers as written (98.1 stays 98.1).
+    value_text: str | None = None
+    value_number: float | None = None
+    value_bool: bool | None = None
+    sample_unit: str | None = None
+    # Metric only; applies_to / is_result None = not asked (the spike prompt).
+    metric_index: int | None = None
+    metric: str | None = None
+    label: str | None = None
+    context: str | None = None
+    applies_to: str | None = None
+    setting: str | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    ci_sided: str | None = None
+    is_result: bool | None = None
+
+    quote: str | None = None
+    quote_pages: list[int] = Field(default_factory=list)
+    quote_status: CheckStatus | None = None  # the quote ladder alone
+    check_status: CheckStatus  # after every rule
+    accepted: bool
+    needs_review: bool
+    # An accepted risk endpoint (mortality / mace / hospitalisation / deterioration_risk):
+    # "send to curation", never a flag (handoff §3 rule 8).
+    curation_lead: bool = False
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> LlmEvidenceRecord:
+        if self.review_method != "llm_assisted":
+            raise ValueError("model-proposed evidence is always review_method='llm_assisted'")
+        if self.accepted and self.check_status not in _ACCEPTED_STATUSES:
+            raise ValueError(f"check_status {self.check_status!r} cannot be accepted")
+        if not self.accepted and self.check_status in _ACCEPTED_STATUSES:
+            raise ValueError(f"check_status {self.check_status!r} is an accepting status")
+        if self.accepted and self.quote is not None and not self.quote_pages:
+            raise ValueError("an accepted quote needs the page(s) the check found it on")
+        if self.curation_lead and not (self.accepted and self.field == "clinical_endpoint"):
+            raise ValueError("only an accepted clinical_endpoint can be a curation lead")
+        return self
+
+
+_ACCEPTED_STATUSES = frozenset(
+    {"ok", "ok_loose", "absent", "ok_gapped", "ok_numbers", "ok_rescaled"}
+)
+
+
 class PredicateDateRecord(BaseModel):
     """A predicate's FDA decision date, from openFDA (`silver_predicate_dates`).
 
@@ -614,11 +777,13 @@ class LeadRecord(BaseModel):
 TABLE_MODELS: dict[str, type[BaseModel]] = {
     "bronze_fda_ai_list": BronzeFdaAiListRecord,
     "bronze_summary_documents": BronzeSummaryDocumentRecord,
+    "bronze_llm_responses": BronzeLlmResponseRecord,
     "silver_devices": DeviceRecord,
     "silver_evidence": EvidenceRecord,
     "silver_document_extraction": DocumentExtractionRecord,
     "silver_predicate_dates": PredicateDateRecord,
     "silver_intended_use": IntendedUseRecord,
+    "silver_llm_evidence": LlmEvidenceRecord,
     "silver_companies": CompanyRecord,
     "gold_device_leads": LeadRecord,
 }
