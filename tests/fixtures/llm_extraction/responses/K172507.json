@@ -1,0 +1,17 @@
+{
+ "submission_number": "K172507",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 2112,
+ "eval_count": 230,
+ "wall_seconds": 42.3,
+ "gen_tok_s": 11.1,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"The SOZO™ system has gone through appropriate testing per design controls to confirm the new design’s functionality and performance.\"}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"not_stated\"}, \"sample_size\": {\"value\": null, \"quote\": \"not_stated\"}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": \"not_stated\"}, \"demographics_disclosed\": {\"value\": null, \"quote\": \"not_stated\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"The SOZO Fluid Status Monitor is intended for adult patients living with heart failure. This device is intended for use, under the direction of a physician, for the noninvasive monitoring of patients with fluid management problems suffering from heart failure.\"}}"
+}

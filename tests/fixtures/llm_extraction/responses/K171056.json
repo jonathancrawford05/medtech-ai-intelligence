@@ -1,0 +1,17 @@
+{
+ "submission_number": "K171056",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 4095,
+ "eval_count": 267,
+ "wall_seconds": 68.4,
+ "gen_tok_s": 10.1,
+ "content": "{\"performance_reported\": {\"value\": false, \"quote\": \"13. Clinical Performance: Not Applicable. Clinical evidence was not necessary to show substantial equivalence.\"}, \"metrics\": [], \"study_design\": {\"value\": \"not_stated\", \"quote\": \"not_stated\"}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": false, \"quote\": \"13. Clinical Performance: Not Applicable. Clinical evidence was not necessary to show substantial equivalence.\"}, \"clinical_endpoint\": {\"value\": \"monitoring\", \"quote\": \"The WAVE Clinical Platform is software intended to route, store, and display data, alarms, results and diagnostic information from medical devices, Electronic Medical Records (EMR), and Clinical Information Systems (CIS). The WAVE Clinical Platform is a remote monitoring platform that displays physiologic data, waveforms, alarms, results and diagnostic information routed through the WAVE Clinical Platform from supported devices and systems.\"}}"
+}

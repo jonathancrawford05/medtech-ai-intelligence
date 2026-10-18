@@ -153,40 +153,65 @@ Agreed 2026-10-11 on finding 0019's evidence (PCCP in 0% of 2022 clearances, 11.
 - Measure: how many leads' `mortality_language_source` moves to the device-level text,
   and how stage-1 `keyword_disagrees` changes on the 133 curated devices.
 
-### PR 4D — LLM-assisted structured extraction · cloud builds, gold set first
+### PR 4D — LLM-assisted structured extraction · cloud builds, gold set exists
 
 Deterministic regex is right for predicates and presence flags. Study facts are not
 regex-shaped: sensitivity/specificity/AUC values, study design and size, whether
 demographics are disclosed (`EvidenceRecord.discloses_demographics`,
-`reports_sensitivity_specificity` — both waiting on this), and the clinical endpoint
-(mortality, MACE, hospitalisation, detection). Design rules:
+`reports_sensitivity_specificity` — both waiting on this), and the clinical endpoint.
+The spike ([finding 0023](../../findings/0023-local-llm-extraction-spike.md)) ran this over
+153 cardiovascular/metabolic Summaries and a 58-row gold set; the rules below come from it.
+Fixtures: `tests/fixtures/llm_extraction/` (41 documents, recorded responses, prompt, gold set).
 
-1. **Pydantic schema per extraction** with `bool | None` semantics (unknown ≠ false).
-2. **Every extracted value carries a verbatim quote and a page number**, and a
-   deterministic post-check rejects any value whose quote is not a substring of the
-   normalised page text. That is the hallucination guard; it is non-negotiable.
-3. Provenance: `review_method="llm_assisted"`, the model id, prompt version, and run id
-   on every row — the same audit trail as the mortality seed (ADR 0007).
-4. **Gold set before scale.** 40–60 documents, stratified by year and panel, labelled by a
-   human (LLM pre-labels allowed, human-confirmed). Report precision/recall per field.
-   No full run until a field clears an agreed bar; fields that do not clear it stay deferred.
-5. **Local model via Ollama, behind a thin provider interface.** Decided 2026-10-11:
-   primary `qwen3:14b`, comparison model `gpt-oss:20b`, both already installed on the Mac.
-   - One function: (pages, schema, prompt version) → validated JSON + model metadata.
-     Ollama's `format` field takes the JSON schema generated from the Pydantic model;
-     the same model validates the response.
-   - Send only the pages 4B located (`summary_pages`, `ifu_form_pages`), never the whole PDF.
-   - Deterministic settings: temperature 0, fixed seed, `think: false` for `qwen3:14b`.
-     Record the **full** model digest (not the short id) and the prompt version on every row.
-   - Runs on the Mac only (it needs the bronze text until durable storage exists). The
-     cloud session builds and tests against recorded responses; real model calls sit behind
-     their own pytest marker, as `live_network` does. No API cost; expect an overnight-scale
-     run for ≈1,541 docs that writes as it goes and resumes.
-   - A field that fails its gold-set bar on `qwen3:14b` is re-run on `gpt-oss:20b` (or a
-     hosted model through the same interface) before it is deferred, so a failure can
-     tell field difficulty from model size.
-   The 4D ADR records this choice and the measured run time.
-6. Output is evidence for curation and leads — it never sets `mortality_confirmed_flag`.
+1. **Pydantic schema per extraction** with `bool | None` semantics (unknown ≠ false). Start
+   from the spike schema (`prompt_4d-spike-4.json`) and change it where the gold set says:
+   - each metric carries `context` (dataset / subgroup / model / threshold, as named) and
+     `applies_to` (`subject_device` / `predicate` / `original_device`) — the model credited a
+     predicate's specificity to the subject device;
+   - error measures are their own names (`mae`, `rmse`, `arms`, `mean_difference`), and
+     agreement / concordance is `agreement`, not `accuracy`;
+   - confidence intervals take `ci_low`, `ci_high` and `ci_sided` (`two` / `lower` / `upper`),
+     so a one-sided bound is never turned into an invented two-sided interval;
+   - a stated threshold or acceptance criterion is not a result (`is_result: bool`);
+   - no "at most N" counts in the prompt (they invite padding).
+2. **The page is derived, not asked for.** The model gives a quote; the code finds it and
+   records the page. Asked for a page, the model was wrong about a third of the time.
+3. **The deterministic checks are the design** (finding 0023, "The deterministic checks").
+   Port them from the spike scorer into the package, with tests on the fixtures:
+   `ok` / `ok_loose` accept; `ok_gapped`, `ok_numbers`, `ok_rescaled` accept **flagged for
+   review**; `value_not_in_quote` and `quote_not_found` reject; exact duplicates drop. Every
+   number checked (value and each CI bound). Two rules the gold set added: a metric whose quote
+   and label never name its measure is rejected (0 / 6 correct in the gold set), and a
+   `0 (0–0)` triple is rejected. Test that every fabricated row in the fixtures is rejected
+   (`K251218`, `K233253`, the cipher page in `K182456`).
+4. **Skip pages that are not really text.** Add a garble test to the page text class (the
+   `K182456` text layer is a substitution cipher that 4A classes as `text`); such pages never
+   reach the model.
+5. Provenance: `review_method="llm_assisted"`, the full model digest, prompt version and run
+   id on every row — the same audit trail as the mortality seed (ADR 0007).
+6. **Gold set.** `gold_set_v1.csv` is the first one (58 rows). The harness scores a run
+   against it per field and per check status. A field ships only when it clears an agreed bar
+   on a fresh gold draw; on the spike, plain accepted metrics were 8 / 8, scalar fields
+   16 / 19, the endpoint field well below that.
+7. **Local model via Ollama, behind a thin provider interface.** Decided 2026-10-11: primary
+   `qwen3:14b`, comparison `gpt-oss:20b`, both on the Mac.
+   - One function: (pages, schema, prompt version) → validated JSON + model metadata, with the
+     JSON schema from the Pydantic model in Ollama's `format`.
+   - Send only the pages 4B located (`summary_pages`, `ifu_form_pages`).
+   - Temperature 0, fixed seed, `think: false` for `qwen3:14b`; record the full digest.
+   - Cap output (`num_predict`, about 3,000 tokens) and skip a document after one failed retry:
+     3 of 153 spike documents ran past 4,000 tokens, one for 24 minutes.
+   - Runs on the Mac only; the cloud session builds against the recorded responses, and real
+     model calls sit behind their own pytest marker.
+   - **Throughput on the maintainer's M4 Air:** about 2 minutes a document, 7–10 tokens a
+     second, throttling after ~45 minutes. Run in batches with rests and a stop below
+     6 tok/s, keep the Mac awake (`caffeinate`), and scope runs (the 153 cardiometabolic
+     Summaries took 5.9 h of model time; all 1,519 would be ~70 h).
+   - A field that fails on `qwen3:14b` is re-run on `gpt-oss:20b` before it is deferred.
+8. **The clinical endpoint is a curation lead, never a flag.** It over-calls
+   `deterioration_risk` on measurement and monitoring devices; require a future-event test
+   ("predicts X within a time window") in the prompt, and send its risk calls to curation —
+   it never sets `mortality_confirmed_flag`.
 
 ## 4. What stays out of scope
 
@@ -274,13 +299,16 @@ curation-candidates report. Report the before/after measures named in §3. Open 
 do not merge.
 ```
 
-**4D (cloud, after a gold set exists):**
+**4D (cloud; the gold set and fixtures exist):**
 
 ```text
-Read CLAUDE.md and docs/handoffs/issue-4-document-pass.md §3 PR 4D. Implement the
-LLM-assisted extraction framework with the verbatim-quote validation rule, provenance,
-and a gold-set evaluation harness, using the Ollama provider interface in §3 rule 5
-(qwen3:14b primary, gpt-oss:20b comparison). You cannot reach Ollama: build and test
-against recorded responses, and put real model calls behind their own pytest marker.
-Do not run at full scale. Write the provider ADR. Open the PR; do not merge.
+Read CLAUDE.md, docs/handoffs/issue-4-document-pass.md §3 PR 4D and findings/0023.
+Build the LLM-assisted extraction framework: the Pydantic schema with the §3 rule 1
+changes, the deterministic checks in §3 rule 3 (ported from the spike scorer, tested on
+tests/fixtures/llm_extraction/), the page garble test, the Ollama provider interface in
+rule 7 (output cap, retry-then-skip), provenance, a silver table for the evidence, and a
+gold-set harness that scores a run per field and per check status. You cannot reach
+Ollama: test against the recorded responses and put real model calls behind their own
+pytest marker. Prove every fabricated fixture row is rejected. Write the 4D ADR. Do not run
+at full scale. Open the PR; do not merge.
 ```

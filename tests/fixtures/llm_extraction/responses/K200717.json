@@ -1,0 +1,17 @@
+{
+ "submission_number": "K200717",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 2974,
+ "eval_count": 778,
+ "wall_seconds": 133.3,
+ "gen_tok_s": 7.9,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"The performance was determined acceptable considering the software is intended to provide visual-only indicators with a typical time horizon of several hours for an already closely monitored population.\"}, \"metrics\": [{\"metric\": \"sensitivity\", \"label\": \"Sensitivity\", \"context\": \"Hemodynamic Instability (HI) model\", \"setting\": \"standalone\", \"value\": 60.6, \"ci_low\": 56.9, \"ci_high\": 63.9, \"quote\": \"Sensitivity  60.6% 56.9% 63.9%\"}, {\"metric\": \"specificity\", \"label\": \"Specificity\", \"context\": \"Low Risk (LR) model\", \"setting\": \"standalone\", \"value\": 95.7, \"ci_low\": 94.8, \"ci_high\": 96.6, \"quote\": \"Specificity 95.7% 94.8% 96.6%\"}, {\"metric\": \"ppv\", \"label\": \"Positive Predictive Value\", \"context\": \"Hemodynamic Instability (HI) model\", \"setting\": \"standalone\", \"value\": 22.3, \"ci_low\": 20.7, \"ci_high\": 24.3, \"quote\": \"Positive Predictive Value  22.3% 20.7% 24.3%\"}, {\"metric\": \"sensitivity\", \"label\": \"Sensitivity\", \"context\": \"Low Risk (LR) model\", \"setting\": \"standalone\", \"value\": 21.4, \"ci_low\": 21.2, \"ci_high\": 21.6, \"quote\": \"Sensitivity  21.4% 21.2% 21.6%\"}, {\"metric\": \"other\", \"label\": \"Lead-time (true positive alerts)\", \"context\": \"Hemodynamic Instability (HI) model\", \"setting\": \"standalone\", \"value\": 3.0, \"ci_low\": 1.6, \"ci_high\": 4.8, \"quote\": \"Lead-time  (true positive alerts) 3.0 hours 1.6 hours 4.8 hours\"}], \"study_design\": {\"value\": \"retrospective\", \"quote\": \"Further, CLEWICU was assessed in a retrospective clinical validation with a dataset from the WakeMed Health System.\"}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"patients\", \"multi_site\": {\"value\": true, \"quote\": \"The WakeMed dataset included patient stays in 7 intensive care units across 2 hospitals between 5 November 2019 and 30 June 2020.\"}, \"demographics_disclosed\": {\"value\": true, \"quote\": \"Patients were male or female and at least 18 years of age.\"}, \"clinical_endpoint\": {\"value\": \"deterioration_risk\", \"quote\": \"CLEWICU provides the clinician with physiological insight into a patient’s likelihood of future hemodynamic instability.\"}}"
+}

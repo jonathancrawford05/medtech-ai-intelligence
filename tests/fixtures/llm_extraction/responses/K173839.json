@@ -1,0 +1,17 @@
+{
+ "submission_number": "K173839",
+ "model": "qwen3:14b",
+ "model_digest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+ "prompt_version": "4d-spike-4",
+ "options": {
+  "temperature": 0,
+  "seed": 42,
+  "num_ctx": 16384,
+  "think": false
+ },
+ "prompt_eval_count": 3244,
+ "eval_count": 856,
+ "wall_seconds": 145.8,
+ "gen_tok_s": 8.0,
+ "content": "{\"performance_reported\": {\"value\": true, \"quote\": \"N= 462 (≥ 25 for each of 15 malignant tumor types). Agreement, 88.5% (85.3,91.3)\"}, \"metrics\": [{\"metric\": \"accuracy\", \"label\": \"Percent agreement with available diagnosis\", \"context\": \"N= 462 (≥ 25 for each of 15 malignant tumor types)\", \"setting\": \"standalone\", \"value\": 88.5, \"ci_low\": 85.3, \"ci_high\": 91.3, \"quote\": \"N= 462 (≥ 25 for each of 15 malignant tumor types). Agreement, 88.5% (85.3,91.3)\"}, {\"metric\": \"accuracy\", \"label\": \"Percent agreement with result reported by original method, vs. reported by changed method\", \"context\": \"N=45, 3 per tissue attempted. 43 actually analyzed, 1 quality failure, 1 unusable because original test result unavailable for comparison\", \"setting\": \"standalone\", \"value\": 99.7, \"ci_low\": 87.7, \"ci_high\": 99.9, \"quote\": \"Percent agreement with result reported by original method, vs. reported by changed method. N=45, 3 per tissue attempted. 43 actually analyzed, I quality failure, 1 unusable because original test result with unavailable for comparison. Agreement, 99.7% (87.7, 99.9)\"}, {\"metric\": \"accuracy\", \"label\": \"Percent agreement with result reported by original method, vs. reported by changed method\", \"context\": \"1. Reagent Comparison: N=142, randomly selected from the 15 subtypes\", \"setting\": \"standalone\", \"value\": 90.8, \"ci_low\": 83.6, \"ci_high\": 95.3, \"quote\": \"1. Reagent Comparison: N=142, randomly selected from the 15 subtypes Agreement, 90.8% (83.6, 95.3)\"}, {\"metric\": \"accuracy\", \"label\": \"Percent agreement with result reported by original method, vs. reported by changed method\", \"context\": \"2. Software Comparison: N=20, randomly selected\", \"setting\": \"standalone\", \"value\": 100, \"ci_low\": 95.9, \"ci_high\": 100, \"quote\": \"2. Software Comparison: N=20, randomly selected Agreement, 100% (95.9, 100)\"}], \"study_design\": {\"value\": \"not_stated\", \"quote\": null}, \"sample_size\": {\"value\": null, \"quote\": null}, \"sample_unit\": \"not_stated\", \"multi_site\": {\"value\": null, \"quote\": null}, \"demographics_disclosed\": {\"value\": null, \"quote\": null}, \"clinical_endpoint\": {\"value\": \"detection_diagnosis\", \"quote\": \"The Cancer Genetics Tissue of Origin Test is an in vitro diagnostic intended to measure the degree of similarity between the RNA expression patterns in a patient’s formalin-fixed, paraffin-embedded (FFPE) tumor and the RNA expression patterns in a database of fifteen tumor types (poorly differentiated, undifferentiated and metastatic cases) that were diagnosed according to then current clinical and pathological practice.\"}}"
+}

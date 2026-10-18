@@ -1,8 +1,8 @@
 # 0023 — 4D spike: study-evidence extraction with a local LLM (153 cardiometabolic Summaries)
 
 **Date:** 2026-10-15, full run completed 2026-10-16 · **Status:** Run complete, 153 / 153
-documents. A first gold set (58 rows) is pre-labelled by an independent agent and awaits
-human confirmation of 29 rows; the gold-set section gives the first precision figures.
+documents. First gold set (58 rows): labelled by an independent agent, reviewed and accepted
+by the maintainer 2026-10-18; the gold-set section gives the first precision figures.
 · **Component:** Issue 4 PR 4D (LLM-assisted extraction), provider decision in
 [the 4D handoff](../docs/handoffs/issue-4-document-pass.md) §3 rule 5 (PR #22)
 
@@ -154,7 +154,7 @@ and the loop stalls. Full scale (1,519 readable Summaries) would be about 70 hou
 time on this machine — overnight runs over a week, which is why this spike covered the
 cardiovascular/metabolic subset that feeds the mortality leads.
 
-## Gold set, first pass (agent pre-labels, 2026-10-18)
+## Gold set, first pass (2026-10-18)
 
 58 rows were sampled from the review file (seed 20261018), deliberately over-weighting the
 rows most likely to be wrong: 24 metrics (8 plain accepts, 6 whose quote never names the
@@ -162,9 +162,10 @@ measure, 5 accepted across a page break, 5 accepted from table numbers), 19 scal
 and 15 endpoints (the 9 that disagree with the curated seed, the 2 unreviewed risk devices,
 4 agreeing negatives). An independent Claude agent labelled every row against the full
 Summary text, blind to the check status and the sampling reason, and found the evidence
-itself rather than trusting the model's quote. These are **pre-labels**
-(`review_method=llm_assisted`); the 29 rows it marked n / partly / unsure plus 8 random y
-await a human check in `logs/spike-4d/gold-set-v1.xlsx`.
+itself rather than trusting the model's quote. The labels are
+`review_method=llm_assisted`; the maintainer reviewed the 29 flagged rows (every n / partly /
+unsure plus 8 random y) and accepted them on 2026-10-18. The set is committed as
+`tests/fixtures/llm_extraction/gold_set_v1.csv` with the documents and recorded responses.
 
 | Stratum | Rows | Correct | Reading |
 |---|---|---|---|
@@ -184,7 +185,7 @@ await a human check in `logs/spike-4d/gold-set-v1.xlsx`.
 accepted metrics (about 297 plain and named, 38 misnamed, 48 gapped, 44 table numbers)
 gives roughly **82% correct** as accepted today, and roughly **90%** once the misname
 heuristic becomes a reject rule. The plain stratum is only 8 rows (8/8 still allows a true
-rate near 70%), so treat both as indicative until the human check and a larger draw.
+rate near 70%), so treat both as indicative until a larger draw.
 
 **What the labels add to the failure modes.**
 
@@ -230,7 +231,7 @@ rate near 70%), so treat both as indicative until the human check and a larger d
 
 - [x] Finish the 153 (done 2026-10-16).
 - [x] Draw the first gold set (58 rows) and pre-label it with an independent agent (2026-10-18).
-- [ ] Human check of the 29 flagged rows in `gold-set-v1.xlsx`; update the table above.
+- [x] Human check of the 29 flagged rows (accepted 2026-10-18).
 - [ ] Send SignalHF K230842, Tempus ECG-AF K233549, GHI K231038 and (unsure) VISENSIA
       K081140 to the next curation batch; Biovitals and SOZO dropped after the gold set.
 - [ ] Re-run 10 documents with the same digest and seed to confirm the output repeats.
