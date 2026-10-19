@@ -70,6 +70,34 @@ right value**. The 2 wrong metrics still accepted are a predicate's specificity
 says precision). The endpoint is the weak field, as the spike found; `4d.1`'s
 future-event rule is what the next run measures.
 
+## First live run: `4d.1` on the 11 confirmed devices (Mac, 2026-10-18)
+
+`registry extract-evidence --only <the 11 mortality_confirmed devices>` with `qwen3:14b`.
+All 11 answered `ok` (none hit the output cap, none skipped); 69 evidence rows.
+
+| Field | Accepted (flagged) | Rejected | Statuses |
+|---|---|---|---|
+| metric | 26 (5) | 3 | ok 20, ok_gapped 3, ok_loose 1, ok_rescaled 2; `measure_not_named` 3 |
+| performance_reported | 8 (1) | 2 | ok 3, ok_loose 2, ok_gapped 1, absent 2; `quote_not_found` 2 |
+| study_design | 6 | 0 | ok 5, ok_loose 1 |
+| sample_size | 4 | 1 | ok 4; `value_not_in_quote` 1 |
+| multi_site | 5 | 1 | ok 4, ok_loose 1; `no_quote` 1 |
+| demographics_disclosed | 4 | 1 | ok 4; `no_quote` 1 |
+| clinical_endpoint | 7 | 1 | ok 7; `quote_not_found` 1 |
+
+**Risk endpoints sent to curation: 4 of 11** (K183646, K200717, K233216, K233253). The
+spike's `4d-spike-4` prompt called 9 of 11 confirmed devices a risk output; its two
+others were HeartFlow K250902 and Loss of Pulse K242967. Only one of the drop is intended:
+the gold set says HeartFlow K213857 is measurement, not risk. The other four of the five
+lost are not yet explained. K172959 (Rothman Index, "aggregate statistical mortality risk") would be a
+recall loss if it is not among them. And 3 of the 11 have no endpoint value at all
+(`not_stated`). Whether the future-event rule is too strict for a *status index* is the
+open question. It is read from the per-document rows before any prompt change, and
+measured on the curated negatives (the 6 the spike over-called) before it is judged.
+
+Not yet measured on this run: correctness. Only 5 of the 11 are in gold set v1, so this
+is a yield, not a precision.
+
 ## Assumed (not verified here)
 
 - The `4d.1` prompt and schema have **not been run**. Its new fields (`applies_to`,
@@ -83,7 +111,7 @@ future-event rule is what the next run measures.
 
 ## Still to do (this finding is updated when they are)
 
-- [ ] On the Mac: `uv run pytest -m live_ollama` (one real call), then
+- [x] On the Mac: `uv run pytest -m live_ollama` (one real call), then
       `caffeinate -i uv run registry extract-evidence --only <the 11 confirmed> -v`.
 - [ ] Draw a **fresh** gold set from a `4d.1` run (not the v1 rows) and score it:
       `registry score-gold --gold <new.csv> --bar <agreed>`.
