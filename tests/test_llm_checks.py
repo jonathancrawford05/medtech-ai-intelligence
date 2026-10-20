@@ -339,3 +339,88 @@ class TestCandidates:
         bad = json.dumps({"performance_reported": {"value": True, "quote": "x"}})
         with pytest.raises(ValueError):
             C.candidates(bad, "4d.1")
+
+
+class TestFirstLiveRunFixes:
+    """Checks 4d.2, from the first 4d.1 run on the 11 confirmed devices (finding 0024).
+
+    Those documents' pages are not in the fixtures, so each test builds its page
+    from the quote the run reported: what is tested is the rule, not the locating.
+    """
+
+    def _one(self, cand: C.Candidate) -> C.Checked:
+        (checked,) = C.check([cand], C.DocumentText([Page(1, cand.quote or "")]))
+        return checked
+
+    def test_a_score_threshold_is_not_a_rescaled_proportion(self):
+        """K233253: "an eCART of 93" filed as an observed rate of 0.93 was accepted."""
+        cand = C.Candidate(
+            "metric",
+            "Default thresholds are set to an eCART of 93 and 97, respectively, for "
+            "moderate and high risk categorization.",
+            metric="other",
+            label="observed rate of deterioration",
+            value_number=0.93,
+            is_result=True,
+        )
+        assert self._one(cand).status == "value_not_in_quote"
+
+    def test_a_proportion_written_as_a_percentage_is_still_rescaled(self):
+        cand = C.Candidate(
+            "metric",
+            "a sensitivity of 95% was observed",
+            metric="sensitivity",
+            label="sensitivity",
+            value_number=0.95,
+            is_result=True,
+        )
+        assert self._one(cand).status == "ok_rescaled"
+
+    def test_the_recorded_fraction_case_stays_rescaled(self):
+        """K233666: sensitivity 78 against "a sensitivity of 0.78"."""
+        rescaled = [m for m in _metrics("K233666") if m.status == "ok_rescaled"]
+        assert [m.candidate.value_number for m in rescaled] == [78.0]
+
+    def test_a_qualified_acronym_names_its_measure(self):
+        """K233216: "PPPV was 12% (95% CI: 11-14%)" was rejected as not naming ppv."""
+        cand = C.Candidate(
+            "metric",
+            "PPPV was 12% (95% CI: 11-14%)",
+            metric="ppv",
+            label="PPPV",
+            value_number=12.0,
+            ci_low=11.0,
+            ci_high=14.0,
+            ci_sided="two",
+            is_result=True,
+        )
+        assert self._one(cand).status == "ok"
+
+    def test_a_four_letter_acronym_still_stands_alone(self):
+        cand = C.Candidate("metric", "no patient harms 3", metric="arms", label="x", value_number=3)
+        assert not C.names_measure(cand)
+
+    def test_a_lead_time_filed_as_a_mean_difference_is_still_rejected(self):
+        """K200717: "Lead-time (true positive alerts) 3.0 hours" is not a mean difference."""
+        cand = C.Candidate(
+            "metric",
+            "Lead-time  (true positive alerts) 3.0 hours 1.6 hours 4.8 hours",
+            metric="mean_difference",
+            label="Lead-time (true positive alerts)",
+            value_number=3.0,
+            ci_low=1.6,
+            ci_high=4.8,
+            ci_sided="two",
+            is_result=True,
+        )
+        assert self._one(cand).status == "measure_not_named"
+
+    def test_the_string_null_is_no_quote(self):
+        """K183646: performance_reported false with the quote "null"."""
+        (cand,) = C.candidates(
+            json.dumps({"performance_reported": {"value": False, "quote": "null"}}),
+            C.SPIKE_PROMPT_VERSION,
+        )
+        assert cand.quote is None
+        (checked,) = C.check([cand], C.DocumentText([Page(1, "text")]))
+        assert checked.status == "absent"

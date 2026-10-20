@@ -98,6 +98,38 @@ measured on the curated negatives (the 6 the spike over-called) before it is jud
 Not yet measured on this run: correctness. Only 5 of the 11 are in gold set v1, so this
 is a yield, not a precision.
 
+### Reading the rows (2026-10-19)
+
+The per-document endpoints and every rejected or flagged row, from the raw answers:
+
+- **The future-event rule works for the devices it describes**: HPI K183646, CLEWICU
+  K200717 / K233216 and eCART K233253 are `deterioration_risk`. K212219 is also right
+  in value, but its quote ("predicts a future episode of hemodynamic instability") is
+  the **prompt's own wording** echoed back, so `quote_not_found` rejected it (failure
+  mode 4, caught by the check).
+- **It is too strict for risk indices.** Rothman K172959 ("based on the aggregate
+  statistical mortality risk") and APPRAISE-HRI K233249 ("screen ... for hemorrhage
+  risk") came out `detection_diagnosis`. Neither predicts an event within a stated
+  window, yet each one's output *is* a patient's risk.
+- **Three answers are near-empty**: K183370, K213857, K250902 used 146 output tokens,
+  every field null. The spike answered both HeartFlow filings in full, so this looks
+  like an input problem (pages sent, or the context window). Read `pages_sent` and
+  `prompt_eval_count` before blaming the prompt.
+- **Check gaps, fixed offline in checks `4d.2`** (no model re-run; `build-evidence`
+  re-applies them):
+  - `ok_rescaled` accepted "an eCART of 93" as a rate of 0.93 (K233253, a threshold).
+    Rescaling now needs a `%` on the quote's figure (0.95 vs "95%"), or a fraction for
+    a percentage value (78 vs "0.78").
+  - `measure_not_named` rejected "PPPV was 12% (95% CI: 11-14%)" filed as `ppv`
+    (K233216). A three-letter acronym may now carry one qualifying letter in front.
+  - The string `"null"` written as a quote now counts as no quote (K183646).
+- **Rejections that were right**: a lead time filed as a mean difference (K200717); a
+  summed sample size, 6,534 + 5,069 = 11,603 (K233216, the arithmetic the prompt
+  forbids); HeartFlow's mean volume error filed as a mean difference (K250902); two
+  `false`s without a quote (K213857).
+
+Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
+
 ## Assumed (not verified here)
 
 - The `4d.1` prompt and schema have **not been run**. Its new fields (`applies_to`,

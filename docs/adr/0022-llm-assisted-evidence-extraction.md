@@ -88,7 +88,7 @@ garble test there is a 4B version bump with its own measure, not part of 4D).
 
 ## Decision 4 — the deterministic checks decide
 
-Ported from the spike scorer (`llm_extraction/checks.py`, `CHECKS_VERSION 4d.1`); the
+Ported from the spike scorer (`llm_extraction/checks.py`; `CHECKS_VERSION` is bumped on every rule change); the
 scorer itself never left the Mac, so the port is proved by recomputing the gold
 set's recorded statuses: **57 / 58 identical**, the 58th a different flagged-accept
 status for the same decision (finding 0024).
@@ -100,7 +100,7 @@ within 150 characters, across a page break if need be) and `ok_numbers` (no quot
 but the value and CI bound(s) in order on one page with ≤ 3 numbers between; metrics
 with an interval only) **accept, flagged for review**; else `quote_not_found`. A found
 quote must contain every number it supports — value and each CI bound, or the sample
-size — else `value_not_in_quote`, unless on the other scale (`ok_rescaled`, flagged).
+size — else `value_not_in_quote`, unless on the other scale, a proportion and its percentage only (`ok_rescaled`, flagged).
 
 Rules on top, all **reject** unless noted: `duplicate` (same metric, setting, value
 and CI; dropped), `not_a_result`, `ci_inconsistent` (side disagrees with bounds),

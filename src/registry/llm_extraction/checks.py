@@ -53,7 +53,7 @@ from registry.llm_extraction.pages import Page
 from registry.llm_extraction.schema import ExtractionOutput, parse_output
 
 # Bump on any rule change: silver rows record the version that judged them.
-CHECKS_VERSION = "4d.1"
+CHECKS_VERSION = "4d.2"
 
 # The spike's prompt version: its responses have no applies_to / is_result / ci_sided.
 SPIKE_PROMPT_VERSION = "4d-spike-4"
@@ -178,14 +178,34 @@ def _same(a: float, b: float) -> bool:
     return abs(abs(a) - b) <= 1e-9 * max(1.0, abs(b))
 
 
-def _number_status(wanted: Sequence[float], present: Sequence[float]) -> str:
-    """``ok`` if every wanted number is present, ``ok_rescaled`` if only on the
-    other scale (x100 or /100), else ``value_not_in_quote``."""
+_PERCENT = re.compile(r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)\s?%")
+
+
+def percents_in(text: str) -> list[float]:
+    """The numbers in ``text`` written with a ``%`` sign."""
+    s = _SPACED_POINT.sub(r"\1.", strict(text))
+    return [float(m.group(1).replace(",", "")) for m in _PERCENT.finditer(s)]
+
+
+def _number_status(wanted: Sequence[float], quote: str) -> str:
+    """``ok`` if every wanted number is in the quote, ``ok_rescaled`` if only on the
+    other scale, else ``value_not_in_quote``.
+
+    The other scale is a proportion and its percentage, nothing looser: a fraction
+    value needs the quote's figure written with ``%`` (0.95 vs "95%"), a percentage
+    value needs a fraction in the quote (78 vs "0.78", K233666). "an eCART of 93"
+    is a score, not 93%, and never supports 0.93 (the first live run, K233253).
+    """
+    present = numbers_in(quote)
+    percents = percents_in(quote)
     rescaled = False
     for v in wanted:
         if any(_same(v, p) for p in present):
             continue
-        if any(_same(v * 100, p) or _same(v / 100, p) for p in present):
+        if v <= 1 and any(_same(v * 100, p) for p in percents):
+            rescaled = True
+            continue
+        if v > 1 and any(p <= 1 and _same(v / 100, p) for p in present):
             rescaled = True
             continue
         return "value_not_in_quote"
@@ -236,9 +256,16 @@ def _infer_sided(low: float | None, high: float | None) -> str | None:
     return "upper" if high is not None else None
 
 
+def _quote(raw: Any) -> str | None:
+    """A quote, or None: the model sometimes writes the string "null" for none."""
+    if not isinstance(raw, str) or raw.strip().lower() in ("", "null", "none"):
+        return None
+    return raw
+
+
 def _scalar(name: str, fact: Any, *, unit: str | None = None) -> Candidate | None:
     value = fact.get("value") if isinstance(fact, dict) else None
-    quote = fact.get("quote") if isinstance(fact, dict) else None
+    quote = _quote(fact.get("quote")) if isinstance(fact, dict) else None
     if value is None or value == "not_stated":
         return None
     if isinstance(value, bool):
@@ -275,7 +302,7 @@ def candidates(content: str | dict[str, Any], prompt_version: str) -> list[Candi
         out.append(
             Candidate(
                 "metric",
-                m.get("quote"),
+                _quote(m.get("quote")),
                 value_text=None if m.get("value") is None else str(m["value"]),
                 value_number=None if m.get("value") is None else float(m["value"]),
                 index=i,
@@ -456,7 +483,7 @@ def quote_status(cand: Candidate, doc: DocumentText) -> Located:
                 return Located("ok_numbers", pages)
         return located
     if wanted:
-        numbers = _number_status(wanted, numbers_in(cand.quote or ""))
+        numbers = _number_status(wanted, cand.quote or "")
         if numbers != "ok":
             return Located(numbers, located.pages)
     return located
@@ -472,9 +499,14 @@ def names_measure(cand: Candidate) -> bool:
 
 
 def _names(text: str, name: str) -> bool:
-    # Short acronyms must stand alone ("auc" not in "caucasian", "mae" not in "maestro").
+    # Short acronyms must end a word ("auc" not in "caucasian", "mae" not in
+    # "maestro"); a three-letter one may carry one qualifying letter in front
+    # ("PPPV", a per-patient PPV, K233216; "pAUC"). Four-letter ones stand alone
+    # ("arms" must not match "harms").
     if len(name) <= 4 and name.isalnum():
-        return re.search(rf"(?<![a-z0-9]){re.escape(name)}(?![a-z0-9])", text) is not None
+        lead = "[a-z]?" if len(name) <= 3 else ""
+        pattern = rf"(?<![a-z0-9]){lead}{re.escape(name)}(?![a-z0-9])"
+        return re.search(pattern, text) is not None
     return name in text
 
 
