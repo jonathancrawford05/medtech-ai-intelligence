@@ -243,9 +243,29 @@ class GoldScore:
     by_field: dict[str, Tally] = field(default_factory=dict)
     by_status: dict[str, Tally] = field(default_factory=dict)
     by_stratum: dict[str, Tally] = field(default_factory=dict)
+    # Gold rows whose document the run never answered: not scored at all.
+    not_in_run: int = 0
+
+    def row_lines(self) -> list[str]:
+        """One line per scored gold row: what it judged, what the run said, the verdict."""
+        out = []
+        for s in self.scored:
+            g, e = s.gold, s.evidence
+            said = "(nothing)" if e is None else f"{e.metric or e.value_text} [{e.check_status}]"
+            if e is not None and e.field == "metric":
+                said = f"{e.metric} {e.value_text} [{e.check_status}]"
+            truth = g.value if g.judgement == "y" else (g.correct_value or "?")
+            out.append(
+                f"  #{g.row:<3} {g.submission_number} {g.field:<22} gold: {truth[:40]:<40} "
+                f"run: {said[:48]:<48} -> {s.verdict}"
+            )
+        return out
 
     def lines(self, *, bar: float | None = None, min_judged: int = 1) -> list[str]:
-        out = ["BY FIELD"]
+        out = []
+        if self.not_in_run:
+            out.append(f"({self.not_in_run} gold row(s) are for documents this run did not answer)")
+        out.append("BY FIELD")
         for name, tally in self.by_field.items():
             line = tally.line(name)
             if bar is not None:
@@ -269,7 +289,11 @@ def score(gold: Iterable[GoldRow], evidence: Sequence[LlmEvidenceRecord]) -> Gol
             + ", ".join(f"{d[:12]}/{p}" for d, p in sorted(combos))
         )
     result = GoldScore(scored=[])
+    answered = {e.submission_number for e in evidence}
     for g in gold:
+        if g.submission_number not in answered:
+            result.not_in_run += 1
+            continue
         e = match(g, evidence)
         v = verdict(g, e)
         result.scored.append(Scored(g, e, v))

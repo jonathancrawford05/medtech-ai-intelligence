@@ -403,9 +403,11 @@ class TestLlmEvidence:
                 str(fixtures_dir / "llm_extraction"),
                 "--bar",
                 "0.9",
+                "--rows",
             ],
         )
         assert out.exit_code == 0, out.output
         assert "58 row(s)" in out.output and "4d-spike-4" in out.output
         assert "BY FIELD" in out.output and "BY CHECK STATUS" in out.output
         assert "precision  87.5%" in out.output  # metrics
+        assert "ROWS" in out.output and "#1 " in out.output

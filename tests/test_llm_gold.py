@@ -174,3 +174,24 @@ class TestVerdictForANewRun:
     def test_runs_are_scored_one_model_and_prompt_at_a_time(self):
         with pytest.raises(ValueError, match="score one at a time"):
             gold.score([_gold()], [_ev(), _ev(model_digest="e")])
+
+
+class TestPartialRuns:
+    """A scoped run answers a few documents; the rest of the gold set is not its business."""
+
+    def test_rows_for_documents_not_in_the_run_are_not_scored(self, rows):
+        evidence = [
+            e
+            for e in run.evidence_from_recorded(LLM, built_at=dt.datetime(2026, 10, 18))
+            if e.submission_number in ("K250902", "K242967")
+        ]
+        result = gold.score(rows, evidence)
+        assert {s.gold.submission_number for s in result.scored} == {"K250902", "K242967"}
+        assert result.not_in_run == 58 - len(result.scored)
+        assert sum(t.missing for t in result.by_field.values()) == 0
+        assert result.lines()[0].startswith(f"({result.not_in_run} gold row(s)")
+
+    def test_row_lines_show_the_verdict_per_row(self, result):
+        lines = result.row_lines()
+        assert len(lines) == 58
+        assert any("K250902" in line and "-> wrong" in line for line in lines)

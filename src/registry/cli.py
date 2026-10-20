@@ -374,6 +374,7 @@ def score_gold(
     min_judged: Annotated[
         int, typer.Option(help="Judged rows a field needs to clear the bar.")
     ] = 10,
+    rows: Annotated[bool, typer.Option("--rows", help="Also print every scored gold row.")] = False,
 ) -> None:
     """Score one run against a gold set: per field, per check status, per stratum.
 
@@ -406,6 +407,10 @@ def score_gold(
     typer.echo(f"Gold {gold_path.name}: {len(result.scored)} row(s) against {sorted(combo)}")
     for line in result.lines(bar=bar, min_judged=min_judged):
         typer.echo(line)
+    if rows:
+        typer.echo("ROWS")
+        for line in result.row_lines():
+            typer.echo(line)
 
 
 @app.command("enrich-predicates")

@@ -111,10 +111,12 @@ The per-document endpoints and every rejected or flagged row, from the raw answe
   statistical mortality risk") and APPRAISE-HRI K233249 ("screen ... for hemorrhage
   risk") came out `detection_diagnosis`. Neither predicts an event within a stated
   window, yet each one's output *is* a patient's risk.
-- **Three answers are near-empty**: K183370, K213857, K250902 used 146 output tokens,
-  every field null. The spike answered both HeartFlow filings in full, so this looks
-  like an input problem (pages sent, or the context window). Read `pages_sent` and
-  `prompt_eval_count` before blaming the prompt.
+- **No endpoint at all for three** (`not_stated`): K183370, K213857, K250902. Only
+  K183370 and K213857 were near-empty (146 output tokens), and the spike's answer for
+  K213857 on the same five pages was as thin (168 tokens), so that document has little
+  to give. K250902 answered in full (718 tokens) but left the endpoint unset. The
+  context window is ruled out: the largest prompt in either run was 6,626 tokens of
+  16,384 (`prompt_eval_count`), and no page was trimmed or garbled.
 - **Check gaps, fixed offline in checks `4d.2`** (no model re-run; `build-evidence`
   re-applies them):
   - `ok_rescaled` accepted "an eCART of 93" as a rate of 0.93 (K233253, a threshold).
@@ -127,6 +129,23 @@ The per-document endpoints and every rejected or flagged row, from the raw answe
   summed sample size, 6,534 + 5,069 = 11,603 (K233216, the arithmetic the prompt
   forbids); HeartFlow's mean volume error filed as a mean difference (K250902); two
   `false`s without a quote (K213857).
+
+### The six curated negatives the spike over-called (Mac, 2026-10-19)
+
+`--only K243812 K182149 K183282 K172507 K161772 K081140`, the same digest and prompt.
+All 6 answered `ok`. The run now holds 17 responses and 104 evidence rows (checks `4d.2`
+re-applied with `build-evidence`).
+
+Risk endpoints across the 17: K081140, K183646, K200717, K233216, K233253. Of the six
+negatives, only **VISENSIA K081140** is called a risk output, and the gold set marks it
+`unsure` (a patient status index). Volta K243812, FFRangio K182149, Biovitals K183282
+and SOZO K172507 were the four the spike got wrong, and under `4d.1` none of them is a
+risk call. So the future-event rule bought its precision on exactly the rows the gold
+set said were wrong. What it cost on the confirmed side is Rothman, APPRAISE-HRI and,
+through prompt leakage, K212219.
+
+It is not consistent about status indices yet: it calls VISENSIA a risk output and the
+Rothman Index (which says "mortality risk") a detection.
 
 Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
