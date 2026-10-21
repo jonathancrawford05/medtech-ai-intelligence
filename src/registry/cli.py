@@ -326,8 +326,9 @@ def _report_evidence(build, settings) -> None:
     from registry.llm_extraction import run as llm_run
 
     typer.echo(f"Wrote {build.written} row(s) to {settings.table_ref(llm_run.EVIDENCE_TABLE)}")
-    for line in build.yields.lines():
-        typer.echo(f"  {line}")
+    for yields in build.yields:
+        for line in yields.lines():
+            typer.echo(f"  {line}")
 
 
 @app.command("build-evidence")

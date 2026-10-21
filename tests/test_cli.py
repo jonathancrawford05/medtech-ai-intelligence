@@ -384,7 +384,7 @@ class TestLlmEvidence:
         monkeypatch.setattr(
             llm_run,
             "build_evidence",
-            lambda spark, settings: llm_run.EvidenceBuild(3, llm_run.EvidenceYields(responses=1)),
+            lambda spark, settings: llm_run.EvidenceBuild(3, [llm_run.EvidenceYields(responses=1)]),
         )
         out = CliRunner().invoke(cli.app, ["extract-evidence", "--limit", "1"])
         assert out.exit_code == 0, out.output

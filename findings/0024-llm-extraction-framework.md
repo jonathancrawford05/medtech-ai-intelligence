@@ -171,6 +171,43 @@ included. (3) Detection now. (4) Monitoring, a change-from-baseline index includ
 and its rules carry no sentence the model can echo as a quote. Study design is `mixed`
 when the testing combines both. Measure on the same 17 documents against `4d.1`.
 
+### Prompt `4d.2` on the same 17 (Mac, 2026-10-20)
+
+All 17 answered `ok`. Gold rows, `4d.1` → `4d.2`:
+
+| | `4d.1` | `4d.2` |
+|---|---|---|
+| endpoint, judged rows: right / wrong / missed | 3 / 2 / 3 | **5 / 2 / 1** |
+| study design right | 1 / 2 | **2 / 2** (eCART `mixed`) |
+| false risk calls on the four fixed negatives | 0 | 0 |
+
+The HeartFlow filings K213857 / K250902 are now `measurement_quantification` (right). The
+errors left: Biovitals K183282 `measurement_quantification` (gold `monitoring`), HeartFlow
+FFRct K161772 `detection_diagnosis` (gold measurement), Volta K243812 still abstains.
+VISENSIA K081140 moved to `monitoring`, one of the gold set's two acceptable answers.
+
+**The risk indices did not come back.** Rothman K172959 and K183370 became
+`measurement_quantification`: rule 2's "computes a quantity" caught "compute a patient
+status index". APPRAISE-HRI K233249 ("screen ... for hemorrhage risk") stayed
+`detection_diagnosis`. K212219's value became `detection_diagnosis` with a real quote
+("a frequently updated binary output ... to describe a patient's hemodynamic status"),
+which is defensible: that output describes the present. Risk calls on the 17 are the same
+four as under `4d.1`: HPI K183646, CLEWICU K200717 / K233216, eCART K233253.
+
+`4d.2` gave more unquoted `false`s (`multi_site` 5, `demographics_disclosed` 3; all
+rejected by `no_quote`), probably from "always choose a value" read beyond the endpoint.
+
+The build summary pooled both prompt versions (each lead listed twice). It now prints one
+summary per model and prompt.
+
+**Prompt `4d.3`** (not yet run): rule 2 is one physical quantity, a composite index of
+vitals, labs or assessments goes to rule 1 when tied to risk and to rule 4 otherwise, and
+screening for the risk of an outcome counts for rule 1.
+
+**Caveat: these rows are no longer a test set.** Gold v1 has now steered three prompt
+versions on the same 9 endpoint rows. A prompt's score on them is a development
+figure; the bar is judged only on a fresh draw from documents not used here.
+
 Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
 ## Assumed (not verified here)

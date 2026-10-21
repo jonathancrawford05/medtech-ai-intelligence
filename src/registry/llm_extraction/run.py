@@ -221,11 +221,13 @@ def latest_ok(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
 @dataclass
 class EvidenceYields:
     responses: int = 0
+    run: str | None = None  # "model / prompt version" when the table holds several
     by_field_status: Counter[tuple[str, str]] = field(default_factory=Counter)
     curation_leads: list[str] = field(default_factory=list)
 
     def lines(self) -> list[str]:
-        out = [f"responses checked: {self.responses:,}"]
+        head = f"{self.run}: " if self.run else ""
+        out = [f"{head}responses checked: {self.responses:,}"]
         for name in checks.FIELDS:
             row = {s: n for (f, s), n in self.by_field_status.items() if f == name}
             if not row:
@@ -245,6 +247,19 @@ class EvidenceYields:
                 "  risk endpoints -> curation (never a flag): " + ", ".join(self.curation_leads)
             )
         return out
+
+
+def summarise_runs(records: Iterable[LlmEvidenceRecord]) -> list[EvidenceYields]:
+    """One summary per (model, prompt version): runs are compared, never pooled."""
+    groups: dict[tuple[str, str], list[LlmEvidenceRecord]] = {}
+    for rec in records:
+        groups.setdefault((rec.model, rec.prompt_version), []).append(rec)
+    out = []
+    for (model, prompt), recs in sorted(groups.items()):
+        y = summarise(recs, len({r.submission_number for r in recs}))
+        y.run = f"{model} / {prompt}"
+        out.append(y)
+    return out
 
 
 def summarise(records: Iterable[LlmEvidenceRecord], responses: int) -> EvidenceYields:
@@ -545,7 +560,7 @@ def extract_run(
 @dataclass
 class EvidenceBuild:
     written: int
-    yields: EvidenceYields
+    yields: list[EvidenceYields]  # one per (model, prompt version)
 
 
 def build_evidence(spark, settings: Settings | None = None) -> EvidenceBuild:
@@ -587,7 +602,7 @@ def build_evidence(spark, settings: Settings | None = None) -> EvidenceBuild:
     )
     tables.write_table(df, settings, EVIDENCE_TABLE, mode="overwrite", merge_schema=True)
     logger.info("Wrote %d rows to %s", len(records), EVIDENCE_TABLE)
-    return EvidenceBuild(len(records), summarise(records, len(responses)))
+    return EvidenceBuild(len(records), summarise_runs(records))
 
 
 def read_evidence(spark, settings: Settings | None = None) -> list[LlmEvidenceRecord]:

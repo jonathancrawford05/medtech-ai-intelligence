@@ -167,6 +167,15 @@ class TestEvidenceFromRecordedResponses:
         )
         assert not any("mortality" in name for name in LlmEvidenceRecord.model_fields)
 
+    def test_two_prompt_versions_are_summarised_apart(self, evidence):
+        """A build holding 4d.1 and 4d.2 answers listed every lead twice, pooled."""
+        later = [e.model_copy(update={"prompt_version": "4d.2"}) for e in evidence]
+        runs = run.summarise_runs(evidence + later)
+        assert [y.run for y in runs] == ["qwen3:14b / 4d-spike-4", "qwen3:14b / 4d.2"]
+        assert all(y.responses == 43 for y in runs)
+        assert runs[0].curation_leads == runs[1].curation_leads
+        assert runs[1].lines()[0] == "qwen3:14b / 4d.2: responses checked: 43"
+
     def test_the_yields_report_every_field(self, evidence):
         lines = run.summarise(evidence, 43).lines()
         assert lines[0] == "responses checked: 43"

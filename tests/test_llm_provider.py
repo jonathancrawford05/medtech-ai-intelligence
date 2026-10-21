@@ -114,8 +114,14 @@ class TestSchema:
         prompt = " ".join(sc.SYSTEM_PROMPT.split())
         assert "an index or score of that risk, with or without a time window" in prompt
         assert prompt.index("1. The output is the patient's risk") < prompt.index(
-            "2. The output computes a quantity"
+            "2. The output measures one physical quantity"
         )
+
+    def test_a_composite_index_is_never_a_measurement(self):
+        """4d.2 read Rothman's "compute a patient status index" as rule 2 (K172959)."""
+        prompt = " ".join(sc.SYSTEM_PROMPT.split())
+        assert "A composite index or score combining several vital signs" in prompt
+        assert "never this rule: it is rule 1 when the document ties it to risk" in prompt
         assert "not_stated only when it has none" in prompt
 
     def test_the_rules_carry_none_of_the_wording_4d1_leaked(self):

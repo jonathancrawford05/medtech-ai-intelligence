@@ -17,6 +17,9 @@ changed where the first gold set said it was wrong (finding 0023):
 ``4d.2`` (finding 0024): ``4d.1`` asked for a future event within a time window, which
 removed every false risk call the gold set found but also dropped risk indices (Rothman
 K172959), echoed its own wording as a quote (K212219), and abstained on HeartFlow.
+``4d.3``: ``4d.2`` fixed HeartFlow, the abstentions and mixed designs, but its "computes a
+quantity" read Rothman's "compute a patient status index" as a measurement; rule 2 is now
+one physical quantity, and composite indices go to rule 1 or 4.
 
 There is no page field. The model gives a quote; `checks` finds it and records the
 page (asked for a page, the model was wrong about a third of the time).
@@ -34,7 +37,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-PROMPT_VERSION = "4d.2"
+PROMPT_VERSION = "4d.3"
 
 Measure = t.Literal[
     "sensitivity",
@@ -199,11 +202,15 @@ Rules:
   the document has such a sentence, always choose a value; not_stated only when it has none.
   Take the first that applies:
   1. The output is the patient's risk, likelihood or probability of an adverse outcome, or
-     an index or score of that risk, with or without a time window: mortality, mace or
-     hospitalisation when the output names that outcome, otherwise deterioration_risk.
-  2. The output computes a quantity (anatomy, physiology, a flow or pressure ratio,
-     including FFR from CT or angiography, a plaque or chamber volume), even when clinicians
-     use it to assess disease: measurement_quantification.
+     an index or score of that risk, with or without a time window; screening a patient for
+     the risk of an outcome counts: mortality, mace or hospitalisation when the output names
+     that outcome, otherwise deterioration_risk.
+  2. The output measures one physical quantity of the body or an image (a dimension, volume,
+     flow, pressure or pressure ratio, including FFR from CT or angiography, a plaque or
+     chamber volume), even when clinicians use it to assess disease:
+     measurement_quantification. A composite index or score combining several vital signs,
+     laboratory values or assessments is never this rule: it is rule 1 when the document
+     ties it to risk, mortality or deterioration, otherwise rule 4.
   3. The output finds, flags or classifies a condition present now: detection_diagnosis.
   4. The output displays or tracks signals, trends or a change-from-baseline index for a
      clinician to review, with none of the outputs above: monitoring.
