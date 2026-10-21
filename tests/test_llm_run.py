@@ -252,6 +252,12 @@ class TestSparkRoundTrip:
             df = spark.createDataFrame([model.model_dump()], schema=spark_schema_for(type(model)))
             tables.write_table(df, lakehouse, name, mode="overwrite")
 
+        held_back = FakeProvider()
+        held_out = run.extract_run(
+            spark, lakehouse, held_back, limit=5, exclude=["k240001"], sleep=lambda s: None
+        )
+        assert held_out.records == [] and held_back.calls == []  # never sent
+
         provider = FakeProvider()
         outcome = run.extract_run(spark, lakehouse, provider, limit=5, sleep=lambda s: None)
         assert outcome.statuses == {"ok": 1}

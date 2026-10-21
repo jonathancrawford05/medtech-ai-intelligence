@@ -208,6 +208,34 @@ screening for the risk of an outcome counts for rule 1.
 versions on the same 9 endpoint rows. A prompt's score on them is a development
 figure; the bar is judged only on a fresh draw from documents not used here.
 
+### Prompt `4d.3` on the same 17 (Mac, 2026-10-21): where tuning stops
+
+Judged gold endpoint rows: **6 right, 1 wrong, 1 abstained** (`4d.2`: 5 / 2 / 1). Biovitals
+K183282 is now `monitoring` (right). HeartFlow FFRct K161772 is still `detection_diagnosis`
+and Volta K243812 still abstains. No fixed negative went back to a risk call.
+
+The risk indices still did not come back. Rothman K172959 is `monitoring`; its quote is
+the "compute a patient status index" sentence, not the "mortality risk" one. The second
+Rothman filing K183370 is `measurement_quantification`. APPRAISE-HRI K233249 is
+`detection_diagnosis`, and K212219 is `measurement_quantification`. Risk calls are the
+same four future-event predictors under `4d.1`, `4d.2` and `4d.3`.
+
+**Reading.** Across three prompts the risk call is stable and precise for devices that
+predict an event, and does not reach status or risk indices. Rule changes move which
+non-risk label those get, not whether they are risk. That is a limit of this model and
+prompt shape, so tuning on the 9 gold rows stops here. The indices are already in the
+seed (both Rothman filings confirmed by a curator), which is where ADR 0022 Decision 8
+sends risk endpoints anyway. A fresh draw decides whether the endpoint field ships,
+probably as "risk-predictor flag only".
+
+**`registry draw-gold`** (built for this). It samples one run's values by stratum with a
+seed, from documents not in any `--exclude-gold` set, and includes rejected values,
+which v1 never drew, so recall lost to the checks becomes measurable. It writes a key, a
+blind labelling sheet without check status or sampling reason (shuffled), and per-stratum
+population counts for weighting. `registry merge-gold` puts the labels back by row and
+refuses a sheet whose values were edited. `extract-evidence --exclude-gold` keeps held-out
+documents from costing model time.
+
 Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
 ## Assumed (not verified here)
@@ -225,7 +253,7 @@ Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
 - [x] On the Mac: `uv run pytest -m live_ollama` (one real call), then
       `caffeinate -i uv run registry extract-evidence --only <the 11 confirmed> -v`.
-- [ ] Draw a **fresh** gold set from a `4d.1` run (not the v1 rows) and score it:
+- [ ] Draw a **fresh** gold set from a `4d.3` run on documents outside v1 and the 17 (`registry draw-gold`) and score it:
       `registry score-gold --gold <new.csv> --bar <agreed>`.
 - [ ] Re-run 10 documents with the same digest and seed to confirm the output repeats
       (carried from finding 0023).

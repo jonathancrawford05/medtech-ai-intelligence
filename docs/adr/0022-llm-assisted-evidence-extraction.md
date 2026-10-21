@@ -150,7 +150,10 @@ carries over when the run proposed the same value (and measure); otherwise the r
 The number that matters is the **precision of what the checks accept**. A field ships
 only when it clears the maintainer's bar on a **fresh** gold draw (handoff §3 rule 6);
 the harness prints the comparison and never decides. `--recorded DIR` scores the
-fixtures offline.
+fixtures offline. `registry draw-gold` draws the fresh set: by stratum, seeded, from
+documents outside every gold set used for development, rejected values included, as a key
+plus a blind labelling sheet (no check status, no sampling reason); `registry merge-gold`
+joins the labels back by row.
 
 ## Decision 8 — evidence, never a flag
 

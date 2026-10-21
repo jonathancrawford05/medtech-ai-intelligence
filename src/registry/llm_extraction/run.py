@@ -531,6 +531,7 @@ def extract_run(
     only: Sequence[str] = (),
     limit: int | None = None,
     specialties: Sequence[str] = (),
+    exclude: Iterable[str] = (),
     sleep: Callable[[float], None] = time.sleep,
 ) -> RunOutcome:
     """Call the model on a scoped set of documents and append the answers to bronze."""
@@ -538,10 +539,12 @@ def extract_run(
         raise ValueError(UNSCOPED_RUN)
     digest = provider.digest()  # fails fast if the server or model is missing
     done = _done(spark, settings, digest, sc.PROMPT_VERSION)
+    # Documents held out (a gold set's), so a fresh draw's run spends no model time on them.
+    skip = {k.upper() for k in exclude}
     docs = [
         d
         for d in document_inputs(spark, settings, only=only, specialties=specialties)
-        if d.submission_number not in done
+        if d.submission_number not in done and d.submission_number not in skip
     ]
     if limit is not None:
         docs = docs[:limit]
