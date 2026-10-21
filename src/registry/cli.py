@@ -447,6 +447,10 @@ def draw_gold(
     recorded: Annotated[
         Path | None, typer.Option(help="Draw from recorded responses instead of the lakehouse.")
     ] = None,
+    documents: Annotated[
+        Path | None,
+        typer.Option(help="Also write each drawn document's full text here, for the labeller."),
+    ] = None,
 ) -> None:
     """Draw a fresh gold set from one run: a key, a blind labelling sheet, strata counts.
 
@@ -482,6 +486,14 @@ def draw_gold(
     for name, population in result.population.items():
         typer.echo(f"  {name:<24} drew {result.drawn[name]:>3} of {population:>4}")
     typer.echo(f"Key: {key}\nLabel this (blind): {blind}\nStrata: {strata}")
+    if documents is not None:
+        if recorded is not None:
+            typer.echo("--documents needs the lakehouse (the page text is in bronze)", err=True)
+            raise typer.Exit(code=1)
+        drawn = sorted({r["submission_number"] for r in result.rows})
+        docs = llm_run.document_inputs(get_spark(settings), settings, only=drawn)
+        written = dr.write_documents(docs, documents)
+        typer.echo(f"Full text of {len(written)} document(s): {documents}")
 
 
 @app.command("merge-gold")

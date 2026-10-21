@@ -137,6 +137,7 @@ mortality flag (risk endpoints are `curation_lead`). Proved offline on the recor
 ```bash
 uv run pytest -m live_ollama                     # one real call: request shape + digest
 caffeinate -i uv run registry extract-evidence --only K… -v     # e.g. the 11 confirmed first
+# labelling: docs/handoffs/gold-v2-labelling.md (draw with --documents, blind agent prompt, review)
 uv run registry draw-gold --prompt-version 4d.3 --out gold_set_v2.csv \
   --exclude-gold tests/fixtures/llm_extraction/gold_set_v1.csv   # label gold_set_v2.blind.csv
 uv run registry merge-gold --key gold_set_v2.csv --labelled gold_set_v2.blind.csv --out gold_v2.csv

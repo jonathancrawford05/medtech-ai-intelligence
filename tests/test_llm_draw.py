@@ -113,6 +113,19 @@ class TestFilesAndMerge:
             dr.merge(key, blind, tmp_path / "out.csv")
 
 
+class TestDocumentsForTheLabeller:
+    def test_every_page_with_text_is_written(self, tmp_path):
+        import json
+
+        doc = run.DocumentInput("K240001", "Device", "a" * 64, ["letter", "", "summary", "  "], [3])
+        (path,) = dr.write_documents([doc], tmp_path / "documents")
+        data = json.loads(path.read_text())
+        assert path.name == "K240001.json"
+        assert [p["page"] for p in data["pages"]] == [1, 3]  # blank pages dropped
+        assert data["pages_sent_to_model"] == [3]
+        assert data["device_name"] == "Device"
+
+
 class TestCli:
     def test_draw_gold_on_the_recorded_run(self, tmp_path):
         out = CliRunner().invoke(
@@ -132,3 +145,21 @@ class TestCli:
         assert out.exit_code == 0, out.output
         assert "seed 20261021" in out.output and "1 excluded" in out.output
         assert (tmp_path / "v2.blind.csv").exists()
+
+    def test_documents_need_the_lakehouse(self, tmp_path):
+        out = CliRunner().invoke(
+            cli.app,
+            [
+                "draw-gold",
+                "--out",
+                str(tmp_path / "v2.csv"),
+                "--prompt-version",
+                "4d-spike-4",
+                "--recorded",
+                str(LLM),
+                "--documents",
+                str(tmp_path / "docs"),
+            ],
+        )
+        assert out.exit_code == 1
+        assert "needs the lakehouse" in out.output

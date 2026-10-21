@@ -12,6 +12,8 @@ three files beside each other:
                         order, so nothing in it says which rows the checks doubted.
 ``<name>.strata.csv``   each stratum's population and how many were drawn, so a
                         population estimate can weight the strata (finding 0023 did).
+``documents/<K>.json``  (optional, `write_documents`) each drawn document's full text,
+                        for the labeller.
 
 `merge` puts the labelled blind sheet back onto the key by ``row``.
 
@@ -22,10 +24,12 @@ rejected right value is recall the checks cost, and v1 could not measure it.
 from __future__ import annotations
 
 import csv
+import json
 import random
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from registry.llm_extraction import checks
 from registry.llm_extraction import schema as sc
@@ -110,6 +114,33 @@ def _key_row(n: int, e: LlmEvidenceRecord, why: str) -> dict[str, str]:
         "why_sampled": why,
         **dict.fromkeys(LABEL_COLUMNS, ""),
     }
+
+
+def write_documents(docs: Iterable[Any], directory: Path) -> list[Path]:
+    """Each drawn document's full text, one ``<K>.json`` per document, for the labeller.
+
+    The shape of ``tests/fixtures/llm_extraction/documents``, but with **every** page
+    that has text, not only the pages the model saw: the labeller looks for the evidence
+    itself (finding 0023). ``docs`` are `run.DocumentInput`s.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    out = []
+    for d in docs:
+        path = directory / f"{d.submission_number}.json"
+        pages = [
+            {"page": n, "text": text}
+            for n, text in enumerate(d.page_texts, start=1)
+            if text and text.strip()
+        ]
+        payload = {
+            "submission_number": d.submission_number,
+            "device_name": d.device_name,
+            "pages_sent_to_model": d.located_pages,
+            "pages": pages,
+        }
+        path.write_text(json.dumps(payload, indent=1, ensure_ascii=False))
+        out.append(path)
+    return out
 
 
 def submissions_in(gold_paths: Iterable[Path]) -> set[str]:
