@@ -143,12 +143,12 @@ def verdict(gold: GoldRow, run_value: LlmEvidenceRecord | None) -> Verdict:
     if gold.judgement not in ("y", "n"):
         return "other"
     if run_value is None:
-        # The run proposed nothing: right exactly when the truth is "not stated".
-        return (
-            "right"
-            if gold.judgement == "n" and _leading_value(gold.correct_value) == "null"
-            else "unjudged"
-        )
+        # The run answered the document but proposed nothing here: right when the
+        # truth is "not stated", a miss when the truth is a value it should have given.
+        truth = "value" if gold.judgement == "y" else _leading_value(gold.correct_value)
+        if truth == "null":
+            return "right"
+        return "unjudged" if truth is None else "wrong"
     if gold.field == "metric":
         if run_value.metric == gold.metric:
             return "right" if gold.judgement == "y" else "wrong"

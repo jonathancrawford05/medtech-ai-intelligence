@@ -11,7 +11,12 @@ changed where the first gold set said it was wrong (finding 0023):
   is never padded into an invented two-sided interval (K182149, K213657);
 - a stated threshold or acceptance criterion is not a result (``is_result``, K241633);
 - no "at most N" counts anywhere (they invite padding);
-- the endpoint's risk call needs a future event within a time window.
+- the endpoint is an ordered decision (risk output, then measurement, detection,
+  monitoring), and the rules carry no sentence the model can echo as a quote.
+
+``4d.2`` (finding 0024): ``4d.1`` asked for a future event within a time window, which
+removed every false risk call the gold set found but also dropped risk indices (Rothman
+K172959), echoed its own wording as a quote (K212219), and abstained on HeartFlow.
 
 There is no page field. The model gives a quote; `checks` finds it and records the
 page (asked for a page, the model was wrong about a third of the time).
@@ -29,7 +34,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-PROMPT_VERSION = "4d.1"
+PROMPT_VERSION = "4d.2"
 
 Measure = t.Literal[
     "sensitivity",
@@ -182,21 +187,30 @@ Rules:
   setting: "standalone" for the device alone, "reader_with_device" / "reader_without_device"
   for clinicians in a reader study.
 - study_design / sample_size / multi_site describe the primary performance test dataset.
+  study_design is mixed when that testing combines retrospective and prospective data.
   sample_size counts patients, recordings, images, studies or cases in that test, never
   sites, hospitals, units or readers, and is a number the document writes (never a sum you
   work out); unit says which.
 - demographics_disclosed: true only with a quote that reports the test data by age, sex,
   race/ethnicity or similar subgroups; false only with a quote saying they were not reported;
   otherwise null.
-- clinical_endpoint: what the device's output is about; quote its indication or intended-use
-  sentence. deterioration_risk only when the output predicts a future event within a time
-  window (for example heart-failure decompensation within 30 days, hypotension within
-  15 minutes); use mortality, mace or hospitalisation when the output names that outcome.
-  A trial's outcome endpoint, a "risk assessment" that measures anatomy or physiology now,
-  and a status display are not deterioration_risk. detection_diagnosis: finds or classifies a
-  condition present now. measurement_quantification: measures anatomy or physiology
-  (including fractional flow reserve). monitoring: displays or tracks signals with no risk or
-  diagnostic output. triage_notification: prioritises a worklist or notifies a specialist."""
+- clinical_endpoint: what this device's own output is. The quote is the document's
+  indication or intended-use sentence for this device, never wording from these rules. When
+  the document has such a sentence, always choose a value; not_stated only when it has none.
+  Take the first that applies:
+  1. The output is the patient's risk, likelihood or probability of an adverse outcome, or
+     an index or score of that risk, with or without a time window: mortality, mace or
+     hospitalisation when the output names that outcome, otherwise deterioration_risk.
+  2. The output computes a quantity (anatomy, physiology, a flow or pressure ratio,
+     including FFR from CT or angiography, a plaque or chamber volume), even when clinicians
+     use it to assess disease: measurement_quantification.
+  3. The output finds, flags or classifies a condition present now: detection_diagnosis.
+  4. The output displays or tracks signals, trends or a change-from-baseline index for a
+     clinician to review, with none of the outputs above: monitoring.
+  5. It prioritises a worklist or notifies a specialist: triage_notification; it rates or
+     improves image quality: image_quality.
+  A clinical trial's outcome measure, or the word risk used about the disease or the study
+  rather than the output, is never a reason for rule 1."""
 
 
 def user_message(device_name: str, submission_number: str, pages: t.Sequence[Any]) -> str:

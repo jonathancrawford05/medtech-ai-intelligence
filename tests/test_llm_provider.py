@@ -110,8 +110,17 @@ class TestSchema:
         assert "at most" not in prompt
         assert "page" not in json.dumps(sc.json_schema()).lower()
 
-    def test_the_endpoint_rule_needs_a_future_event(self):
-        assert "future event within a time" in sc.SYSTEM_PROMPT.replace("\n  ", " ")
+    def test_the_endpoint_is_an_ordered_decision_with_risk_indices_first(self):
+        prompt = " ".join(sc.SYSTEM_PROMPT.split())
+        assert "an index or score of that risk, with or without a time window" in prompt
+        assert prompt.index("1. The output is the patient's risk") < prompt.index(
+            "2. The output computes a quantity"
+        )
+        assert "not_stated only when it has none" in prompt
+
+    def test_the_rules_carry_none_of_the_wording_4d1_leaked(self):
+        """K212219 quoted "predicts a future episode ..." back from 4d.1's own rule."""
+        assert "predicts a future" not in sc.SYSTEM_PROMPT
 
     def test_a_valid_answer_parses_and_extras_are_refused(self):
         assert sc.parse_output(json.dumps(_answer())).metrics[0].value == 93.6

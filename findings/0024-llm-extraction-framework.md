@@ -147,6 +147,30 @@ through prompt leakage, K212219.
 It is not consistent about status indices yet: it calls VISENSIA a risk output and the
 Rothman Index (which says "mortality risk") a detection.
 
+### Gold rows for the 17 (`score-gold --prompt-version 4d.1 --rows`, 2026-10-20)
+
+13 gold rows fall on these documents (45 are for documents not run). On the 8 judged
+endpoint rows the spike prompt was right on 1, with 6 false risk calls. `4d.1` is right
+on 3, wrong on 2, abstains (`not_stated`) on 3, and makes no false risk call. The errors
+left:
+
+- **Measurement vs detection.** HeartFlow FFRct K161772 is called `detection_diagnosis`.
+  HeartFlow K213857 / K250902 and Volta K243812 abstain.
+- **Monitoring vs detection.** Biovitals K183282 is called `detection_diagnosis`.
+- **Study design.** eCART K233253's "retrospective and prospective" is still
+  `retrospective` (the spike's error; gold `mixed`).
+
+The harness scored an abstention inside an answered document as `unjudged`. It is a miss,
+and now scores `wrong` when the gold names a value.
+
+**Prompt `4d.2`** (not yet run): the endpoint becomes an ordered decision. (1) A risk,
+likelihood or probability of an adverse outcome, *or an index or score of that risk*,
+with or without a time window. (2) A computed quantity, FFR from CT or angiography
+included. (3) Detection now. (4) Monitoring, a change-from-baseline index included.
+(5) Triage and image quality. It always picks one when there is an indication sentence,
+and its rules carry no sentence the model can echo as a quote. Study design is `mixed`
+when the testing combines both. Measure on the same 17 documents against `4d.1`.
+
 Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
 ## Assumed (not verified here)

@@ -150,6 +150,15 @@ class TestVerdictForANewRun:
         g = _gold(correct_value="deterioration_risk or monitoring", judgement="n")
         assert gold.verdict(g, _ev(value_text="other")) == "unjudged"
 
+    def test_an_abstention_is_a_miss_when_the_truth_is_a_value(self):
+        """HeartFlow K250902 under 4d.1: endpoint not_stated, truth measurement."""
+        g = _gold(value="detection_diagnosis", correct_value="measurement_quantification")
+        assert gold.verdict(g, None) == "wrong"
+        assert gold.verdict(_gold(judgement="y"), None) == "wrong"
+
+    def test_an_abstention_against_free_text_is_unjudged(self):
+        assert gold.verdict(_gold(correct_value="it depends on the reading"), None) == "unjudged"
+
     def test_null_is_right_when_the_truth_is_not_stated(self):
         g = _gold(
             field="demographics_disclosed", value="False", correct_value="not stated (no data)"
