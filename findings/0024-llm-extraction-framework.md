@@ -238,6 +238,61 @@ documents from costing model time.
 
 Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
+## Gold set v2: the test set (2026-10-22)
+
+**How it was made.** `4d.3` ran over 40 cardiometabolic Summaries outside gold v1 and the
+17 tuning documents (39 with evidence). `registry draw-gold` (seed 20261021) drew 59 values
+by stratum, rejected values included. An independent Cowork agent labelled them blind to
+check status and sampling reason, against each document's full text
+(`docs/handoffs/gold-v2-labelling.md`). No prompt was changed after the draw.
+
+| Field | Accepted: right / wrong / other | Precision of accepted | Rejected: right / wrong | Bar 90% |
+|---|---|---|---|---|
+| **metric** | 14 / 1 / 0 (5 flagged) | **93.3%** (Wilson 95%: 70–99%) | 0 / 6 | clears (15 judged) |
+| sample_size | 4 / 1 / 0 | 80% | — | not yet (5) |
+| study_design | 3 / 1 / 1 | 75% | — | not yet (4) |
+| demographics_disclosed | 4 / 1 / 0 | 80% | 1 / 1 | not yet (5) |
+| multi_site | 5 / 0 / 0 | 100% | 0 / 4 | not yet (5) |
+| performance_reported | 3 / 1 / 0 | 75% | — | not yet (4) |
+| clinical_endpoint | 5 / 2 / 1 | 71% | — | not yet (7) |
+
+**Metrics.**
+- *Precision.* Weighting the two drawn strata by their populations (plain accepts 9 / 10
+  of 39; gapped quotes 5 / 5 of 5) gives about **91%** correct as accepted. Every flagged
+  `ok_gapped` row was right this time (v1: 2 / 5).
+- *The one accepted error* is a predicate's specificity credited to the subject device
+  (K252284), the failure `applies_to` was added for. Asking for attribution reduced this
+  error but did not remove it.
+- *Rejections.* All 6 rejected metrics were wrong. Three were thresholds read as results
+  (K243687's 2 breaths/min and 3 beats/min targets, a response rate), two had no value in
+  the document (K231010), and one was K251218's invented QRS sensitivity. The checks
+  rejected no right metric.
+
+**The checks overall.** 15 values rejected; 14 were wrong. The one right value lost is
+K233409's `demographics_disclosed = true`, rejected `quote_not_found`. All 5 `no_quote`
+rejections were wrong `false`s. Two of them were in fact multi-site (K233755, K242583), so
+"null unless the text says so" is the right rule.
+
+**Scalars** are 19 / 23 judged accepted values right (83%), each field on 4–5 rows. The
+errors are a dataset size read as the primary test size (K251218, `n=100` from the CSE
+set), `mixed` where the Summary never names the design (K233409), demographics inferred
+from a phrase (K252204), and `performance_reported = true` on K251218's test list without
+results. **K251218 still leaks**: its metrics are rejected, but two scalars passed the
+quote check because the quoted sentences are real.
+
+**Endpoint.** The `endpoint: risk` stratum was empty: `4d.3` made no risk call on any of
+the 39 documents, so v2 cannot measure the risk call's precision. On the 8 non-risk rows
+the labeller corrected none to a risk endpoint, so no missed risk output was seen; that
+is weak evidence on 8 rows. The errors are measurement vs detection, in both directions
+(K223905, K233755). It stays a curation lead (ADR 0022 Decision 8).
+
+**Reading for the bar** (the decision is the maintainer's; handoff §3 rule 6):
+- *Metrics* clear 90% on the test set: 14 / 15 accepted right, and a weighted ~91%. 15 rows
+  allow a true rate as low as ~70%, and the 2 metrics a reviewer would most want are named
+  ones (sensitivity and specificity); 9 of the 15 rows are those two.
+- *No scalar field and not the endpoint* has the rows to clear any bar, and none reaches
+  90% on what it has.
+
 ## Assumed (not verified here)
 
 - The `4d.1` prompt and schema have **not been run**. Its new fields (`applies_to`,
@@ -253,8 +308,11 @@ Gold baseline under checks `4d.2`: unchanged (metrics 14 / 16, endpoint 7 / 14).
 
 - [x] On the Mac: `uv run pytest -m live_ollama` (one real call), then
       `caffeinate -i uv run registry extract-evidence --only <the 11 confirmed> -v`.
-- [ ] Draw a **fresh** gold set from a `4d.3` run on documents outside v1 and the 17 (`registry draw-gold`) and score it:
-      `registry score-gold --gold <new.csv> --bar <agreed>`.
+- [x] Draw a **fresh** gold set from a `4d.3` run on documents outside v1 and the 17
+      (`registry draw-gold`) and score it (gold v2, 2026-10-22, above).
+- [ ] Commit `gold_set_v2.csv` and `gold_set_v2.strata.csv` to `tests/fixtures/llm_extraction/`.
+- [ ] Maintainer decision: ship `metric` (sensitivity / specificity into `EvidenceRecord`)
+      in the next PR, or draw more metric rows first.
 - [ ] Re-run 10 documents with the same digest and seed to confirm the output repeats
       (carried from finding 0023).
 - [ ] For any field below the bar on `qwen3:14b`, run `gpt-oss:20b`
