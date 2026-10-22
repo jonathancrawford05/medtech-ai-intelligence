@@ -204,3 +204,34 @@ class TestPartialRuns:
         lines = result.row_lines()
         assert len(lines) == 58
         assert any("K250902" in line and "-> wrong" in line for line in lines)
+
+
+class TestGoldV2:
+    """The test set (finding 0024): drawn by `draw-gold` from a 4d.3 run, labelled blind."""
+
+    V2 = LLM / "gold_set_v2.csv"
+
+    def test_loads_completely_labelled(self):
+        rows = gold.load_gold(self.V2)
+        assert len(rows) == 59
+        assert {r.judgement for r in rows} <= {"y", "n", "partly", "unsure"}
+        assert sum(r.judgement == "y" for r in rows) == 39
+
+    def test_shares_no_document_with_v1_or_the_tuning_runs(self, rows):
+        tuned = {
+            "K172959", "K183370", "K183646", "K200717", "K212219", "K213857", "K233216",
+            "K233249", "K233253", "K242967", "K250902", "K243812", "K182149", "K183282",
+            "K172507", "K161772", "K081140",
+        }  # fmt: skip
+        v2 = {r.submission_number for r in gold.load_gold(self.V2)}
+        # K251218 is in v2: a failure-mode fixture document, never a v1 row nor tuned on.
+        assert not v2 & ({r.submission_number for r in rows} | tuned)
+
+    def test_its_strata_file_matches_what_was_drawn(self):
+        import csv
+        from collections import Counter
+
+        with (LLM / "gold_set_v2.strata.csv").open(newline="") as fh:
+            strata = {r["stratum"]: int(r["drawn"]) for r in csv.DictReader(fh)}
+        drawn = Counter(r.why_sampled for r in gold.load_gold(self.V2))
+        assert {k: v for k, v in strata.items() if v} == dict(drawn)
