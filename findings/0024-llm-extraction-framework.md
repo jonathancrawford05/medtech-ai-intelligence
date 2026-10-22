@@ -310,7 +310,7 @@ is weak evidence on 8 rows. The errors are measurement vs detection, in both dir
       `caffeinate -i uv run registry extract-evidence --only <the 11 confirmed> -v`.
 - [x] Draw a **fresh** gold set from a `4d.3` run on documents outside v1 and the 17
       (`registry draw-gold`) and score it (gold v2, 2026-10-22, above).
-- [ ] Commit `gold_set_v2.csv` and `gold_set_v2.strata.csv` to `tests/fixtures/llm_extraction/`.
+- [x] Commit `gold_set_v2.csv` and `gold_set_v2.strata.csv` to `tests/fixtures/llm_extraction/` (2026-10-22).
 - [x] Maintainer decision (2026-10-22): **ship `metric`** — sensitivity and specificity
       into `EvidenceRecord` — in the next PR. Attribution (`applies_to`) stays on the
       review list: it was the one accepted error. Every other field stays unshipped until
