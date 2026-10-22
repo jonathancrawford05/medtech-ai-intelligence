@@ -311,8 +311,10 @@ is weak evidence on 8 rows. The errors are measurement vs detection, in both dir
 - [x] Draw a **fresh** gold set from a `4d.3` run on documents outside v1 and the 17
       (`registry draw-gold`) and score it (gold v2, 2026-10-22, above).
 - [ ] Commit `gold_set_v2.csv` and `gold_set_v2.strata.csv` to `tests/fixtures/llm_extraction/`.
-- [ ] Maintainer decision: ship `metric` (sensitivity / specificity into `EvidenceRecord`)
-      in the next PR, or draw more metric rows first.
+- [x] Maintainer decision (2026-10-22): **ship `metric`** — sensitivity and specificity
+      into `EvidenceRecord` — in the next PR. Attribution (`applies_to`) stays on the
+      review list: it was the one accepted error. Every other field stays unshipped until
+      a larger draw clears a bar.
 - [ ] Re-run 10 documents with the same digest and seed to confirm the output repeats
       (carried from finding 0023).
 - [ ] For any field below the bar on `qwen3:14b`, run `gpt-oss:20b`

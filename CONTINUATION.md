@@ -273,6 +273,13 @@ findings/                        what was actually verified, and what was not
    `pytest -m live_ollama`; a scoped `extract-evidence` run (the 11 confirmed first); a fresh
    gold draw from that run, scored with `score-gold`; the repeatability re-run carried from
    finding 0023. Only a field that clears the bar then feeds `EvidenceRecord` (a later PR).
+   **Gold v2 (the test set, 2026-10-22):** metrics clear 90% (14 / 15 accepted right,
+   weighted ~91%, every rejection wrong); scalars and the endpoint do not have the rows.
+   **Decided: ship metrics next.** Next PR: populate `EvidenceRecord.sensitivity`,
+   `specificity` and `reports_sensitivity_specificity` from accepted
+   `silver_llm_evidence` metric rows (`applies_to=subject_device`, `is_result`, one figure
+   per device by a stated rule, the run's provenance carried), keeping every other field
+   unshipped ([finding 0024](findings/0024-llm-extraction-framework.md)).
    Curation from the spike: SignalHF `K230842`, Tempus ECG-AF `K233549`, GHI `K231038`,
    (unsure) VISENSIA `K081140` to the next seed batch.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
