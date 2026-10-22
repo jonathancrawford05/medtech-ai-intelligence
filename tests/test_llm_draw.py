@@ -81,6 +81,11 @@ class TestFilesAndMerge:
         assert list(_read(key)[0].keys()) == list(dr.GOLD_COLUMNS)
         assert {r["stratum"] for r in _read(strata)} == set(dr.DEFAULT_QUOTAS)
 
+    def test_creates_the_output_folder(self, evidence, tmp_path):
+        """`--out labelling/gold_set_v2.csv` on a fresh checkout has no labelling/ yet."""
+        key, blind, strata = dr.write(dr.draw(evidence, seed=7), tmp_path / "new" / "v2.csv")
+        assert key.exists() and blind.exists() and strata.exists()
+
     def test_round_trip_label_merge_score(self, evidence, tmp_path):
         """Draw, label every row y on the blind sheet, merge, and score the same run."""
         key, blind, _ = dr.write(dr.draw(evidence, seed=7), tmp_path / "v2.csv")

@@ -219,6 +219,7 @@ def paths_for(key: Path) -> tuple[Path, Path, Path]:
 def write(result: Draw, key: Path) -> tuple[Path, Path, Path]:
     """The key, the blind labelling sheet and the strata table (see the module doc)."""
     key, blind, strata = paths_for(key)
+    key.parent.mkdir(parents=True, exist_ok=True)
     _write(key, GOLD_COLUMNS, result.rows)
     _write(blind, [c for c in GOLD_COLUMNS if c not in _HIDDEN], result.rows)
     _write(
