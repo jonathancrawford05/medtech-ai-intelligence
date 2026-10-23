@@ -9,6 +9,7 @@ so the 4D code can be built and tested without Ollama or the lakehouse.
 | `responses/<K>.json` | The recorded `qwen3:14b` response for that document (`content` is the raw JSON string the model returned), with model digest, prompt version, options and token counts. |
 | `prompt_4d-spike-4.json` | The system prompt and JSON schema that produced the responses. |
 | `gold_set_v1.csv` | 58 extracted values with a judgement each (`y` / `n` / `partly` / `unsure`), the correct value, and the evidence page and quote. Labelled by an independent Claude agent against the full text, blind to check status and sampling reason (`review_method=llm_assisted`), then reviewed and accepted by the maintainer on 2026-10-18. |
+| `gold_set_v2.csv`, `gold_set_v2.strata.csv` | **The test set** (finding 0024): 59 values drawn by `registry draw-gold` (seed 20261021) from a `4d.3` run over 39 cardiometabolic documents outside v1 and the prompt-tuning runs, rejected values included; labelled blind by an independent agent (`docs/handoffs/gold-v2-labelling.md`), reviewed by the maintainer. The strata file gives each stratum's population for weighting. Never tune a prompt on it. Its documents' text is not in `documents/` (the labeller read it from bronze on the Mac). |
 
 Failure-mode extras (not in the gold set; no labels, but each has one property a test needs):
 
@@ -22,6 +23,10 @@ The eCART image-table fabrication (`K233253`) is in the gold set itself.
 
 Sampling: seed 20261018, over-weighting likely errors (see `why_sampled`), so per-row
 accuracy here is not a population rate; finding 0023 gives the weighted estimate.
+
+PR 4D's tests read these files directly (`tests/test_llm_*.py`), and
+`uv run registry score-gold --recorded tests/fixtures/llm_extraction` scores the recorded
+run with the current checks (ADR 0022, finding 0024).
 
 The model was run on the maintainer's Mac (Ollama, temperature 0, seed 42, `think: false`,
 `num_ctx` 16384). Do not regenerate these files in CI; record new ones on the Mac.

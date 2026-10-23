@@ -27,6 +27,7 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0019](0019-deterministic-summary-extraction.md) | Deterministic Summary extraction: predicates (all + primary), cybersecurity presence, `has_pccp` from the FDA clearance letter | Accepted |
 | [0020](0020-pccp-lead-category.md) | PCCP becomes a lead category: a signal from silver's `has_pccp`, never a trigger; PCCP share by year in `inspect` | Accepted |
 | [0021](0021-device-intended-use.md) | Device-level intended use read verbatim from the Summary (reusing 4B's page roles); first in `mortality_language`'s precedence; a tag, never a movement; curation candidates | Accepted |
+| [0022](0022-llm-assisted-evidence-extraction.md) | LLM-assisted study evidence: a local model proposes values with quotes, deterministic checks decide; raw answers in append-only bronze, checked evidence in silver; scoped, paced runs; a gold-set harness; evidence, never a flag | Accepted |
 
 ## Writing a new one
 

@@ -62,6 +62,7 @@ addopts = "-ra --strict-markers"
 markers = [
     "spark: test requires a live local SparkSession (slow, needs a JVM)",
     "live_network: test hits the real FDA/openFDA endpoints; never run in CI",
+    "live_ollama: test calls a real local Ollama model (the maintainer's Mac); never run in CI",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:pyspark.*",

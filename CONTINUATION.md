@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-11 · **Branch:** `claude/device-intended-use-text-90ugkt` — Issue 4 **PR 4C**: device-level intended use read verbatim from each Summary (3881 form → eSTAR form → Summary section) into `silver_intended_use`, reusing 4B's stored page roles; first in `mortality_language`'s precedence as `summary_intended_use`, a tag never a movement; `registry curation-candidates` for the next seed batch ([ADR 0021](docs/adr/0021-device-intended-use.md), supersedes ADR 0016 Decision 2's text precedence; [finding 0022](findings/0022-device-intended-use.md)). Measure (3) done on the Mac 2026-10-12: 0 / 11 `keyword_disagrees` on the device statements, 2 negatives flagged (new: `K243349`), 5 curation candidates (`K231038`, previously omitted, plus 4 Tissue of Origin tests hitting only "survival"). Measures (1)/(2) done too: intended use found 1,515 / 1,541 (98.3%; 12 `no_text` from 4B's stricter unreadable floor, 14 `not_found`); 89 of 1,614 devices' `mortality_language_source` moves to the statement, 70 of them newly flagged. The 70 are 44 intracranial-hemorrhage triage tools (noise, via the `hemorrhag` term), 18 radiology coronary-plaque tools (in scope per finding 0012, but outside the specialty-scoped curation report), and 8 others. Both fixed in this PR: the stage-1 hemorrhage term now needs a risk frame (`K233249` kept), and `curation-candidates` also takes other specialties whose statement names the heart (`scope` column). Re-run `curation-candidates`: 28 candidates (5 by specialty, 23 by heart language: 22 coronary plaque/calcium tools + Xeleris noise). `inspect` re-run: newly flagged 70 → 26 (the 44 hemorrhage hits gone); 50 / 1,614 devices carry `mortality_language`. Open: noisy statements for `K260497` (eSTAR field order), `K243038` (3881 classed as Summary) — finding 0022. From 4B+: confirm the `inspect` PCCP table and `K260714`.
+**Last updated:** 2026-10-18 · **Branch:** `claude/peaceful-pasteur-6o4nx9` — Issue 4 **PR 4D**: the LLM-assisted study-evidence framework ([ADR 0022](docs/adr/0022-llm-assisted-evidence-extraction.md), [finding 0024](findings/0024-llm-extraction-framework.md)). A local model (Ollama, `qwen3:14b`) proposes values with verbatim quotes; deterministic checks ported from the spike scorer accept, flag or reject each one (57 / 58 gold statuses reproduced exactly, the 58th the same decision), and the page is derived from the quote. Raw answers append to `bronze_llm_responses`; `silver_llm_evidence` is rebuilt from them offline. Prompt/schema `4d.1` adds `applies_to`, `ci_sided`, `is_result`, error measures and `agreement`; two new reject rules (`measure_not_named`, `zero_triple`) reject no right gold value. Every fabricated fixture row is rejected (K251218, K233253; K182456's cipher pages are caught by a new read-time garble test and never sent). `registry extract-evidence` (scoped, paced, resumable, Mac only), `build-evidence`, `score-gold`. **No model has been called from this branch**: the first `4d.1` run, `pytest -m live_ollama` and a fresh gold draw are maintainer steps on the Mac. Earlier (4C, on the Mac 2026-10-12): intended use found 1,515 / 1,541; open from 4C: noisy statements for `K260497`, `K243038` (finding 0022); from 4B+: confirm the `inspect` PCCP table and `K260714`.
 **Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -19,7 +19,7 @@ target `main` unless a stack is deliberate.
 |-------|--------|-------|
 | **0 — Scaffolding** | ✅ Done | uv + Docker, `get_spark()`, Delta round-trip, CI, ADRs |
 | **1 — Ingestion** | ✅ Done | **Phase 1 acceptance met 2026-09-13** — a full-sized live pull landed in bronze both locally and on CI ([run 34764719600](https://github.com/jonathancrawford05/medtech-ai-intelligence/actions/runs/34764719600)): 1,614 rows fetched, parsed and written, 100% against the ≥95% criterion ([finding 0006](findings/0006-phase-1-acceptance-met.md), closing [0001](findings/0001-phase-1-live-ingestion-gap.md)). openFDA client built and verified against real fixtures (ADR 0010, [finding 0004](findings/0004-openfda-client.md)). Bronze is **not durably persisted** — deliberately deferred, see [ADR 0011](docs/adr/0011-defer-durable-bronze-persistence.md). |
-| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). Enrichment-dependent fields are **`None` until their pass runs** ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)): `device_class` from openFDA (ADR 0013); predicate lineage, PCCP and cybersecurity from the Summary (PR 4B, ADR 0019). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)). **PR 4B** reads it: `registry extract-documents` → `silver_document_extraction` (all predicates + primary, cybersecurity presence, `has_pccp` from the FDA clearance letter; [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)), joined by `build-silver` into `predicate_submission_number`, `predicate_age_days` (via `registry enrich-predicates`), `has_pccp`, `cybersecurity_statement_present`. Verified at full scale ([finding 0020](findings/0020-summary-extraction-built.md)): predicate 1,486/1,541 (96.4%), cybersecurity 471, PCCP 68 letter + 5 Summary positives, 2 corrections, 1 negation, 1 inherited (extractor `4b.2`). **PR 4C:** `registry extract-intended-use` → `silver_intended_use`, the device's own intended-use statement verbatim with page(s) and PDF URL, from 4B's stored page roles (not re-segmented); 19/21 on the recorded slice, full scale open ([ADR 0021](docs/adr/0021-device-intended-use.md), [finding 0022](findings/0022-device-intended-use.md)). |
+| **2 — Silver transforms** | 🟡 Partial | `bronze_to_silver` builds `silver_devices` from the newest bronze pull — latest-`ingested_at` join, pathway from the submission prefix, date parsing, panel→specialty taxonomy, curated company resolution ([finding 0007](findings/0007-silver-build.md)). Enrichment-dependent fields are **`None` until their pass runs** ([ADR 0012](docs/adr/0012-silver-schema-and-supplement-handling.md)): `device_class` from openFDA (ADR 0013); predicate lineage, PCCP and cybersecurity from the Summary (PR 4B, ADR 0019). Never yet run over the 1,614-row live pull. **`registry inspect`** reads the lakehouse back and returns a verdict ([finding 0008](findings/0008-taxonomy-spelling-mismatch.md)). **Issue 4 (document pass):** PR 4A built the acquisition step: Summary PDFs → per-page text in append-only `bronze_summary_documents` ([ADR 0018](docs/adr/0018-summary-document-acquisition.md)). The full fetch ran 2026-10-10: **1,541/1,541 Summaries, 0 misses** ([finding 0019](findings/0019-full-scale-document-measures.md)). **PR 4B** reads it: `registry extract-documents` → `silver_document_extraction` (all predicates + primary, cybersecurity presence, `has_pccp` from the FDA clearance letter; [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md)), joined by `build-silver` into `predicate_submission_number`, `predicate_age_days` (via `registry enrich-predicates`), `has_pccp`, `cybersecurity_statement_present`. Verified at full scale ([finding 0020](findings/0020-summary-extraction-built.md)): predicate 1,486/1,541 (96.4%), cybersecurity 471, PCCP 68 letter + 5 Summary positives, 2 corrections, 1 negation, 1 inherited (extractor `4b.2`). **PR 4C:** `registry extract-intended-use` → `silver_intended_use`, the device's own intended-use statement verbatim with page(s) and PDF URL, from 4B's stored page roles (not re-segmented); 19/21 on the recorded slice, full scale open ([ADR 0021](docs/adr/0021-device-intended-use.md), [finding 0022](findings/0022-device-intended-use.md)). **PR 4D:** LLM-assisted study evidence — `registry extract-evidence` (Ollama, Mac only) → append-only `bronze_llm_responses` → `registry build-evidence` → `silver_llm_evidence`, every value judged by deterministic checks, `review_method=llm_assisted` with digest/prompt/run id; `registry score-gold` scores a run against the gold set. Built and proved on the recorded slice only; no field populates `EvidenceRecord` until it clears a bar on a fresh gold draw ([ADR 0022](docs/adr/0022-llm-assisted-evidence-extraction.md), [finding 0024](findings/0024-llm-extraction-framework.md)). |
 | **3 — Evidence & gold mart** | 🟡 Seeded | Mart mechanism built (ADR 0014). Mortality seed curated over the 154 cardiovascular devices: **11 confirmed mortality-relevant, 122 documented negatives, 21 omitted** ([finding 0012](findings/0012-mortality-seed-curation.md)). `build-mart` will now write 11 rows (8 `keyword_disagrees`); run it on a JDK-17/Py-3.11 host. |
 | **4 — Monitoring** | 🟡 Built, awaiting real movement | PR A (#13, merged): silver self-identifying, rebuild gate, 90-day retention ([finding 0016](findings/0016-silver-snapshot-stamp-and-gate.md)). PR B (#14, merged): `registry monitor` diffs the two newest distinct snapshots and appends leads to `gold_device_leads` on pre-curation signals — new submission, cardiometabolic, mortality language, life-sustaining, and since PR 4B+ **PCCP** (from silver's `has_pccp`, a signal not a trigger; [ADR 0020](docs/adr/0020-pccp-lead-category.md)); since PR 4C `mortality_language` reads the device's own Summary statement first (`summary_intended_use`, read at build time, never a silver column, so never a movement; [ADR 0021](docs/adr/0021-device-intended-use.md)); foundation-model **deferred** ([ADR 0016](docs/adr/0016-leads-filter-pre-curation-signals.md), [ADR 0017](docs/adr/0017-leads-output-surface.md), [finding 0017](findings/0017-first-diff-run-and-lead-categories.md)). Live today: one distinct snapshot, so "nothing to diff" is the correct answer. `registry inspect` reports the table in a LEADS section, and the PCCP adoption trend (share by decision year, stock not movement) under EXTRACTION. |
 | **5 — Databricks dry run** | 🟡 Mechanism built | `storage_mode=catalog` implemented and tested; not run against a real workspace |
@@ -125,6 +125,28 @@ uv run registry curation-candidates --csv candidates.csv
 
 Record the three outputs in [finding 0022](findings/0022-device-intended-use.md).
 
+### LLM-assisted study evidence (Issue 4, PR 4D) — built, no live model run yet
+
+[ADR 0022](docs/adr/0022-llm-assisted-evidence-extraction.md): the model sees only 4B's
+located pages minus garbled ones, answers schema `4d.1` (JSON schema in Ollama's `format`,
+temperature 0, seed 42, `think: false`, `num_predict` 3000), and is retried once then skipped.
+`llm_extraction/checks.py` decides every value; nothing reaches `EvidenceRecord` or a
+mortality flag (risk endpoints are `curation_lead`). Proved offline on the recorded slice
+([finding 0024](findings/0024-llm-extraction-framework.md)). On the Mac, scoped and paced:
+
+```bash
+uv run pytest -m live_ollama                     # one real call: request shape + digest
+caffeinate -i uv run registry extract-evidence --only K… -v     # e.g. the 11 confirmed first
+# labelling: docs/handoffs/gold-v2-labelling.md (draw with --documents, blind agent prompt, review)
+uv run registry draw-gold --prompt-version 4d.3 --out gold_set_v2.csv \
+  --exclude-gold tests/fixtures/llm_extraction/gold_set_v1.csv   # label gold_set_v2.blind.csv
+uv run registry merge-gold --key gold_set_v2.csv --labelled gold_set_v2.blind.csv --out gold_v2.csv
+uv run registry score-gold --gold gold_v2.csv --prompt-version 4d.3 --bar <agreed>
+uv run registry build-evidence                   # after any change to the checks; no model
+```
+
+Record the first run and the fresh gold score in finding 0024.
+
 ## 3. What exists, and where
 
 ```text
@@ -143,6 +165,8 @@ src/registry/
   mart/                  mortality_relevant (gold mart), leads (gold_device_leads),
                          curation_candidates (next seed batch + stage-1 agreement)
   monitor/differ.py      snapshot pairing + movement classification (Issue 3)
+  llm_extraction/        4D: schema/prompt, page selection, Ollama provider, checks,
+                         bronze_llm_responses -> silver_llm_evidence, gold-set harness
 config/specialty_taxonomy.yaml   curated FDA panel -> our category
 scripts/warm_delta_jars.py       stages Delta JARs (--stage-to / --from-dir)
 scripts/check_bronze_rowcount.py Phase-1 acceptance gate (>= INGEST_MIN_ROWS)
@@ -164,8 +188,8 @@ findings/                        what was actually verified, and what was not
   `bronze_` table.
 - **TDD.** Tests were written before each module here and should continue to be.
   Fixtures live in `tests/fixtures/`; CI never hits the network.
-- **Markers.** `-m "not spark"` skips JVM tests; `live_network` tests are never
-  run in CI.
+- **Markers.** `-m "not spark"` skips JVM tests; `live_network` and `live_ollama`
+  (a real local model, the Mac only) tests are never run in CI.
 
 ---
 
@@ -242,6 +266,22 @@ findings/                        what was actually verified, and what was not
    fabrication seen is among them; 10% of accepted metrics carry the wrong measure name. The
    endpoint field finds 9 / 11 confirmed devices as risk outputs plus 6 curation leads. Gold
    set pending ([finding 0023](findings/0023-local-llm-extraction-spike.md)).
+   **PR 4D (this branch):** the framework — schema `4d.1`, the checks (ported, 57 / 58 gold
+   statuses reproduced), the garble test, the Ollama provider, the two tables, the gold
+   harness ([ADR 0022](docs/adr/0022-llm-assisted-evidence-extraction.md),
+   [finding 0024](findings/0024-llm-extraction-framework.md)). **Maintainer steps (Mac):**
+   `pytest -m live_ollama`; a scoped `extract-evidence` run (the 11 confirmed first); a fresh
+   gold draw from that run, scored with `score-gold`; the repeatability re-run carried from
+   finding 0023. Only a field that clears the bar then feeds `EvidenceRecord` (a later PR).
+   **Gold v2 (the test set, 2026-10-22):** metrics clear 90% (14 / 15 accepted right,
+   weighted ~91%, every rejection wrong); scalars and the endpoint do not have the rows.
+   **Decided: ship metrics next.** Next PR: populate `EvidenceRecord.sensitivity`,
+   `specificity` and `reports_sensitivity_specificity` from accepted
+   `silver_llm_evidence` metric rows (`applies_to=subject_device`, `is_result`, one figure
+   per device by a stated rule, the run's provenance carried), keeping every other field
+   unshipped ([finding 0024](findings/0024-llm-extraction-framework.md)).
+   Curation from the spike: SignalHF `K230842`, Tempus ECG-AF `K233549`, GHI `K231038`,
+   (unsure) VISENSIA `K081140` to the next seed batch.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
    `pypdf` vs pdf.js glyph splitting to be read from the fixture manifest.
    **Roadmap follow-up (PR #11 review nit) — done in PR 4B as [ADR 0019](docs/adr/0019-deterministic-summary-extraction.md):** PR 4B adds a new ADR amending **ADR 0013 Decision 4** to record that PCCP
