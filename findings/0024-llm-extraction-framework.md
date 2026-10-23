@@ -257,6 +257,7 @@ check status and sampling reason, against each document's full text
 | clinical_endpoint | 5 / 2 / 1 | 71% | — | not yet (7) |
 
 **Metrics.**
+
 - *Precision.* Weighting the two drawn strata by their populations (plain accepts 9 / 10
   of 39; gapped quotes 5 / 5 of 5) gives about **91%** correct as accepted. Every flagged
   `ok_gapped` row was right this time (v1: 2 / 5).
@@ -287,6 +288,7 @@ is weak evidence on 8 rows. The errors are measurement vs detection, in both dir
 (K223905, K233755). It stays a curation lead (ADR 0022 Decision 8).
 
 **Reading for the bar** (the decision is the maintainer's; handoff §3 rule 6):
+
 - *Metrics* clear 90% on the test set: 14 / 15 accepted right, and a weighted ~91%. 15 rows
   allow a true rate as low as ~70%, and the 2 metrics a reviewer would most want are named
   ones (sensitivity and specificity); 9 of the 15 rows are those two.
