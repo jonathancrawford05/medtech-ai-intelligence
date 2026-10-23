@@ -46,7 +46,7 @@ reviewer can see what was refused. It is rebuilt from the newest `ok` response p
 the same documents sit side by side. Both schemas are generated from the Pydantic
 models (ADR 0008).
 
-## Decision 2 — the schema (prompt `4d.1`)
+## Decision 2 — the schema (prompt `4d.1`, shipped as `4d.3`)
 
 Start from the spike's `4d-spike-4` schema; change it where the gold set said
 (`llm_extraction/schema.py`):
@@ -62,9 +62,16 @@ Start from the spike's `4d-spike-4` schema; change it where the gold set said
 - no "at most N" anywhere; no page field;
 - the endpoint's `deterioration_risk` needs a future event within a time window.
 
+The schema is unchanged since `4d.1`; the prompt text is not. The shipped version is
+**`4d.3`**: the endpoint is an ordered decision (risk output or a risk index, then one
+measured physical quantity, detection, monitoring, triage / image quality), a composite
+index is never a measurement, and the rules carry no sentence the model can echo as a
+quote. `4d.1`'s time-window rule was dropped. Why each step was taken, measured on the
+17 development documents: [finding 0024](../../findings/0024-llm-extraction-framework.md).
+
 `bool | None` throughout: unknown is not false (ADR 0012). The JSON schema sent in
 Ollama's `format` is generated from the same models (`json_schema()`, `$ref`s
-inlined), so prompt and parser cannot drift. Only `4d.1` can be *sent*; older
+inlined), so prompt and parser cannot drift. Only the current `PROMPT_VERSION` can be *sent*; older
 versions (`4d-spike-4`, the recorded fixtures) are only *scored*, with
 `applies_to` / `is_result` `None` ("not asked") and the side read from the bounds.
 
