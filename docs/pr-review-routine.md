@@ -233,6 +233,8 @@ checkable in the PR itself.
 > | LLM values pass the verbatim-substring check, with a test that a fabricated quote is rejected |
 > | `has_pccp` only from the FDA clearance-letter sentence or a classified Summary statement, with page + method; correction letters and negations read as `False` (finding 0019) |
 > | Extraction never writes `mortality_confirmed_flag` (ADR 0014) |
+> | No model call outside a `live_ollama`-marked test or `registry extract-evidence`; raw answers append to `bronze_llm_responses` (ADR 0022) |
+> | LLM rows carry `review_method="llm_assisted"`, the full model digest, prompt version and run id; the page is derived from the quote, never asked of the model (ADR 0022) |
 >
 > **3. DOMAIN LENSES** — apply only those the diff touches:
 >

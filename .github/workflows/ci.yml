@@ -57,11 +57,12 @@ jobs:
         run: uv run python scripts/warm_delta_jars.py
 
       - name: Test
-        # `live_network` tests hit the real FDA endpoints and never run in CI.
+        # `live_network` tests hit the real FDA endpoints and `live_ollama` tests a
+        # local model on the maintainer's Mac; neither ever runs in CI.
         # Coverage floor is conservative (non-Spark local run measured 72%);
         # ratchet it up toward the actual CI figure once observed here.
         run: >-
-          uv run pytest -q -m "not live_network"
+          uv run pytest -q -m "not live_network and not live_ollama"
           --cov=src/registry --cov-report=term-missing --cov-fail-under=70
 
   docker:

@@ -1,0 +1,14 @@
+stratum,population,drawn
+metric: plain accept,39,10
+metric: gapped quote,5,5
+metric: table numbers,0,0
+metric: rescaled,0,0
+metric: rejected,16,6
+sample_size,14,5
+study_design,13,5
+demographics_disclosed,13,5
+multi_site,9,5
+performance_reported,33,4
+scalar: rejected,30,6
+endpoint: risk,0,0
+endpoint: not risk,37,8

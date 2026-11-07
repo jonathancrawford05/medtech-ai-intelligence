@@ -270,6 +270,249 @@ def curation_candidates(
         typer.echo(f"Wrote {len(report.candidates)} candidate(s) to {csv_path}")
 
 
+@app.command("extract-evidence")
+def extract_evidence(
+    only: Annotated[
+        list[str] | None, typer.Option("--only", help="Submission(s) to send, in this order.")
+    ] = None,
+    limit: Annotated[int | None, typer.Option(help="At most this many documents.")] = None,
+    specialty: Annotated[
+        list[str] | None,
+        typer.Option("--specialty", help="Only these specialty categories (e.g. cardiovascular)."),
+    ] = None,
+    model: Annotated[
+        str | None, typer.Option(help="Ollama model; default REGISTRY_LLM_MODEL.")
+    ] = None,
+    exclude_gold: Annotated[
+        list[Path] | None,
+        typer.Option("--exclude-gold", help="Skip every document in this gold CSV (repeatable)."),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None, typer.Option("--exclude", help="Skip this document (repeatable).")
+    ] = None,
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Ask a local model (Ollama) for study evidence, then check every value.
+
+    Mac only: needs a running Ollama server (ADR 0022). Scoped by design -- --only or
+    --limit is required -- and paced for a fanless laptop (rests between batches,
+    stops below REGISTRY_LLM_MIN_TOK_S). Resumable. Run it under `caffeinate -i`.
+    Appends the raw answers to bronze_llm_responses, then rebuilds silver_llm_evidence.
+    """
+    _setup_logging(verbose)
+    from registry.llm_extraction import draw as dr
+    from registry.llm_extraction import run as llm_run
+    from registry.llm_extraction.provider import OllamaProvider, ProviderError
+    from registry.spark_session import get_spark
+
+    if not only and limit is None:
+        typer.echo(llm_run.UNSCOPED_RUN, err=True)
+        raise typer.Exit(code=1)
+    settings = get_settings()
+    spark = get_spark(settings)
+    try:
+        outcome = llm_run.extract_run(
+            spark,
+            settings,
+            OllamaProvider(settings, model=model),
+            only=only or (),
+            limit=limit,
+            specialties=specialty or (),
+            exclude=dr.submissions_in(exclude_gold or []) | {k.upper() for k in exclude or []},
+        )
+    except (ValueError, ProviderError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    statuses = ", ".join(f"{s} {n}" for s, n in sorted(outcome.statuses.items())) or "none"
+    typer.echo(f"Run {outcome.run_id}: {len(outcome.records)} document(s) ({statuses})")
+    if outcome.stopped:
+        typer.echo(f"Stopped early: {outcome.stopped}")
+    if outcome.records:
+        _report_evidence(llm_run.build_evidence(spark, settings), settings)
+
+
+def _report_evidence(build, settings) -> None:
+    from registry.llm_extraction import run as llm_run
+
+    typer.echo(f"Wrote {build.written} row(s) to {settings.table_ref(llm_run.EVIDENCE_TABLE)}")
+    for yields in build.yields:
+        for line in yields.lines():
+            typer.echo(f"  {line}")
+
+
+@app.command("build-evidence")
+def build_evidence(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
+    """Re-check every recorded model answer into silver_llm_evidence. Offline.
+
+    Run after a change to the checks: bronze_llm_responses keeps every answer, so a
+    rule change never needs the model again (ADR 0022).
+    """
+    _setup_logging(verbose)
+    from registry.llm_extraction import run as llm_run
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    try:
+        build = llm_run.build_evidence(get_spark(settings), settings)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _report_evidence(build, settings)
+
+
+_DEFAULT_GOLD = Path("tests/fixtures/llm_extraction/gold_set_v1.csv")
+
+
+@app.command("score-gold")
+def score_gold(
+    gold_path: Annotated[
+        Path, typer.Option("--gold", help="The labelled gold CSV.")
+    ] = _DEFAULT_GOLD,
+    recorded: Annotated[
+        Path | None,
+        typer.Option(help="Score recorded responses in this directory instead of the lakehouse."),
+    ] = None,
+    prompt_version: Annotated[
+        str | None, typer.Option(help="Which prompt's run to score (lakehouse).")
+    ] = None,
+    model_digest: Annotated[
+        str | None, typer.Option(help="Which model's run to score, by digest prefix (lakehouse).")
+    ] = None,
+    bar: Annotated[
+        float | None, typer.Option(help="Report each field against this precision.")
+    ] = None,
+    min_judged: Annotated[
+        int, typer.Option(help="Judged rows a field needs to clear the bar.")
+    ] = 10,
+    rows: Annotated[bool, typer.Option("--rows", help="Also print every scored gold row.")] = False,
+) -> None:
+    """Score one run against a gold set: per field, per check status, per stratum.
+
+    The precision that matters is of what the checks accept. A field ships only when
+    it clears the agreed bar on a fresh gold draw (handoff §3 rule 6); this reports,
+    it never decides.
+    """
+    from registry.llm_extraction import gold
+    from registry.llm_extraction import run as llm_run
+
+    if recorded is not None:
+        evidence = llm_run.evidence_from_recorded(recorded)
+    else:
+        from registry.spark_session import get_spark
+
+        settings = get_settings()
+        evidence = llm_run.read_evidence(get_spark(settings), settings)
+    evidence = _one_run(evidence, prompt_version, model_digest)
+    try:
+        result = gold.score(gold.load_gold(gold_path), evidence)
+    except ValueError as exc:
+        typer.echo(f"{exc}\n(pick one with --prompt-version / --model-digest)", err=True)
+        raise typer.Exit(code=1) from exc
+    combo = {(e.model, e.model_digest[:12], e.prompt_version) for e in evidence}
+    typer.echo(f"Gold {gold_path.name}: {len(result.scored)} row(s) against {sorted(combo)}")
+    for line in result.lines(bar=bar, min_judged=min_judged):
+        typer.echo(line)
+    if rows:
+        typer.echo("ROWS")
+        for line in result.row_lines():
+            typer.echo(line)
+
+
+def _one_run(evidence, prompt_version, model_digest):
+    return [
+        e
+        for e in evidence
+        if (prompt_version is None or e.prompt_version == prompt_version)
+        and (model_digest is None or e.model_digest.startswith(model_digest))
+    ]
+
+
+@app.command("draw-gold")
+def draw_gold(
+    out: Annotated[
+        Path, typer.Option(help="The key CSV; .blind.csv and .strata.csv go beside it.")
+    ],
+    prompt_version: Annotated[str, typer.Option(help="The run to draw from.")],
+    model_digest: Annotated[
+        str | None, typer.Option(help="Digest prefix, when several models ran the prompt.")
+    ] = None,
+    seed: Annotated[int, typer.Option(help="Sampling seed (record it in the finding).")] = 20261021,
+    exclude_gold: Annotated[
+        list[Path] | None,
+        typer.Option("--exclude-gold", help="Skip every document in this gold CSV (repeatable)."),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None, typer.Option("--exclude", help="Skip this document (repeatable).")
+    ] = None,
+    recorded: Annotated[
+        Path | None, typer.Option(help="Draw from recorded responses instead of the lakehouse.")
+    ] = None,
+    documents: Annotated[
+        Path | None,
+        typer.Option(help="Also write each drawn document's full text here, for the labeller."),
+    ] = None,
+) -> None:
+    """Draw a fresh gold set from one run: a key, a blind labelling sheet, strata counts.
+
+    Samples by stratum (accepted and rejected values), reproducibly, from documents not
+    in the excluded gold sets -- the bar is judged on documents nobody tuned on (ADR 0022).
+    Label the .blind.csv, then `registry merge-gold`.
+    """
+    from registry.llm_extraction import draw as dr
+    from registry.llm_extraction import run as llm_run
+
+    if recorded is not None:
+        evidence = llm_run.evidence_from_recorded(recorded)
+    else:
+        from registry.spark_session import get_spark
+
+        settings = get_settings()
+        evidence = llm_run.read_evidence(get_spark(settings), settings)
+    evidence = _one_run(evidence, prompt_version, model_digest)
+    if not evidence:
+        typer.echo(f"No evidence for prompt {prompt_version!r}", err=True)
+        raise typer.Exit(code=1)
+    excluded = dr.submissions_in(exclude_gold or []) | {k.upper() for k in exclude or []}
+    try:
+        result = dr.draw(evidence, seed=seed, exclude=excluded)
+    except ValueError as exc:
+        typer.echo(f"{exc}\n(pick one with --model-digest)", err=True)
+        raise typer.Exit(code=1) from exc
+    key, blind, strata = dr.write(result, out)
+    typer.echo(
+        f"Drew {len(result.rows)} row(s) from {result.documents} document(s) "
+        f"({len(excluded)} excluded), seed {seed}"
+    )
+    for name, population in result.population.items():
+        typer.echo(f"  {name:<24} drew {result.drawn[name]:>3} of {population:>4}")
+    typer.echo(f"Key: {key}\nLabel this (blind): {blind}\nStrata: {strata}")
+    if documents is not None:
+        if recorded is not None:
+            typer.echo("--documents needs the lakehouse (the page text is in bronze)", err=True)
+            raise typer.Exit(code=1)
+        drawn = sorted({r["submission_number"] for r in result.rows})
+        docs = llm_run.document_inputs(get_spark(settings), settings, only=drawn)
+        written = dr.write_documents(docs, documents)
+        typer.echo(f"Full text of {len(written)} document(s): {documents}")
+
+
+@app.command("merge-gold")
+def merge_gold(
+    key: Annotated[Path, typer.Option(help="The key CSV draw-gold wrote.")],
+    labelled: Annotated[Path, typer.Option(help="The labelled .blind.csv.")],
+    out: Annotated[Path, typer.Option(help="The gold set to write (score-gold --gold reads it).")],
+) -> None:
+    """Put a labelled blind sheet back onto its key, row by row."""
+    from registry.llm_extraction import draw as dr
+
+    try:
+        labelled_rows = dr.merge(key, labelled, out)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Wrote {out}: {labelled_rows} labelled row(s)")
+
+
 @app.command("enrich-predicates")
 def enrich_predicates(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
     """Fetch each primary predicate's decision date from openFDA (for predicate_age_days).
