@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 import yaml
@@ -116,8 +117,8 @@ def _build(entry: dict[str, Any]) -> EvidenceRecord:
         mortality_confirmed_flag=confirmed,
         mortality_review_method=method,
         mortality_review_notes=(str(entry["notes"]).strip() if entry.get("notes") else None),
-        # reports_sensitivity_specificity / discloses_demographics stay None: they
-        # come from the 510(k) summary PDF, which nothing fetches yet (Issue 4).
+        # The performance fields are joined in by `with_performance` (ADR 0023);
+        # discloses_demographics stays None: no LLM field but metrics has shipped.
     )
 
 
@@ -150,13 +151,46 @@ def load(settings: Settings | None = None) -> list[EvidenceRecord]:
     return records
 
 
+def with_performance(
+    records: list[EvidenceRecord], performance: Mapping[str, Mapping[str, Any]]
+) -> list[EvidenceRecord]:
+    """The curated records with their device's shipped figures joined in (ADR 0023).
+
+    Only the three performance fields and their run id change; a device with no
+    `silver_device_performance` row keeps None in all four. The curated judgement
+    itself is never touched.
+    """
+    out = []
+    for record in records:
+        row = performance.get(record.submission_number)
+        if row is None:
+            out.append(record)
+            continue
+        out.append(
+            record.model_copy(
+                update={
+                    "reports_sensitivity_specificity": row["reports_sensitivity_specificity"],
+                    "sensitivity": row["sensitivity"],
+                    "specificity": row["specificity"],
+                    "performance_run_id": row["run_id"],
+                }
+            )
+        )
+    return out
+
+
 def run(spark, settings: Settings | None = None) -> int:
-    """Write the seed to ``silver_evidence``. Derived state, so it overwrites."""
+    """Write the seed to ``silver_evidence``. Derived state, so it overwrites.
+
+    The curated judgements, with each device's shipped sensitivity / specificity
+    joined from ``silver_device_performance`` when that pass has run (ADR 0023).
+    """
     from registry import tables
+    from registry.llm_extraction import performance
     from registry.schemas import spark_schema_for
 
     settings = settings or get_settings()
-    records = load(settings)
+    records = with_performance(load(settings), performance.by_submission(spark, settings))
     df = spark.createDataFrame(
         [r.model_dump() for r in records], schema=spark_schema_for(EvidenceRecord)
     )

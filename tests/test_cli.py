@@ -411,3 +411,33 @@ class TestLlmEvidence:
         assert "BY FIELD" in out.output and "BY CHECK STATUS" in out.output
         assert "precision  87.5%" in out.output  # metrics
         assert "ROWS" in out.output and "#1 " in out.output
+
+
+class TestBuildPerformance:
+    def test_reports_what_shipped(self, monkeypatch):
+        import registry.spark_session
+        from registry.llm_extraction import performance
+
+        yields = performance.PerformanceYields(documents=39, with_sensitivity=12, reporting=14)
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(
+            performance,
+            "run",
+            lambda spark, settings, **kw: performance.PerformanceBuild(39, yields),
+        )
+        out = CliRunner().invoke(cli.app, ["build-performance"])
+        assert out.exit_code == 0, out.output
+        assert "Wrote 39 row(s)" in out.output and "rule perf.1" in out.output
+        assert "sensitivity: 12" in out.output
+
+    def test_a_missing_run_says_so(self, monkeypatch):
+        import registry.spark_session
+        from registry.llm_extraction import performance
+
+        def boom(spark, settings, **kw):
+            raise ValueError("No evidence for prompt '4d.3'")
+
+        monkeypatch.setattr(registry.spark_session, "get_spark", lambda settings: object())
+        monkeypatch.setattr(performance, "run", boom)
+        out = CliRunner().invoke(cli.app, ["build-performance"])
+        assert out.exit_code == 1 and "No evidence" in out.output

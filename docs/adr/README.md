@@ -28,6 +28,7 @@ the way it is instead of re-litigating it or, worse, silently undoing it.
 | [0020](0020-pccp-lead-category.md) | PCCP becomes a lead category: a signal from silver's `has_pccp`, never a trigger; PCCP share by year in `inspect` | Accepted |
 | [0021](0021-device-intended-use.md) | Device-level intended use read verbatim from the Summary (reusing 4B's page roles); first in `mortality_language`'s precedence; a tag, never a movement; curation candidates | Accepted |
 | [0022](0022-llm-assisted-evidence-extraction.md) | LLM-assisted study evidence: a local model proposes values with quotes, deterministic checks decide; raw answers in append-only bronze, checked evidence in silver; scoped, paced runs; a gold-set harness; evidence, never a flag | Accepted |
+| [0023](0023-shipping-llm-performance-figures.md) | Shipping LLM sensitivity / specificity: a per-device table (`silver_device_performance`), one figure per measure by a fixed rule, joined onto the curated rows; never False | Accepted |
 
 ## Writing a new one
 

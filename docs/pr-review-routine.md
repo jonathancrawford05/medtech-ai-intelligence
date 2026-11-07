@@ -235,6 +235,7 @@ checkable in the PR itself.
 > | Extraction never writes `mortality_confirmed_flag` (ADR 0014) |
 > | No model call outside a `live_ollama`-marked test or `registry extract-evidence`; raw answers append to `bronze_llm_responses` (ADR 0022) |
 > | LLM rows carry `review_method="llm_assisted"`, the full model digest, prompt version and run id; the page is derived from the quote, never asked of the model (ADR 0022) |
+> | A shipped LLM figure comes only from an accepted, subject-device result (`applies_to`, `is_result`), carries its quote, page and selection basis, and `reports_sensitivity_specificity` is never False (ADR 0023) |
 >
 > **3. DOMAIN LENSES** — apply only those the diff touches:
 >

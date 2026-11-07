@@ -86,6 +86,7 @@ class TestFieldParity:
             schemas.IntendedUseRecord,
             schemas.BronzeLlmResponseRecord,
             schemas.LlmEvidenceRecord,
+            schemas.DevicePerformanceRecord,
         ],
     )
     def test_every_model_field_appears_in_the_struct(self, model):
