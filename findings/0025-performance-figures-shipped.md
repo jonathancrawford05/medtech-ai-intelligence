@@ -61,7 +61,13 @@ unchanged, as ADR 0023 says: its column list does not carry the figures.
 **Fixed as `perf.3`:** sensitivity and specificity are now chosen as a pair, from one
 context they share, and the device is flagged when there is none (ADR 0023 Decision 3).
 For K200717 that gives the Low Risk model's pair, flagged. 4 of 5 choices were sound
-under `perf.2`; re-run `build-performance` to apply `perf.3`.
+under `perf.2`.
+
+**Re-run under `perf.3`** (Mac, 2026-11-08): the same counts (56 documents, 15 with a
+figure, `single` 21 / `overall` 2 / `first_of_several` 6, 5 flagged). That is
+expected: on K200717 the specificity was the only candidate, and the sensitivity is a
+choice between two figures either way. Pairing changes *which* figure is chosen, not
+its basis. The mart is unchanged (133 curated rows, 11 mart rows).
 
 ## Assumed (not verified here)
 
