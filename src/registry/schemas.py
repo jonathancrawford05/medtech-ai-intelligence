@@ -94,6 +94,10 @@ CheckStatus = t.Literal[
     "duplicate",  # dropped
 ]
 
+# How one device's sensitivity / specificity was chosen from its accepted figures
+# (ADR 0023): the only one, the one overall figure, or the first of several.
+PerformanceBasis = t.Literal["single", "overall", "first_of_several"]
+
 # The live lead categories (ADR 0016; `pccp` added by ADR 0020 once the document
 # pass populated `has_pccp`). Foundation-model clearances are deliberately absent:
 # no current source populates them (see `registry.mart.leads.DEFERRED_CATEGORIES`),
@@ -420,15 +424,21 @@ class EvidenceRecord(BaseModel):
 
     submission_number: str  # FK to DeviceRecord
 
-    # Read from the 510(k) summary PDF, which nothing fetches yet (roadmap Issue
-    # 4). `None` means "no summary has been read", which is a different claim
-    # from False ("the summary reports no sensitivity/specificity") -- the same
-    # distinction ADR 0012 drew for the openFDA fields.
+    # The performance fields are joined from `silver_device_performance` for the
+    # curated devices (ADR 0023): the device's headline figures, extracted by the
+    # LLM pass and checked. `None` means "no figure shipped", which is a different
+    # claim from False ("the summary reports no sensitivity/specificity") -- the
+    # same distinction ADR 0012 drew for the openFDA fields; that pass never writes
+    # False. Demographics stay None: no LLM field but metrics has shipped.
     reports_sensitivity_specificity: bool | None = None
     sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
     specificity: float | None = Field(default=None, ge=0.0, le=1.0)
     discloses_demographics: bool | None = None
     demographic_summary: str | None = None
+    # Which `silver_device_performance` run the three performance fields above were
+    # joined from (ADR 0023); None = not joined. The figure's quote, page and basis
+    # live on that table's row.
+    performance_run_id: str | None = None
 
     # The evidence the mortality judgement was made from, verbatim.
     intended_use_text: str
@@ -681,6 +691,89 @@ _ACCEPTED_STATUSES = frozenset(
 )
 
 
+class DevicePerformanceRecord(BaseModel):
+    """One device's headline sensitivity and specificity (`silver_device_performance`).
+
+    ADR 0023. Chosen deterministically from one LLM run's **accepted** metric rows
+    in `silver_llm_evidence` that the model attributed to the subject device and
+    marked as a result, standalone setting only. Values are proportions (0-1),
+    converted from the figure as written, which is kept beside them. Every figure
+    carries its quote, page(s) and the reason it was chosen, so a reviewer can check
+    it against the PDF. Evidence, never a judgement (ADR 0007).
+
+    A row exists for every document the run answered. ``reports_sensitivity_specificity``
+    is True when either figure was chosen and None otherwise: the gold set measured
+    the precision of accepted figures, not whether a missing one is truly absent, so
+    the pass never claims "does not report" (ADR 0012's None vs False).
+    """
+
+    submission_number: str  # FK to DeviceRecord
+    # Provenance: the run the figures came from, and the rules that judged them.
+    run_id: str
+    model: str
+    model_digest: str
+    prompt_version: str
+    checks_version: str
+    review_method: ReviewMethod = "llm_assisted"
+    selection_version: str
+    built_at: dt.datetime
+    source_content_sha256: str
+
+    reports_sensitivity_specificity: bool | None = None
+
+    sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
+    sensitivity_as_written: float | None = None
+    sensitivity_label: str | None = None
+    sensitivity_context: str | None = None
+    sensitivity_quote: str | None = None
+    sensitivity_pages: list[int] = Field(default_factory=list)
+    sensitivity_basis: PerformanceBasis | None = None
+    sensitivity_candidates: int = Field(default=0, ge=0)
+
+    specificity: float | None = Field(default=None, ge=0.0, le=1.0)
+    specificity_as_written: float | None = None
+    specificity_label: str | None = None
+    specificity_context: str | None = None
+    specificity_quote: str | None = None
+    specificity_pages: list[int] = Field(default_factory=list)
+    specificity_basis: PerformanceBasis | None = None
+    specificity_candidates: int = Field(default=0, ge=0)
+
+    # True when a chosen figure was flagged by the checks, or picked from several.
+    needs_review: bool = False
+
+    @field_validator("submission_number", mode="before")
+    @classmethod
+    def _upper_strip(cls, v: t.Any) -> t.Any:
+        return _non_blank(v).upper() if isinstance(v, str) else v
+
+    @model_validator(mode="after")
+    def _consistent(self) -> DevicePerformanceRecord:
+        if self.review_method != "llm_assisted":
+            raise ValueError("model-extracted performance is always review_method='llm_assisted'")
+        for name in ("sensitivity", "specificity"):
+            value = getattr(self, name)
+            filled = (
+                getattr(self, f"{name}_as_written") is not None,
+                getattr(self, f"{name}_quote") is not None,
+                bool(getattr(self, f"{name}_pages")),
+                getattr(self, f"{name}_basis") is not None,
+            )
+            if value is None and any(filled):
+                raise ValueError(f"{name}: provenance without a value")
+            if value is not None and not all(filled):
+                raise ValueError(f"{name}: a value needs its figure, quote, page(s) and basis")
+            if value is not None and getattr(self, f"{name}_candidates") < 1:
+                raise ValueError(f"{name}: a chosen value needs at least one candidate")
+        chosen = self.sensitivity is not None or self.specificity is not None
+        if self.reports_sensitivity_specificity is not (True if chosen else None):
+            raise ValueError(
+                "reports_sensitivity_specificity is True exactly when a figure was chosen, "
+                "else None (never False: absence is not measured)"
+            )
+        return self
+
+
 class PredicateDateRecord(BaseModel):
     """A predicate's FDA decision date, from openFDA (`silver_predicate_dates`).
 
@@ -784,6 +877,7 @@ TABLE_MODELS: dict[str, type[BaseModel]] = {
     "silver_predicate_dates": PredicateDateRecord,
     "silver_intended_use": IntendedUseRecord,
     "silver_llm_evidence": LlmEvidenceRecord,
+    "silver_device_performance": DevicePerformanceRecord,
     "silver_companies": CompanyRecord,
     "gold_device_leads": LeadRecord,
 }

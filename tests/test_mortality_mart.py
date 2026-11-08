@@ -36,7 +36,9 @@ def _device(submission: str, *, category: str = "cardiovascular", device_class: 
     ).model_dump()
 
 
-def _evidence(submission: str, *, confirmed: bool | None, keyword: bool = True, method="human"):
+def _evidence(
+    submission: str, *, confirmed: bool | None, keyword: bool = True, method="human", **perf
+):
     return EvidenceRecord(
         submission_number=submission,
         intended_use_text="Predicts risk of cardiac mortality.",
@@ -44,6 +46,7 @@ def _evidence(submission: str, *, confirmed: bool | None, keyword: bool = True, 
         mortality_keyword_flag=keyword,
         mortality_confirmed_flag=confirmed,
         mortality_review_method=method if confirmed is not None else None,
+        **perf,
     ).model_dump()
 
 
@@ -116,6 +119,30 @@ class TestTheRowAnUnderwriterReads:
         either the keyword list is too narrow or the judgement was generous."""
         settings = seeded([_device("K1")], [_evidence("K1", confirmed=True, keyword=False)])
         assert mortality_relevant.build(spark, settings)[0]["keyword_disagrees"] is True
+
+    def test_carries_the_shipped_performance_figures(self, spark, seeded):
+        """ADR 0023: the device's headline sensitivity / specificity, with their run."""
+        settings = seeded(
+            [_device("K1"), _device("K2")],
+            [
+                _evidence(
+                    "K1",
+                    confirmed=True,
+                    reports_sensitivity_specificity=True,
+                    sensitivity=0.925,
+                    specificity=0.99,
+                    performance_run_id="4d.3-qwen3_14b-20261021T000000Z",
+                ),
+                _evidence("K2", confirmed=True),
+            ],
+        )
+        rows = {r["submission_number"]: r for r in mortality_relevant.build(spark, settings)}
+        assert rows["K1"]["sensitivity"] == pytest.approx(0.925)
+        assert rows["K1"]["specificity"] == pytest.approx(0.99)
+        assert rows["K1"]["performance_run_id"] == "4d.3-qwen3_14b-20261021T000000Z"
+        # No figure shipped: None, never False.
+        assert rows["K2"]["reports_sensitivity_specificity"] is None
+        assert rows["K2"]["sensitivity"] is None
 
     def test_agreement_is_not_flagged(self, spark, seeded):
         settings = seeded([_device("K1")], [_evidence("K1", confirmed=True, keyword=True)])

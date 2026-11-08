@@ -1,0 +1,106 @@
+# 0025 — Sensitivity / specificity shipped from the LLM pass: built, not yet run on the Mac
+
+**Date:** 2026-11-07 · **Status:** Built, tested offline, and run once over the real `4d.3` evidence on
+the Mac (2026-11-08: 15 of 56 documents carry a figure). The 5 flagged devices were spot-checked; one wrong pairing led to `perf.3`.
+· **Component:** [ADR 0023](../docs/adr/0023-shipping-llm-performance-figures.md),
+following the maintainer's decision recorded in [finding 0024](0024-llm-extraction-framework.md)
+
+## Verified (in this session, by the test suite)
+
+- **Only accepted subject-device results count** (`tests/test_performance.py`). A row
+  rejected by the checks, attributed to a predicate or an original device, not asked
+  (`applies_to` None), marked a threshold (`is_result` false or None), from a reader
+  study, or naming another measure never becomes a shipped figure.
+- **A run that never asked for attribution ships nothing.** The recorded `4d-spike-4`
+  slice has 236 accepted metrics over 43 documents. `select` gives 43 rows, none with a
+  figure.
+- **One figure per measure**, by `perf.3`: `single`, `overall` (one figure not tied to a
+  subgroup beats subgroup figures), or `first_of_several` (flagged). Duplicate values
+  count once. A context counts as
+  overall only when every word in it names the whole set ("all female" is a subgroup),
+  and a document whose rows come from two runs is refused. Sensitivity and specificity
+  come as a pair from one shared context, or are flagged.
+- **Scale.** 92.5 becomes 0.925; 0.93 with no `%` stays 0.93; "0.9%" becomes 0.009; 180
+  is dropped.
+- **Never False.** `reports_sensitivity_specificity` is True with a figure and None
+  without one; the validator refuses False.
+- **The curated rows get the figures by a join.** Through Spark, evidence goes to
+  `silver_device_performance`, then into the curated row of `silver_evidence`. A curated
+  device without a row keeps None, and an uncurated device never enters `silver_evidence`.
+
+## First real run (Mac, 2026-11-08, rule `perf.2`)
+
+`registry build-performance -v` over the `4d.3` run in the lakehouse (`qwen3:14b`), then
+`registry build-mart`:
+
+| | |
+|---|---|
+| documents (rows written) | 56 |
+| with a figure (`reports_sensitivity_specificity` True) | **15** (27%) |
+| sensitivity / specificity chosen | 15 / 14 |
+| chosen as | `single` 21, `overall` 2, `first_of_several` 6 |
+| devices flagged `needs_review` | 5 |
+| curated judgements loaded by `build-mart` / gold mart rows | 133 / 11 (unchanged) |
+
+Of 29 chosen figures, 21 were the only candidate. In 6 the rule had to guess, and those
+devices are flagged. The 15-in-56 rate matches gold v2's reading that many
+cardiometabolic Summaries report no standalone sensitivity or specificity (ECG monitors,
+bench testing). The 41 without a figure are None, not "does not report". The mart is
+unchanged, because the mart did not yet select the figures. It now does:
+`reports_sensitivity_specificity`, `sensitivity`, `specificity` and `performance_run_id`
+are on every confirmed row. Re-run `build-mart` to see them.
+
+### Spot check of the 5 flagged devices (2026-11-08)
+
+| Device | Chosen | Reading |
+|---|---|---|
+| K161772 HeartFlow FFRct | 84.2 / 84.9, per vessel, Intent To Diagnose population | the primary analysis population: right headline |
+| K233409 | 74.7 / 77.5, Low EF Detection | each the only candidate; flagged by its check status only |
+| K233216 CLEWICU | 63 / 93, HI model, UMASS dataset (4 candidates each) | first of two validation datasets, same model and dataset for both: defensible, rightly flagged |
+| K242967 Loss of Pulse | 69.3 / 99.965, clinical validation study | same study; per-event sensitivity, per-day specificity, as the document reports them |
+| **K200717 CLEWICU** | **60.6 sensitivity from the Hemodynamic Instability model, 95.7 specificity from the Low Risk model** | **wrong: the two measures were chosen independently and paired across models** |
+
+**Fixed as `perf.3`:** sensitivity and specificity are now chosen as a pair, from one
+context they share, and the device is flagged when there is none (ADR 0023 Decision 3).
+For K200717 that gives the Low Risk model's pair, flagged. 4 of 5 choices were sound
+under `perf.2`.
+
+**Re-run under `perf.3`** (Mac, 2026-11-08): the same counts (56 documents, 15 with a
+figure, `single` 21 / `overall` 2 / `first_of_several` 6, 5 flagged). That is
+expected: on K200717 the specificity was the only candidate, and the sensitivity is a
+choice between two figures either way. Pairing changes *which* figure is chosen, not
+its basis. The mart is unchanged (133 curated rows, 11 mart rows).
+
+**K200717 under `perf.3`, checked:** sensitivity 21.4 (`first_of_several`) and
+specificity 95.7 (`single`), both from the "Low Risk (LR) model": one model's operating
+point, as intended. It is still not the headline a reader would quote for CLEWICU,
+whose main output is the Hemodynamic Instability model (sensitivity 60.6). That
+model's specificity was not extracted, so no HI pair exists to choose. The row is
+flagged; a reviewer (or a later run that extracts the HI specificity) settles it. The
+rule cannot pick a model the evidence does not hold both figures for.
+
+## Assumed (not verified here)
+
+- The rule is tested on hand-built evidence rows: no `4d.3` answer is recorded in the
+  fixtures, and only `4d.3` answers carry `applies_to` and `is_result`.
+- Whether the 6 `first_of_several` choices picked the figure a reader would call the
+  headline is not yet checked (spot-check below).
+
+## To do (this finding is updated when it is done)
+
+- [x] On the Mac, over the `4d.3` run already in the lakehouse (56 documents; above):
+
+  ```bash
+  uv run registry build-performance -v
+  uv run registry build-mart
+  ```
+
+  Counts recorded above; the 5 `needs_review` devices spot-checked (above).
+- [ ] Record a few real `4d.3` responses as fixtures (like `responses/`), so the rule is
+      also tested on real answers.
+
+## How to re-check
+
+```bash
+uv run pytest -q tests/test_performance.py
+```

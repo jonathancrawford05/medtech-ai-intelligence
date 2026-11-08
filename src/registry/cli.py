@@ -513,6 +513,44 @@ def merge_gold(
     typer.echo(f"Wrote {out}: {labelled_rows} labelled row(s)")
 
 
+@app.command("build-performance")
+def build_performance(
+    prompt_version: Annotated[
+        str | None, typer.Option(help="The run to ship from; default the current prompt.")
+    ] = None,
+    model_digest: Annotated[
+        str | None, typer.Option(help="Digest prefix, when several models ran the prompt.")
+    ] = None,
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Choose each device's headline sensitivity / specificity from one LLM run.
+
+    Offline. Reads silver_llm_evidence, keeps accepted subject-device results, picks
+    one figure per measure by ADR 0023's rule and rebuilds silver_device_performance.
+    `build-mart` then joins the figures onto the curated rows of silver_evidence.
+    """
+    _setup_logging(verbose)
+    from registry.llm_extraction import performance
+    from registry.llm_extraction import schema as sc
+    from registry.spark_session import get_spark
+
+    settings = get_settings()
+    try:
+        build = performance.run(
+            get_spark(settings),
+            settings,
+            prompt_version=prompt_version or sc.PROMPT_VERSION,
+            model_digest=model_digest,
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    table = settings.table_ref(performance.PERFORMANCE_TABLE)
+    typer.echo(f"Wrote {build.written} row(s) to {table} (rule {performance.SELECTION_VERSION})")
+    for line in build.yields.lines():
+        typer.echo(f"  {line}")
+
+
 @app.command("enrich-predicates")
 def enrich_predicates(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
     """Fetch each primary predicate's decision date from openFDA (for predicate_age_days).

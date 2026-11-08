@@ -4,7 +4,7 @@ Handoff state for the next session (human or agent). **Read this first, then
 `docs/adr/README.md`.** Update this file at the end of every working session —
 it is the only thing that survives a context window.
 
-**Last updated:** 2026-10-18 · **Branch:** `claude/peaceful-pasteur-6o4nx9` — Issue 4 **PR 4D**: the LLM-assisted study-evidence framework ([ADR 0022](docs/adr/0022-llm-assisted-evidence-extraction.md), [finding 0024](findings/0024-llm-extraction-framework.md)). A local model (Ollama, `qwen3:14b`) proposes values with verbatim quotes; deterministic checks ported from the spike scorer accept, flag or reject each one (57 / 58 gold statuses reproduced exactly, the 58th the same decision), and the page is derived from the quote. Raw answers append to `bronze_llm_responses`; `silver_llm_evidence` is rebuilt from them offline. Prompt/schema `4d.1` adds `applies_to`, `ci_sided`, `is_result`, error measures and `agreement`; two new reject rules (`measure_not_named`, `zero_triple`) reject no right gold value. Every fabricated fixture row is rejected (K251218, K233253; K182456's cipher pages are caught by a new read-time garble test and never sent). `registry extract-evidence` (scoped, paced, resumable, Mac only), `build-evidence`, `score-gold`. **No model has been called from this branch**: the first `4d.1` run, `pytest -m live_ollama` and a fresh gold draw are maintainer steps on the Mac. Earlier (4C, on the Mac 2026-10-12): intended use found 1,515 / 1,541; open from 4C: noisy statements for `K260497`, `K243038` (finding 0022); from 4B+: confirm the `inspect` PCCP table and `K260714`.
+**Last updated:** 2026-11-07 · **Branch:** `claude/peaceful-pasteur-6o4nx9` (restarted from `main` after PR #25 merged) — **ship metrics** ([ADR 0023](docs/adr/0023-shipping-llm-performance-figures.md), [finding 0025](findings/0025-performance-figures-shipped.md)). `registry build-performance` picks each device's headline sensitivity and specificity from one LLM run's accepted, subject-device results by a fixed rule (`perf.1`: single / overall / first of several, flagged), into a new per-device `silver_device_performance` with quote, page and basis. `build-mart` joins the figures onto the curated rows of `silver_evidence` (plus `performance_run_id`). `silver_evidence` still means curated judgements only, so leads and curation are unchanged. `reports_sensitivity_specificity` is never False. **Mac step:** `build-performance` then `build-mart` over the `4d.3` run; record the counts in finding 0025. Earlier: PR 4D (#25, merged) built the LLM framework; gold v2 cleared metrics at 14 / 15 ([finding 0024](findings/0024-llm-extraction-framework.md)).
 **Suite:** see the PR B description for the current count (host JDK 21 locally; CI's JDK-17 image is authoritative), ruff clean; `live_network`
 tests are deselected outside a network-permitted host — see §5.
 **PRs #1, #2, #5, #6 merged to `main`.** Note #3 and #4 were stacked onto
@@ -143,6 +143,7 @@ uv run registry draw-gold --prompt-version 4d.3 --out gold_set_v2.csv \
 uv run registry merge-gold --key gold_set_v2.csv --labelled gold_set_v2.blind.csv --out gold_v2.csv
 uv run registry score-gold --gold gold_v2.csv --prompt-version 4d.3 --bar <agreed>
 uv run registry build-evidence                   # after any change to the checks; no model
+uv run registry build-performance -v             # shipped sensitivity / specificity (ADR 0023)
 ```
 
 Record the first run and the fresh gold score in finding 0024.
@@ -275,11 +276,14 @@ findings/                        what was actually verified, and what was not
    finding 0023. Only a field that clears the bar then feeds `EvidenceRecord` (a later PR).
    **Gold v2 (the test set, 2026-10-22):** metrics clear 90% (14 / 15 accepted right,
    weighted ~91%, every rejection wrong); scalars and the endpoint do not have the rows.
-   **Decided: ship metrics next.** Next PR: populate `EvidenceRecord.sensitivity`,
-   `specificity` and `reports_sensitivity_specificity` from accepted
-   `silver_llm_evidence` metric rows (`applies_to=subject_device`, `is_result`, one figure
-   per device by a stated rule, the run's provenance carried), keeping every other field
-   unshipped ([finding 0024](findings/0024-llm-extraction-framework.md)).
+   **Decided: ship metrics next.** **PR #25 merged.** **This branch:** `build-performance`
+   → `silver_device_performance` (one figure per measure, `perf.1`), joined onto the
+   curated rows of `silver_evidence` by `build-mart`
+   ([ADR 0023](docs/adr/0023-shipping-llm-performance-figures.md),
+   [finding 0025](findings/0025-performance-figures-shipped.md)). **Mac step:**
+   `build-performance -v` then `build-mart`; record the counts. Every other LLM field
+   stays unshipped. The gold mart now carries the figures too (sensitivity, specificity,
+   `reports_sensitivity_specificity`, `performance_run_id`).
    Curation from the spike: SignalHF `K230842`, Tempus ECG-AF `K233549`, GHI `K231038`,
    (unsure) VISENSIA `K081140` to the next seed batch.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
