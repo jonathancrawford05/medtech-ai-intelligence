@@ -14,9 +14,11 @@ following the maintainer's decision recorded in [finding 0024](0024-llm-extracti
 - **A run that never asked for attribution ships nothing.** The recorded `4d-spike-4`
   slice has 236 accepted metrics over 43 documents. `select` gives 43 rows, none with a
   figure.
-- **One figure per measure**, by `perf.1`: `single`, `overall` (one figure not tied to a
+- **One figure per measure**, by `perf.2`: `single`, `overall` (one figure not tied to a
   subgroup beats subgroup figures), or `first_of_several` (flagged). Duplicate values
-  count once. Sensitivity and specificity are chosen independently.
+  count once. Sensitivity and specificity are chosen independently. A context counts as
+  overall only when every word in it names the whole set ("all female" is a subgroup),
+  and a document whose rows come from two runs is refused.
 - **Scale.** 92.5 becomes 0.925; 0.93 with no `%` stays 0.93; "0.9%" becomes 0.009; 180
   is dropped.
 - **Never False.** `reports_sensitivity_specificity` is True with a figure and None

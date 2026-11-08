@@ -52,17 +52,20 @@ A run whose prompt never asked for attribution (`4d-spike-4`) therefore ships no
 The one accepted error in gold v2 was a predicate's figure credited to the subject
 device, so attribution is the place to look when a figure is challenged.
 
-## Decision 3 — one figure per measure (`perf.1`)
+## Decision 3 — one figure per measure (`perf.1`, amended to `perf.2` in review)
 
 Distinct figures only (the same value twice is one candidate), in document order:
 
 | `*_basis` | Rule |
 |---|---|
 | `single` | the only distinct figure |
-| `overall` | of several, exactly one is not tied to a subgroup: no `context`, or a context naming the whole set ("overall", "all", "total", "pooled", "combined", "entire", "primary", "whole") |
+| `overall` | of several, exactly one is not tied to a subgroup: no `context`, or a context made **only** of words naming the whole set ("overall", "all", "total", "pooled", "combined", "entire", "primary", "whole") and filler ("sites", "patients", "dataset", …). "Overall (all sites)" is overall; "all female" and "primary care" are subgroups. `perf.1` matched the word anywhere, which let a subgroup ship as an unflagged headline (PR #26 review). |
 | `first_of_several` | otherwise the first in document order, among the overall figures if there are any, else among all; `needs_review` is set |
 
-Sensitivity and specificity are chosen independently. Every chosen figure carries its
+Sensitivity and specificity are chosen independently. A document's rows must come from
+one `run_id` (`build-evidence` keeps one response per document, digest and prompt); a
+document mixing two runs is refused, while different documents from different batches of
+the same prompt and digest are normal. Every chosen figure carries its
 value as written, label, context, quote, page(s), basis and candidate count.
 
 The rule is deliberately simple and visible. "First in document order" follows how

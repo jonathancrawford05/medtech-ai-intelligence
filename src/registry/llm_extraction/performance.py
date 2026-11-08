@@ -14,7 +14,8 @@ never asked for attribution (``4d-spike-4``) therefore ships nothing.
 
 ``single``            the only distinct figure.
 ``overall``           of several, exactly one is not tied to a subgroup (no context,
-                      or a context such as "overall", "all", "total", "pooled").
+                      or a context made only of words such as "overall", "all",
+                      "total", "pooled": "Overall (all sites)", not "all female").
 ``first_of_several``  otherwise the first in document order, among the overall
                       figures if there are any, else among all; flagged for review.
 
@@ -46,14 +47,24 @@ logger = logging.getLogger(__name__)
 PERFORMANCE_TABLE = "silver_device_performance"
 
 # Bump on any rule change: rows record the rule that chose them.
-SELECTION_VERSION = "perf.1"
+SELECTION_VERSION = "perf.2"
 
 MEASURES = ("sensitivity", "specificity")
 
-# A context that names the whole test set, not a subgroup of it.
-_OVERALL = re.compile(
-    r"\b(overall|all|total|pooled|combined|entire|primary|whole)\b", re.IGNORECASE
+# A context names the whole test set only when it says nothing else: every word is
+# one of these. "Overall (all sites)" is overall; "all female" and "primary care"
+# are subgroups (PR #26 review). Filler words describe the set, not a part of it.
+_OVERALL_WORDS = frozenset(
+    ["overall", "all", "total", "pooled", "combined", "entire", "primary", "whole"]
 )
+_FILLER_WORDS = frozenset(
+    re.findall(
+        r"[a-z]+",
+        "the of in and set dataset data population cohort sample test testing study "
+        "sites site patients subjects analysis endpoint results",
+    )
+)
+_WORD = re.compile(r"[a-z]+")
 
 
 def _utcnow() -> dt.datetime:
@@ -83,7 +94,13 @@ def as_proportion(value: float, quote: str | None) -> float | None:
 
 
 def is_overall(context: str | None) -> bool:
-    return not (context or "").strip() or bool(_OVERALL.search(context or ""))
+    """No context, or one made only of overall and filler words."""
+    words = _WORD.findall((context or "").lower())
+    if not words:
+        return True
+    return any(w in _OVERALL_WORDS for w in words) and all(
+        w in _OVERALL_WORDS or w in _FILLER_WORDS for w in words
+    )
 
 
 @dataclass(frozen=True)
@@ -155,6 +172,11 @@ def select(
     for number in sorted(by_doc):
         rows = by_doc[number]
         first = rows[0]
+        runs = {r.run_id for r in rows}
+        if len(runs) > 1:
+            # build-evidence keeps one response per (document, digest, prompt), so a
+            # document's rows share one run; anything else would mix two answers.
+            raise ValueError(f"{number}: evidence from {len(runs)} runs ({sorted(runs)})")
         chosen = {m: choose([r for r in rows if eligible(r) and r.metric == m]) for m in MEASURES}
         picked = [c for c in chosen.values() if c is not None]
         out.append(

@@ -155,6 +155,25 @@ class TestChoosingAmongSeveral:
         ]
         assert _one(rows).sensitivity_basis == "overall"
 
+    @pytest.mark.parametrize(
+        "context", ["all female", "primary care", "Total cholesterol > 240", "whole-blood samples"]
+    )
+    def test_a_subgroup_that_uses_an_overall_word_is_not_overall(self, context):
+        """PR #26 review: `\\ball\\b` read "all female" as the whole set, unflagged."""
+        rows = [
+            _metric(value=80.6, context="age >80", index=0),
+            _metric(value=88.0, context=context, index=1),
+        ]
+        rec = _one(rows)
+        assert rec.sensitivity_basis == "first_of_several"
+        assert rec.needs_review is True
+
+    @pytest.mark.parametrize(
+        "context", ["Overall", "overall (all sites)", "All patients", "Pooled dataset", "Total"]
+    )
+    def test_contexts_that_only_name_the_whole_set_are_overall(self, context):
+        assert perf.is_overall(context)
+
     def test_several_overall_figures_take_the_first_and_flag_it(self):
         """Per-vessel and per-patient both read as headline figures (K213657)."""
         rows = [
@@ -215,6 +234,20 @@ class TestRowsAndRuns:
         assert rec.review_method == "llm_assisted"
         assert rec.model_digest == "d" * 64 and rec.prompt_version == "4d.3"
         assert rec.selection_version == perf.SELECTION_VERSION
+
+    def test_a_document_never_mixes_two_runs(self):
+        """PR #26 review: build-evidence keeps one response per document, digest and
+        prompt; a document with rows from two runs is refused, not blended."""
+        later = _metric(value=91.0, index=1).model_copy(update={"run_id": "4d.3-qwen3_14b-later"})
+        with pytest.raises(ValueError, match="2 runs"):
+            perf.select([_metric(), later], built_at=T0)
+
+    def test_two_documents_from_two_batches_are_one_run(self):
+        """Batches of one prompt and digest have their own run ids; that is normal."""
+        later = _metric("K250002").model_copy(update={"run_id": "4d.3-qwen3_14b-later"})
+        recs = {r.submission_number: r for r in perf.select([_metric(), later], built_at=T0)}
+        assert recs["K250002"].run_id == "4d.3-qwen3_14b-later"
+        assert recs["K250001"].run_id != recs["K250002"].run_id
 
     def test_one_run_at_a_time(self):
         with pytest.raises(ValueError, match="one run"):

@@ -427,7 +427,10 @@ class TestBuildPerformance:
         )
         out = CliRunner().invoke(cli.app, ["build-performance"])
         assert out.exit_code == 0, out.output
-        assert "Wrote 39 row(s)" in out.output and "rule perf.1" in out.output
+        assert (
+            "Wrote 39 row(s)" in out.output
+            and f"rule {performance.SELECTION_VERSION}" in out.output
+        )
         assert "sensitivity: 12" in out.output
 
     def test_a_missing_run_says_so(self, monkeypatch):
