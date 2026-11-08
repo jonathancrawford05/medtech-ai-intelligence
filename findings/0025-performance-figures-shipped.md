@@ -46,7 +46,9 @@ Of 29 chosen figures, 21 were the only candidate. In 6 the rule had to guess, an
 devices are flagged. The 15-in-56 rate matches gold v2's reading that many
 cardiometabolic Summaries report no standalone sensitivity or specificity (ECG monitors,
 bench testing). The 41 without a figure are None, not "does not report". The mart is
-unchanged, as ADR 0023 says: its column list does not carry the figures.
+unchanged, because the mart did not yet select the figures. It now does:
+`reports_sensitivity_specificity`, `sensitivity`, `specificity` and `performance_run_id`
+are on every confirmed row. Re-run `build-mart` to see them.
 
 ### Spot check of the 5 flagged devices (2026-11-08)
 

@@ -93,9 +93,9 @@ a device with none truly reports none (ADR 0012: None is "not established", not 
 ## Consequences
 
 - Every device the LLM pass covers gets a reviewable headline figure, with its quote and
-  page. The curated devices also carry it in `silver_evidence`. The gold mart (ADR 0014)
-  does not select these columns yet; adding them is a column-list change, left out of
-  this PR.
+  page. The curated devices also carry it in `silver_evidence`, and the gold mart (ADR
+  0014) shows `reports_sensitivity_specificity`, `sensitivity`, `specificity` and
+  `performance_run_id` on every confirmed row (None where no figure shipped).
 - The leads, the curation report and the mart's filter are unchanged: `silver_evidence`
   still holds exactly the curated judgements.
 - A new step in the Mac run order: `extract-evidence` → `build-evidence` →

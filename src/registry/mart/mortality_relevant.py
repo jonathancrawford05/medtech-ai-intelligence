@@ -56,6 +56,13 @@ _COLUMNS = [
     "mortality_review_notes",
     "mortality_keyword_flag",
     "keyword_disagrees",
+    # The device's headline performance, from the LLM pass (ADR 0023): proportions,
+    # None when no figure shipped (never "does not report"). The quote, page and how
+    # the figure was chosen are on `silver_device_performance`, by performance_run_id.
+    "reports_sensitivity_specificity",
+    "sensitivity",
+    "specificity",
+    "performance_run_id",
     "source_url",
 ]
 

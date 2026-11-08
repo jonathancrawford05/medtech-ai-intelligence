@@ -282,7 +282,8 @@ findings/                        what was actually verified, and what was not
    ([ADR 0023](docs/adr/0023-shipping-llm-performance-figures.md),
    [finding 0025](findings/0025-performance-figures-shipped.md)). **Mac step:**
    `build-performance -v` then `build-mart`; record the counts. Every other LLM field
-   stays unshipped. Possible follow-up: the gold mart's column list could carry the figures.
+   stays unshipped. The gold mart now carries the figures too (sensitivity, specificity,
+   `reports_sensitivity_specificity`, `performance_run_id`).
    Curation from the spike: SignalHF `K230842`, Tempus ECG-AF `K233549`, GHI `K231038`,
    (unsure) VISENSIA `K081140` to the next seed batch.
    Open from 4A: De Novo/PMA document URLs unverified (deferred, counted);
