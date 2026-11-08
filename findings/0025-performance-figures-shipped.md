@@ -1,7 +1,7 @@
 # 0025 — Sensitivity / specificity shipped from the LLM pass: built, not yet run on the Mac
 
-**Date:** 2026-11-07 · **Status:** Built and tested offline. **Not yet run over the real
-`4d.3` evidence**: that is in the maintainer's lakehouse on the Mac (step below).
+**Date:** 2026-11-07 · **Status:** Built, tested offline, and run once over the real `4d.3` evidence on
+the Mac (2026-11-08: 15 of 56 documents carry a figure). The 5 flagged devices are not yet spot-checked.
 · **Component:** [ADR 0023](../docs/adr/0023-shipping-llm-performance-figures.md),
 following the maintainer's decision recorded in [finding 0024](0024-llm-extraction-framework.md)
 
@@ -27,25 +27,44 @@ following the maintainer's decision recorded in [finding 0024](0024-llm-extracti
   `silver_device_performance`, then into the curated row of `silver_evidence`. A curated
   device without a row keeps None, and an uncurated device never enters `silver_evidence`.
 
+## First real run (Mac, 2026-11-08, rule `perf.2`)
+
+`registry build-performance -v` over the `4d.3` run in the lakehouse (`qwen3:14b`), then
+`registry build-mart`:
+
+| | |
+|---|---|
+| documents (rows written) | 56 |
+| with a figure (`reports_sensitivity_specificity` True) | **15** (27%) |
+| sensitivity / specificity chosen | 15 / 14 |
+| chosen as | `single` 21, `overall` 2, `first_of_several` 6 |
+| devices flagged `needs_review` | 5 |
+| curated judgements loaded by `build-mart` / gold mart rows | 133 / 11 (unchanged) |
+
+Of 29 chosen figures, 21 were the only candidate. In 6 the rule had to guess, and those
+devices are flagged. The 15-in-56 rate matches gold v2's reading that many
+cardiometabolic Summaries report no standalone sensitivity or specificity (ECG monitors,
+bench testing). The 41 without a figure are None, not "does not report". The mart is
+unchanged, as ADR 0023 says: its column list does not carry the figures.
+
 ## Assumed (not verified here)
 
 - The rule is tested on hand-built evidence rows: no `4d.3` answer is recorded in the
   fixtures, and only `4d.3` answers carry `applies_to` and `is_result`.
-- How often `first_of_several` fires on real Summaries is unknown until the Mac run. Gold
-  v2's metric rows suggest it will be common for documents with subgroup tables
-  (K250151-style per-centre rows).
+- Whether the 6 `first_of_several` choices picked the figure a reader would call the
+  headline is not yet checked (spot-check below).
 
 ## To do (this finding is updated when it is done)
 
-- [ ] On the Mac, over the `4d.3` run already in the lakehouse (56 documents):
+- [x] On the Mac, over the `4d.3` run already in the lakehouse (56 documents; above):
 
   ```bash
   uv run registry build-performance -v
   uv run registry build-mart
   ```
 
-  Record the counts printed (documents, with sensitivity, with specificity, basis split,
-  needs review) here, and spot-check 5 `needs_review` rows against their PDFs.
+  Counts recorded above. Still open: spot-check the 5 `needs_review` devices against
+  their PDFs.
 - [ ] Record a few real `4d.3` responses as fixtures (like `responses/`), so the rule is
       also tested on real answers.
 
