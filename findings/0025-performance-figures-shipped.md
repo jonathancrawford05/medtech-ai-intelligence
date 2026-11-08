@@ -69,6 +69,14 @@ expected: on K200717 the specificity was the only candidate, and the sensitivity
 choice between two figures either way. Pairing changes *which* figure is chosen, not
 its basis. The mart is unchanged (133 curated rows, 11 mart rows).
 
+**K200717 under `perf.3`, checked:** sensitivity 21.4 (`first_of_several`) and
+specificity 95.7 (`single`), both from the "Low Risk (LR) model": one model's operating
+point, as intended. It is still not the headline a reader would quote for CLEWICU,
+whose main output is the Hemodynamic Instability model (sensitivity 60.6). That
+model's specificity was not extracted, so no HI pair exists to choose. The row is
+flagged; a reviewer (or a later run that extracts the HI specificity) settles it. The
+rule cannot pick a model the evidence does not hold both figures for.
+
 ## Assumed (not verified here)
 
 - The rule is tested on hand-built evidence rows: no `4d.3` answer is recorded in the
