@@ -213,7 +213,64 @@ class TestChoosingAmongSeveral:
         assert rec.sensitivity_basis == "overall"
         assert rec.sensitivity_context is None
 
-    def test_sensitivity_and_specificity_are_chosen_independently(self):
+    def test_the_pair_comes_from_one_model(self):
+        """K200717 (finding 0025): perf.2 paired the HI model's sensitivity with the LR
+        model's specificity. The pair now comes from the context both measures share."""
+        rows = [
+            _metric(value=60.6, context="Hemodynamic Instability (HI) model", index=0),
+            _metric(value=71.2, context="Low Risk (LR) model", index=1),
+            _metric(metric="specificity", value=95.7, context="Low Risk (LR) model", index=2),
+        ]
+        rec = _one(rows)
+        assert rec.sensitivity == pytest.approx(0.712)
+        assert rec.sensitivity_context == rec.specificity_context == "Low Risk (LR) model"
+        assert rec.sensitivity_basis == "first_of_several"  # a subgroup, chosen for the pair
+        assert rec.specificity_basis == "single"
+        assert rec.needs_review is True
+
+    def test_the_overall_pair_is_preferred_over_a_subgroup_pair(self):
+        rows = [
+            _metric(value=80.6, context="Center 1", index=0),
+            _metric(metric="specificity", value=90.0, context="Center 1", index=1),
+            _metric(value=84.4, context=None, index=2),
+            _metric(metric="specificity", value=92.0, context=None, index=3),
+        ]
+        rec = _one(rows)
+        assert (rec.sensitivity, rec.specificity) == (pytest.approx(0.844), pytest.approx(0.92))
+        assert rec.sensitivity_basis == rec.specificity_basis == "overall"
+        assert rec.needs_review is False
+
+    def test_several_shared_contexts_take_the_first_and_flag_it(self):
+        """K161772 / K233216: two populations or datasets, each with both measures."""
+        rows = [
+            _metric(value=63.0, context="CLEWHI Model, UMASS", index=0),
+            _metric(metric="specificity", value=93.0, context="CLEWHI Model, UMASS", index=1),
+            _metric(value=66.0, context="CLEWHI Model, MIMIC", index=2),
+            _metric(metric="specificity", value=91.0, context="CLEWHI Model, MIMIC", index=3),
+        ]
+        rec = _one(rows)
+        assert (rec.sensitivity, rec.specificity) == (pytest.approx(0.63), pytest.approx(0.93))
+        assert rec.needs_review is True
+
+    def test_contexts_are_compared_loosely(self):
+        rows = [
+            _metric(value=86.9, context="per-vessel", index=0),
+            _metric(metric="specificity", value=86.7, context="Per vessel", index=1),
+        ]
+        rec = _one(rows)
+        assert rec.sensitivity_basis == rec.specificity_basis == "single"
+        assert rec.needs_review is False
+
+    def test_no_shared_context_is_chosen_apart_and_flagged(self):
+        rows = [
+            _metric(value=60.6, context="HI model", index=0),
+            _metric(metric="specificity", value=95.7, context="LR model", index=1),
+        ]
+        rec = _one(rows)
+        assert rec.sensitivity == pytest.approx(0.606) and rec.specificity == pytest.approx(0.957)
+        assert rec.needs_review is True
+
+    def test_one_shared_context_gives_a_clean_pair(self):
         rows = [
             _metric(metric="sensitivity", value=93.6, index=0),
             _metric(metric="specificity", value=99.0, index=1),

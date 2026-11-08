@@ -1,7 +1,7 @@
 # 0025 — Sensitivity / specificity shipped from the LLM pass: built, not yet run on the Mac
 
 **Date:** 2026-11-07 · **Status:** Built, tested offline, and run once over the real `4d.3` evidence on
-the Mac (2026-11-08: 15 of 56 documents carry a figure). The 5 flagged devices are not yet spot-checked.
+the Mac (2026-11-08: 15 of 56 documents carry a figure). The 5 flagged devices were spot-checked; one wrong pairing led to `perf.3`.
 · **Component:** [ADR 0023](../docs/adr/0023-shipping-llm-performance-figures.md),
 following the maintainer's decision recorded in [finding 0024](0024-llm-extraction-framework.md)
 
@@ -14,11 +14,12 @@ following the maintainer's decision recorded in [finding 0024](0024-llm-extracti
 - **A run that never asked for attribution ships nothing.** The recorded `4d-spike-4`
   slice has 236 accepted metrics over 43 documents. `select` gives 43 rows, none with a
   figure.
-- **One figure per measure**, by `perf.2`: `single`, `overall` (one figure not tied to a
+- **One figure per measure**, by `perf.3`: `single`, `overall` (one figure not tied to a
   subgroup beats subgroup figures), or `first_of_several` (flagged). Duplicate values
-  count once. Sensitivity and specificity are chosen independently. A context counts as
+  count once. A context counts as
   overall only when every word in it names the whole set ("all female" is a subgroup),
-  and a document whose rows come from two runs is refused.
+  and a document whose rows come from two runs is refused. Sensitivity and specificity
+  come as a pair from one shared context, or are flagged.
 - **Scale.** 92.5 becomes 0.925; 0.93 with no `%` stays 0.93; "0.9%" becomes 0.009; 180
   is dropped.
 - **Never False.** `reports_sensitivity_specificity` is True with a figure and None
@@ -47,6 +48,21 @@ cardiometabolic Summaries report no standalone sensitivity or specificity (ECG m
 bench testing). The 41 without a figure are None, not "does not report". The mart is
 unchanged, as ADR 0023 says: its column list does not carry the figures.
 
+### Spot check of the 5 flagged devices (2026-11-08)
+
+| Device | Chosen | Reading |
+|---|---|---|
+| K161772 HeartFlow FFRct | 84.2 / 84.9, per vessel, Intent To Diagnose population | the primary analysis population: right headline |
+| K233409 | 74.7 / 77.5, Low EF Detection | each the only candidate; flagged by its check status only |
+| K233216 CLEWICU | 63 / 93, HI model, UMASS dataset (4 candidates each) | first of two validation datasets, same model and dataset for both: defensible, rightly flagged |
+| K242967 Loss of Pulse | 69.3 / 99.965, clinical validation study | same study; per-event sensitivity, per-day specificity, as the document reports them |
+| **K200717 CLEWICU** | **60.6 sensitivity from the Hemodynamic Instability model, 95.7 specificity from the Low Risk model** | **wrong: the two measures were chosen independently and paired across models** |
+
+**Fixed as `perf.3`:** sensitivity and specificity are now chosen as a pair, from one
+context they share, and the device is flagged when there is none (ADR 0023 Decision 3).
+For K200717 that gives the Low Risk model's pair, flagged. 4 of 5 choices were sound
+under `perf.2`; re-run `build-performance` to apply `perf.3`.
+
 ## Assumed (not verified here)
 
 - The rule is tested on hand-built evidence rows: no `4d.3` answer is recorded in the
@@ -63,8 +79,7 @@ unchanged, as ADR 0023 says: its column list does not carry the figures.
   uv run registry build-mart
   ```
 
-  Counts recorded above. Still open: spot-check the 5 `needs_review` devices against
-  their PDFs.
+  Counts recorded above; the 5 `needs_review` devices spot-checked (above).
 - [ ] Record a few real `4d.3` responses as fixtures (like `responses/`), so the rule is
       also tested on real answers.
 

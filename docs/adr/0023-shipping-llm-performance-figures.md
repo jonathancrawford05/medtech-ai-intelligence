@@ -52,7 +52,7 @@ A run whose prompt never asked for attribution (`4d-spike-4`) therefore ships no
 The one accepted error in gold v2 was a predicate's figure credited to the subject
 device, so attribution is the place to look when a figure is challenged.
 
-## Decision 3 — one figure per measure (`perf.1`, amended to `perf.2` in review)
+## Decision 3 — one figure per measure (`perf.1`; amended to `perf.2` in review and `perf.3` after the spot check)
 
 Distinct figures only (the same value twice is one candidate), in document order:
 
@@ -62,7 +62,15 @@ Distinct figures only (the same value twice is one candidate), in document order
 | `overall` | of several, exactly one is not tied to a subgroup: no `context`, or a context made **only** of words naming the whole set ("overall", "all", "total", "pooled", "combined", "entire", "primary", "whole") and filler ("sites", "patients", "dataset", …). "Overall (all sites)" is overall; "all female" and "primary care" are subgroups. `perf.1` matched the word anywhere, which let a subgroup ship as an unflagged headline (PR #26 review). |
 | `first_of_several` | otherwise the first in document order, among the overall figures if there are any, else among all; `needs_review` is set |
 
-Sensitivity and specificity are chosen independently. A document's rows must come from
+**Sensitivity and specificity are a pair** (`perf.3`). When a device has both, they
+come from one context the two share (compared loosely: "per-vessel" is "Per vessel"):
+the one overall shared context, else the only shared one, else the first shared one in
+document order, with overall ones first, flagged. A measure chosen from a subgroup
+context for the pair's sake is `first_of_several`, so it is flagged. With no shared
+context the two are chosen apart and the device is flagged. `perf.2` chose them
+independently, which on the real run paired one model's sensitivity with another
+model's specificity (K200717, finding 0025): a figure pair no model has. A document's
+rows must come from
 one `run_id` (`build-evidence` keeps one response per document, digest and prompt); a
 document mixing two runs is refused, while different documents from different batches of
 the same prompt and digest are normal. Every chosen figure carries its
